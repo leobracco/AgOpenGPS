@@ -86,6 +86,11 @@ namespace AgOpenGPS
             var section = Sections;
             var triStrip = TriStripField;
             double slowCut = Vehicle.slowSpeedCutoff;
+            // "La máquina no corta por secciones": el maestro pinta todo el
+            // ancho; se saltean solape, lindero y cabecera (la máquina aplica
+            // igual ahí, así que ocultar el pintado mentía). Velocidad mínima,
+            // reversa y el botón Off siguen valiendo.
+            bool sinCorte = Properties.Settings.Default.setTool_isNoSectionCut;
 
             // Poner al día la cobertura conocida ANTES de decidir, así el corte
             // usa lo que se pintó en este mismo fix y no lo del anterior.
@@ -222,7 +227,7 @@ namespace AgOpenGPS
                 // era todo el comportamiento del MVP). Con anti-solape, decide
                 // cuánto de su ancho cae sobre lo ya trabajado.
                 section[j].isSectionRequiredOn = true;
-                if (antiSolape)
+                if (antiSolape && !sinCorte)
                 {
                     section[j].isSectionRequiredOn = AntiSolape.SeccionRequeridaOn(
                         section[j].leftPoint.easting,
@@ -236,7 +241,7 @@ namespace AgOpenGPS
 
                 // Fuera de boundary → off. Sin boundary, isInBoundary queda true
                 // (default) y no se apaga.
-                if (Bnd.bndList.Count > 0 && !section[j].isInBoundary)
+                if (!sinCorte && Bnd.bndList.Count > 0 && !section[j].isInBoundary)
                 {
                     section[j].isSectionRequiredOn = false;
                     section[j].sectionOffRequest = true;
@@ -253,7 +258,7 @@ namespace AgOpenGPS
                 // refinamiento por píxeles del legacy (re-entrar si adelante
                 // hay área sin trabajar) necesita el rasterizador y queda
                 // diferido, igual que el anti-overlap por píxeles.
-                if (corteCabecera && section[j].isLookOnInHeadland)
+                if (!sinCorte && corteCabecera && section[j].isLookOnInHeadland)
                 {
                     section[j].isSectionRequiredOn = false;
                     section[j].sectionOffRequest = true;

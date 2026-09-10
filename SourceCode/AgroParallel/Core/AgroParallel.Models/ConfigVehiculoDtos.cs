@@ -97,6 +97,7 @@ namespace AgroParallel.Models
         public int[] ZoneRanges { get; set; }         // 8 valores: sección donde TERMINA cada zona
         // Comunes
         public bool IsSectionOffWhenOut { get; set; }
+        public bool NoSectionCut { get; set; }        // la máquina no corta: pintar todo el ancho
         public double SlowSpeedCutoff { get; set; }   // km/h SIEMPRE
         public int MinCoverage { get; set; }          // %
         public double ToolWidth { get; set; }         // m (ancho total runtime)
@@ -267,6 +268,7 @@ namespace AgroParallel.Models
         public int? Zones { get; set; }
         public int[] ZoneRanges { get; set; }
         public bool? IsSectionOffWhenOut { get; set; }
+        public bool? NoSectionCut { get; set; }
         public double? SlowSpeedCutoff { get; set; }
         public int? MinCoverage { get; set; }
         // switches

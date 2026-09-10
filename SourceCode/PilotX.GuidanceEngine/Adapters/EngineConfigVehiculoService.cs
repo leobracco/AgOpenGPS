@@ -259,6 +259,7 @@ namespace PilotX.GuidanceEngine.Adapters
                 NumSectionsMulti = s.setTool_numSectionsMulti,
                 SectionWidthMulti = s.setTool_sectionWidthMulti,
                 IsSectionOffWhenOut = s.setTool_isSectionOffWhenOut,
+                NoSectionCut = s.setTool_isNoSectionCut,
                 SlowSpeedCutoff = s.setVehicle_slowSpeedCutoff,
                 // Efectivo: 100 (default viejo, cuando no hacía nada) se muestra como 90.
                 MinCoverage = s.setVehicle_minCoverage >= 100 ? 90 : s.setVehicle_minCoverage,
@@ -612,6 +613,8 @@ namespace PilotX.GuidanceEngine.Adapters
                 s.setTool_isSectionOffWhenOut = b.IsSectionOffWhenOut.Value;
                 _engine.Tool.isSectionOffWhenOut = b.IsSectionOffWhenOut.Value;
             }
+            if (b.NoSectionCut.HasValue)
+                s.setTool_isNoSectionCut = b.NoSectionCut.Value;
             if (b.SlowSpeedCutoff.HasValue)
             {
                 double kmh = Clamp(b.SlowSpeedCutoff.Value, 0.0, 30.0); // SIEMPRE km/h

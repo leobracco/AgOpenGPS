@@ -644,8 +644,8 @@ public sealed class RumboTab : ConfigTab
         col.Children.Add(FilaToggle("SectionOnLookAhead.png", "Compensar velocidad por sección en curva",
             () => _curva, () => { _curva = !_curva; }));
         col.Children.Add(CfgUi.Nota("Prendido: en curva la sección de afuera va más rápido y recibe más dosis. "
-                                  + "Apagado: todos los motores reciben la misma velocidad y la misma dosis y "
-                                  + "prenden y apagan juntos (una sola posición para todo el implemento). "
+                                  + "Apagado: todos los motores reciben la misma velocidad y prenden y apagan "
+                                  + "juntos (una sola posición para todo el implemento); cada motor conserva su dosis. "
                                   + "Apagalo si el GPS no compensa terreno y la dosis varía sola."));
 
         _cartaSingle = Carta(col);

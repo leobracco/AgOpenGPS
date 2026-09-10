@@ -97,6 +97,7 @@ public sealed class ConfigSeccionesSec
     [JsonPropertyName("zones")]                   public int Zones { get; set; }
     [JsonPropertyName("zone_ranges")]             public int[]? ZoneRanges { get; set; }
     [JsonPropertyName("is_section_off_when_out")] public bool IsSectionOffWhenOut { get; set; }
+    [JsonPropertyName("no_section_cut")]          public bool NoSectionCut { get; set; } // la máquina no corta: pintar todo
     [JsonPropertyName("slow_speed_cutoff")]       public double? SlowSpeedCutoff { get; set; }  // km/h
     [JsonPropertyName("min_coverage")]            public int MinCoverage { get; set; }
     [JsonPropertyName("tool_width")]              public double? ToolWidth { get; set; }        // m

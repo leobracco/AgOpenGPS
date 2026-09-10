@@ -564,6 +564,8 @@
     document.querySelectorAll('#secBoundary .chkimg').forEach(function (el) {
       el.classList.toggle('sel', (el.dataset.boundary === '1') === !!sec.boundary);
     });
+    var sinCorteEl = document.getElementById('secSinCorte');
+    if (sinCorteEl) sinCorteEl.classList.toggle('sel', !!sec.sinCorte);
     if (esZonas) secPintarZonas(); else secPintarInd();
   }
 
@@ -929,6 +931,7 @@
     return {
       is_sections_not_zones: sec.modo === 'ind',
       is_section_off_when_out: sec.boundary,
+      no_section_cut: !!sec.sinCorte,
       slow_speed_cutoff: snap.is_metric ? cut : cut / 0.621371, // el setting SIEMPRE km/h
       min_coverage: cov
     };
@@ -1000,6 +1003,7 @@
       sec.zonas = Math.max(2, Math.min(z.zones, 8));
       sec.ranges = z.zone_ranges.slice(0, 8);
       sec.boundary = !!z.is_section_off_when_out;
+      sec.sinCorte = !!z.no_section_cut;
       document.getElementById('nudCutoff').value =
         Math.round((snap.is_metric ? z.slow_speed_cutoff : z.slow_speed_cutoff * 0.621371) * 10) / 10;
       document.getElementById('secCutoffUnidad').textContent = snap.is_metric ? 'km/h' : 'MPH';
@@ -1051,6 +1055,10 @@
     trnPintar(); // el modo cambia la cantidad efectiva de surcos
   });
   // Corte en el lindero: dos opciones, una sola marcada (sigue siendo booleano).
+  var secSinCorteBtn = document.getElementById('secSinCorte');
+  if (secSinCorteBtn) secSinCorteBtn.addEventListener('click', function () {
+    sec.sinCorte = !sec.sinCorte; sec.dirty = true; secPintar();
+  });
   document.querySelectorAll('#secBoundary .chkimg').forEach(function (el) {
     el.addEventListener('click', function () {
       sec.boundary = el.dataset.boundary === '1';

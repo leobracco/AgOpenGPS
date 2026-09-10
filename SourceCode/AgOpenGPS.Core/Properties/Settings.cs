@@ -89,6 +89,11 @@ namespace AgOpenGPS.Properties
         // todas las secciones: QuantiX, SectionX y el resto dosifican parejo.
         // Pedido 2026-09-09 (Gringas, GPS sin compensación de terreno).
         public bool setTool_isCurveSpeedComp = true;
+        // La máquina NO corta por secciones (barra sin válvulas, sembradora sin
+        // embragues): con el maestro prendido se pinta todo el ancho y no se
+        // corta por solape, lindero ni cabecera — el mapa muestra lo que se
+        // aplicó de verdad. Fumigadora de Fran, 2026-09-10.
+        public bool setTool_isNoSectionCut = false;
         public double setGPS_forwardComp = 0.15;
         public double setGPS_reverseComp = 0.3;
         public int setGPS_ageAlarm = 20;

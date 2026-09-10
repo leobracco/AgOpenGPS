@@ -12,6 +12,23 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.71] — 2026-09-10
+
+### Added
+- **Tilde "La máquina no corta por secciones: pintar todo el ancho"** en
+  Configuración › Secciones › Control de secciones (cabina, celular/Android
+  y ayuda; setting `setTool_isNoSectionCut`, API `no_section_cut`). Para
+  barras o sembradoras sin válvulas ni embragues por sección: con el maestro
+  prendido se pinta todo el ancho y no se corta por solape, lindero ni
+  cabecera. Velocidad mínima, reversa y el botón Off siguen valiendo. Caso
+  de Fran (fumigadora de 31 m): el corte por cabecera apagaba la sección
+  19 m antes (anticipación 3,8 s) y el pintado solo se estiraba 2 s, así
+  que quedaban franjas "sin pintar" en escalera donde la barra tiraba igual.
+
+### Fixed
+- Texto del tilde de curva: decía "misma dosis"; cada motor conserva su
+  dosis, lo que se iguala es la velocidad y el prendido/apagado.
+
 ## [1.0.70] — 2026-09-10
 
 ### Changed

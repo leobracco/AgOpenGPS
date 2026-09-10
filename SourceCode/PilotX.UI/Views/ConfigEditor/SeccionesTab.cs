@@ -167,6 +167,8 @@ public sealed class SeccionesTab : ConfigTab
     private int _zonas = 2;
     private readonly int[] _ranges = new int[8];
     private bool _boundary;
+    private bool _sinCorte;                    // la máquina no corta por secciones
+    private CheckBox? _chkSinCorte;
     private bool _dirtySec;
 
     // ---- modo simple "Sembradora" + acordeón Avanzado ---------------------
@@ -316,6 +318,7 @@ public sealed class SeccionesTab : ConfigTab
             {
                 is_sections_not_zones = true,
                 is_section_off_when_out = _boundary,
+                no_section_cut = _sinCorte,
                 slow_speed_cutoff = cutKmh,
                 min_coverage = cov.Value,
                 num_sections = _num,
@@ -334,6 +337,7 @@ public sealed class SeccionesTab : ConfigTab
             {
                 is_sections_not_zones = false,
                 is_section_off_when_out = _boundary,
+                no_section_cut = _sinCorte,
                 slow_speed_cutoff = cutKmh,
                 min_coverage = cov.Value,
                 num_sections_multi = _numMulti,
@@ -424,6 +428,7 @@ public sealed class SeccionesTab : ConfigTab
         for (int k = 0; k < 8; k++)
             _ranges[k] = (z.ZoneRanges != null && k < z.ZoneRanges.Length) ? z.ZoneRanges[k] : 0;
         _boundary = z.IsSectionOffWhenOut;
+        _sinCorte = z.NoSectionCut;
     }
 
     // =======================================================================
@@ -966,6 +971,23 @@ public sealed class SeccionesTab : ConfigTab
         fila.Children.Add(pilaLindero);
         fila.Children.Add(derecha);
         carta.Children.Add(fila);
+
+        // Máquina sin válvulas ni embragues por sección (fumigadora de Fran,
+        // 2026-09-10): el corte automático solo escondía pintado — la barra
+        // tiraba igual sobre la cabecera y el lindero y el mapa quedaba con
+        // franjas "sin pintar". Con esto el maestro pinta todo el ancho.
+        _chkSinCorte = CfgUi.Check("La máquina no corta por secciones: pintar todo el ancho", _sinCorte);
+        _chkSinCorte.IsCheckedChanged += (_, __) =>
+        {
+            if (_cargando) return;
+            _sinCorte = _chkSinCorte.IsChecked == true;
+            Ensuciar();
+        };
+        carta.Children.Add(_chkSinCorte);
+        carta.Children.Add(CfgUi.Nota(
+            "Para barras o sembradoras sin válvulas ni embragues por sección. Tildado, mientras el "
+            + "maestro está prendido se pinta todo el ancho y no se corta por solape, lindero ni "
+            + "cabecera: el mapa muestra lo que la máquina aplicó de verdad."));
 
         return CfgUi.Carta(carta);
     }
@@ -1669,7 +1691,7 @@ public sealed class SeccionesTab : ConfigTab
                                            _txtWidthMulti, _txtCutoff, _txtCoverage,
                                            _grillaAnchos, _grillaZonas,
                                            _cboSimpleSurcos, _txtSimpleDist, _txtSimpleAnt,
-                                           _cardLinderoPunta, _cardLinderoEntera })
+                                           _cardLinderoPunta, _cardLinderoEntera, _chkSinCorte })
         {
             if (t == null) continue;
             t.IsEnabled = editable;
