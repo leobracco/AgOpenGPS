@@ -12,6 +12,20 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.69] — 2026-09-10
+
+### Added
+- **Soporte remoto: acción `corte_config`** (solo lectura). Devuelve la
+  config del vehículo e implemento (rumbo con el tilde de curva,
+  anticipación, secciones, enganche), la config de motores QuantiX y el
+  estado en vivo de los nodos QuantiX. Para diagnosticar desde OrbitX casos
+  como "no van todos los motores a la misma velocidad" sin pedirle capturas
+  al operario.
+
+### Fixed
+- **`nodo_estado` rechazaba los uids con guion** (QX-…, VX-…): la validación
+  solo aceptaba letras y números.
+
 ## [1.0.68] — 2026-09-09
 
 Revisión del corte automático por secciones: dos bugs en el motor y la

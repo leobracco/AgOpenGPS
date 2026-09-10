@@ -91,6 +91,11 @@ namespace AgroParallel.Soporte
             Reg("nodos_live", "Nodos que ve el Engine: online/offline, IP, version, ultimo visto", false, NodosLive);
             Reg("nodo_estado", "Matriz wifi/mqtt/target/status de un nodo (param: uid)", false, NodoEstado);
             Reg("ping", "Ping a una IP privada de la LAN (param: ip)", false, PingLan);
+            // Corte de secciones: para ver a distancia si el tilde de curva esta
+            // apagado, como esta el enganche y que velocidad/dosis recibe cada
+            // motor QuantiX (Gringas 2026-09-10: "no van todos a la misma
+            // velocidad" y desde el panel no se veia nada de esto).
+            Reg("corte_config", "Config del corte (rumbo, anticipacion, secciones, implemento) + motores QuantiX + live", false, CorteConfig);
         }
 
         private static void Reg(string n, string d, bool esAccion,
@@ -328,14 +333,16 @@ namespace AgroParallel.Soporte
             }
         }
 
-        // UID de nodo: solo hex/letras/numeros, para no armar URLs raras.
+        // UID de nodo: letras/numeros y el guion de los uids con prefijo
+        // ("QX-C458…", "VX-F88F…"), para no armar URLs raras. Sin el guion,
+        // nodo_estado rechazaba todos los QuantiX/VistaX (bug hasta 1.0.68).
         private static string UidValido(IDictionary<string, string> p)
         {
             string uid = Leer(p, "uid");
             if (string.IsNullOrWhiteSpace(uid)) return null;
             uid = uid.Trim();
             foreach (char c in uid)
-                if (!char.IsLetterOrDigit(c)) return null;
+                if (!char.IsLetterOrDigit(c) && c != '-') return null;
             return uid;
         }
 
@@ -586,6 +593,35 @@ namespace AgroParallel.Soporte
                 sb.AppendLine(string.Format("{0,-18} {1,-8} {2,-16} online={3,-5} ip={4,-15} fw={5,-8} visto={6}",
                     uid, CampoJson(n, "tipo"), CampoJson(n, "alias"), CampoJson(n, "online"),
                     CampoJson(n, "ip"), CampoJson(n, "version"), CampoJson(n, "last_seen")));
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>Solo lectura, tres GET fijos al Engine (loopback): la
+        /// config completa del vehiculo/implemento (rumbo, anticipacion,
+        /// secciones, enganche), la config de motores QuantiX y el estado en
+        /// vivo de los nodos QuantiX. Sale JSON crudo, acotado por bloque.</summary>
+        private static string CorteConfig(IDictionary<string, string> p)
+        {
+            var sb = new StringBuilder();
+            string[][] bloques =
+            {
+                new[] { "/api/aog/config",     "config del vehiculo e implemento" },
+                new[] { "/api/quantix/motores", "motores QuantiX (config)" },
+                new[] { "/api/quantix/live",    "nodos QuantiX (live)" },
+            };
+            foreach (var b in bloques)
+            {
+                sb.AppendLine("== " + b[0] + " — " + b[1] + " ==");
+                try
+                {
+                    string json = HttpGet(FlowxBase + b[0]) ?? "";
+                    if (json.Length > 0 && json[0] == '\uFEFF') json = json.Substring(1);
+                    if (json.Length > 60 * 1024) json = json.Substring(0, 60 * 1024) + " …(recortado)";
+                    sb.AppendLine(json);
+                }
+                catch (Exception ex) { sb.AppendLine("error: " + ex.GetBaseException().Message); }
+                sb.AppendLine();
             }
             return sb.ToString();
         }
