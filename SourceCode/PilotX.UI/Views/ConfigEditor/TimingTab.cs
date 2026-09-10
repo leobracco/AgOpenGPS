@@ -136,7 +136,13 @@ public sealed class TimingTab : ConfigTab
     // ---- rangos (réplica EXACTA de tabs.tsettings de config.js, que a su vez
     // son los del backend GuardarTiming). MANTENER SINCRONIZADO: cabina, celular
     // y motor validan contra el mismo número.
-    private static readonly (double min, double max) LimOn    = (0.2, 22.0);
+    // Tope 10 s (era 22): el motor capea a 20 m de encendido / 16 m de apagado,
+    // así que a 8 km/h más de 9 s no cambia nada y solo confunde.
+    private static readonly (double min, double max) LimOn    = (0.2, 10.0);
+
+    /// <summary>Nota viva "A 8 km/h: encendido ≈ X m …" que acompaña a los tres
+    /// campos: el operario piensa en metros y carga segundos.</summary>
+    private TextBlock? _lblMetros;
     private static readonly (double min, double max) LimOff   = (0.0, 20.0);
     private static readonly (double min, double max) LimDelay = (0.0, 10.0);
 
@@ -279,7 +285,7 @@ public sealed class TimingTab : ConfigTab
         // horizontal, así que sin un ancho tope el StackPanel mide "infinito" y
         // NADA envuelve (las tres columnas saldrían en fila con barra abajo).
         var carta = new StackPanel { Spacing = 10, MaxWidth = 620 };
-        carta.Children.Add(CfgUi.Titulo("Tiempos de anticipación de secciones"));
+        carta.Children.Add(CfgUi.Titulo("Anticipación del corte de secciones"));
 
         if (C.SinDatos)
         {
@@ -307,8 +313,11 @@ public sealed class TimingTab : ConfigTab
         cols.Children.Add(Columna("SectionLookAheadDelay.png", _txtDelay, "Retardo de apagado (s)"));
         carta.Children.Add(cols);
 
+        _lblMetros = CfgUi.Nota("");
+        carta.Children.Add(_lblMetros);
         carta.Children.Add(CfgUi.Nota(
-            "«Apagado» y «Retardo» son excluyentes: al usar uno el otro vuelve a 0. "
+            "Elegí uno: «Apagado» corta ANTES de pisar lo ya sembrado · «Retardo» sigue "
+            + "aplicando un rato DESPUÉS. Al cargar uno, el otro vuelve a 0. "
             + "El apagado no puede superar 0,8 × encendido."));
 
         Children.Add(CfgUi.Carta(carta));
@@ -390,7 +399,7 @@ public sealed class TimingTab : ConfigTab
     private void Cablear()
     {
         if (_txtOn != null)
-            _txtOn.TextChanged += (_, __) => { if (!_cargando) Ensuciar(); };
+            _txtOn.TextChanged += (_, __) => { if (!_cargando) Ensuciar(); ActualizarMetros(); };
 
         if (_txtOff != null)
             _txtOff.TextChanged += (_, __) =>
@@ -399,6 +408,7 @@ public sealed class TimingTab : ConfigTab
                 Ensuciar();
                 // XOR del original: usar Apagado pone Retardo en 0.
                 if (Positivo(_txtOff) && _txtDelay != null) SetTexto(_txtDelay, "0");
+                ActualizarMetros();
             };
 
         if (_txtDelay != null)
@@ -408,6 +418,7 @@ public sealed class TimingTab : ConfigTab
                 Ensuciar();
                 // XOR espejo: usar Retardo pone Apagado en 0.
                 if (Positivo(_txtDelay) && _txtOff != null) SetTexto(_txtOff, "0");
+                ActualizarMetros();
             };
     }
 
@@ -494,6 +505,28 @@ public sealed class TimingTab : ConfigTab
         if (_txtOn    != null) { SetTexto(_txtOn,    Val(tm?.LookAheadOn));  Invalido(_txtOn, false); }
         if (_txtOff   != null) { SetTexto(_txtOff,   Val(tm?.LookAheadOff)); Invalido(_txtOff, false); }
         if (_txtDelay != null) { SetTexto(_txtDelay, Val(tm?.TurnOffDelay)); Invalido(_txtDelay, false); }
+        ActualizarMetros();
+    }
+
+    /// <summary>Segundos → metros a 8 km/h (2,22 m/s), para que el operario vea
+    /// qué distancia está cargando. Se recalcula al tipear.</summary>
+    private void ActualizarMetros()
+    {
+        if (_lblMetros == null) return;
+        const double ms8 = 8.0 / 3.6;
+        string on = Metros(_txtOn, ms8), off = Metros(_txtOff, ms8), delay = Metros(_txtDelay, ms8);
+        _lblMetros.Text = PilotX.Cockpit.Bars.Traductor.T("A 8 km/h: encendido ≈ ") + on
+            + PilotX.Cockpit.Bars.Traductor.T(" m · apagado ≈ ") + off
+            + PilotX.Cockpit.Bars.Traductor.T(" m · retardo ≈ ") + delay
+            + PilotX.Cockpit.Bars.Traductor.T(" m. Tope del motor: 20 m para encender, 16 m para apagar.");
+    }
+
+    private static string Metros(TextBox? t, double ms)
+    {
+        if (t == null) return "—";
+        string s = (t.Text ?? "").Trim().Replace(',', '.');
+        if (!double.TryParse(s, NumberStyles.Float, Inv, out double seg) || double.IsNaN(seg) || seg < 0) return "—";
+        return (seg * ms).ToString("0.0", Inv).Replace('.', ',');
     }
 
     private static string Val(double? v)

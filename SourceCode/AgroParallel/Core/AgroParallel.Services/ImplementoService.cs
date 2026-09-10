@@ -531,14 +531,30 @@ namespace AgroParallel.Services
                 HitchLength = d.HitchLengthM,
                 TrailingHitchLength = d.TrailingHitchLengthM,
                 TrailingToolToPivotLength = d.TrailingToolToPivotM,
-                LookAheadOn = d.LookaheadOnS,
-                LookAheadOff = d.LookaheadOffS,
-                TurnOffDelay = d.TurnOffDelayS,
+                // Lo que se edita en Configuración › Secciones / Anticipación
+                // NO se toma del implemento: su copia (sembrada una sola vez en
+                // SeedFromLegacyServices) pisaba los tiempos de anticipación, el
+                // modo zonas, los anchos desiguales y el corte en lindero cada
+                // vez que se guardaba un tren, se activaba otro implemento o se
+                // aplicaba una plantilla (bug documentado en TimingTab.cs,
+                // SeccionesTab.cs y PivoteTab.cs; verificado en banco 2026-08-16).
+                LookAheadOn = actual.LookAheadOn,
+                LookAheadOff = actual.LookAheadOff,
+                TurnOffDelay = actual.TurnOffDelay,
+                IsSectionsNotZones = actual.IsSectionsNotZones,
+                // Los anchos desiguales solo se conservan si la cantidad y el
+                // ancho total no cambiaron; si cambiaron, SaveTool reparte parejo.
+                SectionWidths = (numSec == actual.NumSections
+                                 && NearEq(d.AnchoTotalM > 0 ? d.AnchoTotalM : actual.Width, actual.Width, 1e-4))
+                                ? actual.SectionWidths : null,
+                SectionWidthMulti = actual.SectionWidthMulti,
+                Zones = actual.Zones,
+                ZoneRanges = actual.ZoneRanges,
                 IsToolTrailing = d.IsTrailing,
                 IsToolTBT = d.IsTBT,
                 IsToolRearFixed = d.IsRearFixed,
                 IsToolFrontFixed = d.IsFrontFixed,
-                IsSectionOffWhenOut = d.SectionOffWhenOut
+                IsSectionOffWhenOut = actual.IsSectionOffWhenOut
             };
         }
 

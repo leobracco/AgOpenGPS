@@ -160,7 +160,9 @@ namespace AgOpenGPS.Properties
         public double setVehicle_toolLookAheadOff = 0.5;
         public double setVehicle_slowSpeedCutoff = 0.5;
         public double setVehicle_tankTrailingHitchLength = 3;
-        public int setVehicle_minCoverage = 100;
+        // Desde 1.0.68 lo usa el anti-solape (umbral de apagado, 50..95). 100 se
+        // lee como 90: era el default cuando el campo no hacía nada.
+        public int setVehicle_minCoverage = 90;
         public double setVehicle_maxAngularVelocity = 0.64;
         public double setVehicle_maxSteerAngle = 30;
         public int set_youTurnExtensionLength = 20;

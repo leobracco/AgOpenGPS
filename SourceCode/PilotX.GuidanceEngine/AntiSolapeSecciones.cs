@@ -162,10 +162,13 @@ namespace PilotX.GuidanceEngine
             var solapeEncendido = _indice.Consultar(
                 centroE, centroN, heading, medioAncho, ms * segEncender);
 
-            bool on = SolapeEvaluator.RequeridaOn(SolapeEvaluator.ConDefaults(
+            // Umbral de corte = "Cobertura mínima" de Configuración › Secciones
+            // (setVehicle_minCoverage). Ver SolapeEvaluator.UmbralApagarDesdeCobertura.
+            bool on = SolapeEvaluator.RequeridaOn(SolapeEvaluator.ConCobertura(
                 solapeApagado.CoveragePercent,
                 solapeEncendido.CoveragePercent,
-                estabaEncendida));
+                estabaEncendida,
+                tool != null ? tool.minCoverage : 100));
 
             if (Diagnostico && ++_llamadas % 40 == 0)
             {

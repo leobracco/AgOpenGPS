@@ -260,7 +260,8 @@ namespace PilotX.GuidanceEngine.Adapters
                 SectionWidthMulti = s.setTool_sectionWidthMulti,
                 IsSectionOffWhenOut = s.setTool_isSectionOffWhenOut,
                 SlowSpeedCutoff = s.setVehicle_slowSpeedCutoff,
-                MinCoverage = s.setVehicle_minCoverage,
+                // Efectivo: 100 (default viejo, cuando no hacía nada) se muestra como 90.
+                MinCoverage = s.setVehicle_minCoverage >= 100 ? 90 : s.setVehicle_minCoverage,
                 ToolWidth = _engine.Tool.width,
                 SectionWidths = new double[16],
                 ZoneRanges = new int[8],
@@ -619,7 +620,9 @@ namespace PilotX.GuidanceEngine.Adapters
             }
             if (b.MinCoverage.HasValue)
             {
-                int cov = Clamp(b.MinCoverage.Value, 0, 100);
+                // Umbral real del anti-solape (SolapeEvaluator.UmbralApagarDesdeCobertura):
+                // 50..95; 100 (config vieja) equivale a 90.
+                int cov = b.MinCoverage.Value >= 100 ? 90 : Clamp(b.MinCoverage.Value, 50, 95);
                 s.setVehicle_minCoverage = cov;
                 _engine.Tool.minCoverage = cov;
             }

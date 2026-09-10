@@ -273,9 +273,11 @@
       <button type="button" data-tab="thitch"><img loading="lazy" src="../img/config/ConS_ImplementHitch.png" alt="" />Distancias</button>
       <button type="button" data-tab="tooloffset"><img loading="lazy" src="../img/config/ConS_ImplementOffset.png" alt="" />Offset</button>
       <button type="button" data-tab="toolpivot"><img loading="lazy" src="../img/config/ConS_ImplementPivot.png" alt="" />Pivote</button>
-      <button type="button" data-tab="tsettings"><img loading="lazy" src="../img/config/ConS_ImplementSettings.png" alt="" />Timing</button>
       <div class="grupo">Secciones</div>
       <button type="button" data-tab="tsections"><img loading="lazy" src="../img/config/ConS_ImplementSection.png" alt="" />Secciones</button>
+      <!-- "Anticipación" (ex "Timing", grupo Implemento — 2026-09): la clave
+           tsettings se mantiene para que ?tab=tsettings y la ayuda sigan andando. -->
+      <button type="button" data-tab="tsettings"><img loading="lazy" src="../img/config/ConS_ImplementSettings.png" alt="" />Anticipación</button>
       <button type="button" data-tab="tswitches"><img loading="lazy" src="../img/config/ConS_ImplementSwitch.png" alt="" />Switches</button>
       <!-- "Pines relay" salió del menú (pedido usuario 2026-08-03). La pantalla
            y su lógica siguen enteras: se llega con ?tab=relay. Para devolverla
@@ -541,10 +543,10 @@
         </div>
       </section>
 
-      <!-- ================= Implemento: timing look-ahead ================= -->
+      <!-- ================= Secciones: anticipación (ex Implemento › Timing) ================= -->
       <section data-tab="tsettings">
         <div class="carta">
-          <h2>Tiempos de anticipación de secciones</h2>
+          <h2>Anticipación del corte de secciones</h2>
           <div class="timingCols">
             <div class="timingCol">
               <img loading="lazy" src="../img/config/SectionOnLookAhead.gif" alt="" />
@@ -562,14 +564,56 @@
               <span class="unidad">Retardo de apagado (s)</span>
             </div>
           </div>
-          <p class="nota" style="margin-top:10px">
-            «Apagado» y «Retardo» son excluyentes: al usar uno el otro vuelve a 0.
-            El apagado no puede superar 0.8 × encendido.
+          <!-- Nota viva: los segundos traducidos a metros a 8 km/h (se recalcula
+               al tipear, config.js tsPintarMetros). -->
+          <p class="nota" id="tsMetros" style="margin-top:10px; font-weight:600">
+            A 8 km/h: encendido ≈ — m · apagado ≈ — m · retardo ≈ — m.
+            Tope del motor: 20 m para encender, 16 m para apagar.
+          </p>
+          <p class="nota" style="margin-top:6px">
+            Elegí uno: «Apagado» corta ANTES de pisar lo ya sembrado · «Retardo»
+            sigue aplicando un rato DESPUÉS. Al cargar uno, el otro vuelve a 0.
+            El apagado no puede superar 0,8 × encendido.
           </p>
         </div>
       </section>
       <!-- ================= Secciones (tabTSections) ================= -->
       <section data-tab="tsections">
+        <!-- Modo simple (2026-09): una sembradora "normal" se carga con tres
+             números — surcos, distancia entre surcos y anticipación — y
+             "Aplicar y guardar" arma la geometría (modo individual, N anchos
+             iguales) + el timing en un solo paso. Todo lo demás queda abajo
+             de "Avanzado" (config.js tabs.tsections / simpleAplicar). -->
+        <div class="carta" id="secCartaSimple">
+          <h2>Sembradora (modo simple)</h2>
+          <div class="nudfila">
+            <label for="nudSimpleSurcos">Surcos</label>
+            <input class="nud" id="nudSimpleSurcos" type="text" inputmode="numeric" />
+            <span class="unidad">1 a 16</span>
+          </div>
+          <div class="nudfila">
+            <label for="nudSimpleDist">Distancia entre surcos</label>
+            <input class="nud" id="nudSimpleDist" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div class="nudfila">
+            <label for="nudSimpleAnt">Anticipación</label>
+            <input class="nud" id="nudSimpleAnt" type="text" inputmode="numeric" />
+            <span class="unidad">s</span>
+          </div>
+          <p class="nota" style="margin-bottom:8px">
+            Arma N secciones iguales y la anticipación de encendido (el apagado
+            queda en la mitad, sin retardo). Para anchos distintos, zonas o
+            trenes, abrí «Avanzado».
+          </p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+            <button type="button" class="btn" id="btnSimpleAplicar" style="color:var(--texto); border-color:var(--verde); font-weight:700">Aplicar y guardar</button>
+            <button type="button" class="btn" id="btnSecAvanzado">Avanzado ▾</button>
+          </div>
+        </div>
+
+        <!-- Todo lo de abajo se muestra/oculta con el botón "Avanzado". -->
+        <div id="secAvanzado">
         <div class="carta">
           <h2>Modo de secciones</h2>
           <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center">
@@ -650,9 +694,22 @@
         <div class="carta">
           <h2>Control de secciones</h2>
           <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start">
-            <div class="chkimg" id="secBoundary">
-              <img loading="lazy" id="secBoundaryImg" src="../img/config/SectionOnBoundary.png" alt="" />
-              <span class="cap">Cortar fuera del lote</span>
+            <div>
+              <!-- Corte en el lindero (2026-09): el lindero corta SIEMPRE;
+                   is_section_off_when_out solo elige cuándo — apenas asoma una
+                   punta (true) o recién cuando la sección sale entera (false).
+                   Selector de dos opciones, una sola marcada (sec.boundary). -->
+              <p style="margin:0 0 6px; font-weight:700">Corte en el lindero</p>
+              <div id="secBoundary" style="display:flex; gap:10px; flex-wrap:wrap">
+                <div class="chkimg" data-boundary="1">
+                  <img loading="lazy" src="../img/config/SectionOffBoundary.png" alt="" />
+                  <span class="cap">Apenas asoma una punta</span>
+                </div>
+                <div class="chkimg" data-boundary="0">
+                  <img loading="lazy" src="../img/config/SectionOnBoundary.png" alt="" />
+                  <span class="cap">Recién cuando sale entera</span>
+                </div>
+              </div>
             </div>
             <div>
               <div class="nudfila">
@@ -662,13 +719,18 @@
                 <span class="unidad" id="secCutoffUnidad">km/h</span>
               </div>
               <div class="nudfila">
-                <label for="nudMinCoverage">Cobertura mínima</label>
+                <label for="nudMinCoverage">Corta al pisar sembrado</label>
                 <input class="nud" id="nudMinCoverage" type="text" inputmode="numeric" />
-                <span class="unidad">%</span>
+                <span class="unidad">% del ancho</span>
               </div>
+              <p class="nota" style="max-width:420px">
+                90 = corta cuando el 90 % del ancho de la sección ya está
+                sembrado. Menos = corta antes. Entre 50 y 95.
+              </p>
             </div>
           </div>
         </div>
+        </div><!-- /secAvanzado -->
       </section>
 
       <!-- ================= Switches (tabTSwitches) ================= -->

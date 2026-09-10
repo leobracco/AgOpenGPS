@@ -70,6 +70,11 @@ namespace AgroParallel.Coverage
         /// </summary>
         public const double UmbralEncenderPorDefecto = 0.70;
 
+        /// <summary>Separación entre el umbral de apagar y el de encender
+        /// (la histéresis). Con 20 puntos una sección que bordea la pasada
+        /// anterior no titila.</summary>
+        public const double HisteresisPorDefecto = 0.20;
+
         /// <summary>Input con los umbrales por defecto ya puestos.</summary>
         public static SolapeInput ConDefaults(
             double solapeApagado, double solapeEncendido, bool estabaEncendida)
@@ -81,6 +86,44 @@ namespace AgroParallel.Coverage
                 EstabaEncendida = estabaEncendida,
                 UmbralApagar    = UmbralApagarPorDefecto,
                 UmbralEncender  = UmbralEncenderPorDefecto,
+            };
+        }
+
+        /// <summary>
+        /// Umbral de apagado a partir de "Cobertura mínima" (%) de la config de
+        /// secciones (setVehicle_minCoverage): cuánto del ancho de la sección
+        /// tiene que estar ya sembrado para que corte. Hasta la 1.0.67 el
+        /// campo se guardaba pero nadie lo leía y el corte usaba 90 fijo.
+        ///   · 100 (el default histórico, cuando el campo no hacía nada) se lee
+        ///     como el 90 de siempre: no cambia el corte de nadie por el solo
+        ///     hecho de actualizar.
+        ///   · El resto se acota a 50..95: por debajo de 50 corta con media
+        ///     sección limpia (salteos), y 100 exacto nunca se alcanza porque
+        ///     el borde de los triángulos no calza con el de la sección.
+        /// </summary>
+        public static double UmbralApagarDesdeCobertura(int minCoveragePct)
+        {
+            if (minCoveragePct >= 100) return UmbralApagarPorDefecto;
+            double apagar = minCoveragePct / 100.0;
+            if (apagar < 0.50) apagar = 0.50;
+            if (apagar > 0.95) apagar = 0.95;
+            return apagar;
+        }
+
+        /// <summary>Input con los umbrales derivados de "Cobertura mínima" (%):
+        /// apagar = cobertura, encender = cobertura − histéresis.</summary>
+        public static SolapeInput ConCobertura(
+            double solapeApagado, double solapeEncendido, bool estabaEncendida, int minCoveragePct)
+        {
+            double apagar = UmbralApagarDesdeCobertura(minCoveragePct);
+            return new SolapeInput
+            {
+                SolapeApagado   = solapeApagado,
+                SolapeEncendido = solapeEncendido,
+                EstabaEncendida = estabaEncendida,
+                UmbralApagar    = apagar,
+                // Redondeado: 0.70 − 0.20 da 0.4999… y el "≤" del umbral fallaba justo en 0.50.
+                UmbralEncender  = Math.Round(apagar - HisteresisPorDefecto, 4),
             };
         }
 
@@ -102,15 +145,22 @@ namespace AgroParallel.Coverage
             double sApagado = Clamp01(e.SolapeApagado);
             double sEncendido = Clamp01(e.SolapeEncendido);
 
-            // Zona ya trabajada por delante -> apagar.
-            if (sApagado >= apagar) return false;
-
-            // Zona limpia por delante -> encender.
-            if (sEncendido <= encender) return true;
-
-            // Zona gris: no tocar nada. Es lo que evita el chattering en el
-            // borde de la pasada anterior.
-            return e.EstabaEncendida;
+            // Cada estado mira SOLO la distancia que le corresponde, como el
+            // rango de píxeles que elige upstream según isSectionOn:
+            //   · encendida: mira a la distancia de APAGADO. Se apaga cuando lo
+            //     que viene ahí ya está trabajado; si no, sigue.
+            //   · apagada: mira a la distancia de ENCENDIDO. Prende cuando lo
+            //     que viene ahí está limpio; entre umbrales se queda apagada.
+            // Hasta la 1.0.67 se preguntaba primero por la distancia de apagado
+            // sin importar el estado: como esa distancia es más corta que la de
+            // encendido, una sección apagada no podía prender hasta que la línea
+            // CORTA pisara terreno limpio y arrancaba (on − off) segundos tarde
+            // en cada reentrada (≈1 m a 8 km/h con los defaults 1,0 / 0,5).
+            if (e.EstabaEncendida) return sApagado < apagar;
+            // Apagada: además de estar por debajo del umbral de encender, lo que
+            // viene no puede contar ya como trabajado (con umbral de apagar 0,
+            // TODO cuenta como trabajado y no prende nunca).
+            return sEncendido <= encender && sEncendido < apagar;
         }
 
         private static double Clamp01(double v)

@@ -137,9 +137,11 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "thitch",      Titulo = "Distancias",   Grupo = "Implemento", Nativa = true  },
         new CfgNav { Tab = "tooloffset",  Titulo = "Offset",       Grupo = "Implemento", Nativa = true  },
         new CfgNav { Tab = "toolpivot",   Titulo = "Pivote",       Grupo = "Implemento", Nativa = true  },
-        new CfgNav { Tab = "tsettings",   Titulo = "Timing",       Grupo = "Implemento", Nativa = true  },
 
         new CfgNav { Tab = "tsections",   Titulo = "Secciones",    Grupo = "Secciones",  Nativa = true  },
+        // "Anticipación" (ex "Timing" en Implemento): es parte del corte de
+        // secciones y el operario la buscaba donde no estaba (revisión 2026-09-09).
+        new CfgNav { Tab = "tsettings",   Titulo = "Anticipación", Grupo = "Secciones",  Nativa = true  },
         new CfgNav { Tab = "tswitches",   Titulo = "Switches",     Grupo = "Secciones",  Nativa = true  },
         new CfgNav { Tab = "amachine",    Titulo = "Máquina",      Grupo = "Secciones",  Nativa = true  },
 

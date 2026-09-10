@@ -469,20 +469,39 @@
   document.getElementById('nudPivot').addEventListener('input', function () { tp.dirty = true; });
 
   // =============================================================================
-  // Implemento: timing look-ahead (tabTSettings)
+  // Secciones: anticipación del corte (tabTSettings — ex Implemento › Timing)
   // =============================================================================
   var ts = { dirty: false };
 
+  // Segundos → metros a 8 km/h (8/3,6 m/s), un decimal, coma decimal.
+  // '—' si el campo está vacío o mal escrito.
+  function tsMetros(input) {
+    var s = parseFloat(String(input.value).replace(',', '.'));
+    if (isNaN(s) || s < 0) return '—';
+    return (Math.round(s * 8 / 3.6 * 10) / 10).toFixed(1).replace('.', ',');
+  }
+  function tsPintarMetros() {
+    var el = document.getElementById('tsMetros');
+    if (!el) return;
+    el.textContent = 'A 8 km/h: encendido ≈ ' + tsMetros(document.getElementById('nudLookAheadOn')) +
+      ' m · apagado ≈ ' + tsMetros(document.getElementById('nudLookAheadOff')) +
+      ' m · retardo ≈ ' + tsMetros(document.getElementById('nudTurnOffDelay')) +
+      ' m. Tope del motor: 20 m para encender, 16 m para apagar.';
+  }
+
   tabs.tsettings = {
     enter: function () {
-      document.getElementById('nudLookAheadOn').value = snap.timing.look_ahead_on;
-      document.getElementById('nudLookAheadOff').value = snap.timing.look_ahead_off;
-      document.getElementById('nudTurnOffDelay').value = snap.timing.turn_off_delay;
+      var t = snap.timing || {};
+      document.getElementById('nudLookAheadOn').value = t.look_ahead_on != null ? t.look_ahead_on : '';
+      document.getElementById('nudLookAheadOff').value = t.look_ahead_off != null ? t.look_ahead_off : 0;
+      document.getElementById('nudTurnOffDelay').value = t.turn_off_delay != null ? t.turn_off_delay : 0;
       ts.dirty = false;
+      tsPintarMetros();
     },
     leave: function () {
       if (!ts.dirty) return Promise.resolve(true);
-      var on = leerNudDec(document.getElementById('nudLookAheadOn'), 0.2, 22);
+      // tope 10 s (el motor capea igual: 20 m para encender / 16 m para apagar)
+      var on = leerNudDec(document.getElementById('nudLookAheadOn'), 0.2, 10);
       var off = leerNudDec(document.getElementById('nudLookAheadOff'), 0, 20);
       var delay = leerNudDec(document.getElementById('nudTurnOffDelay'), 0, 10);
       if (on === null || off === null || delay === null) {
@@ -503,13 +522,15 @@
     ts.dirty = true;
     if (parseFloat(String(this.value).replace(',', '.')) > 0)
       document.getElementById('nudTurnOffDelay').value = 0;
+    tsPintarMetros();
   });
   document.getElementById('nudTurnOffDelay').addEventListener('input', function () {
     ts.dirty = true;
     if (parseFloat(String(this.value).replace(',', '.')) > 0)
       document.getElementById('nudLookAheadOff').value = 0;
+    tsPintarMetros();
   });
-  document.getElementById('nudLookAheadOn').addEventListener('input', function () { ts.dirty = true; });
+  document.getElementById('nudLookAheadOn').addEventListener('input', function () { ts.dirty = true; tsPintarMetros(); });
 
   // =============================================================================
   // Secciones (tabTSections) — el tab más complejo del original
@@ -538,8 +559,11 @@
     document.getElementById('secModoCap').textContent = esZonas ? 'Secciones simétricas (zonas)' : 'Secciones individuales';
     document.getElementById('secCartaInd').style.display = esZonas ? 'none' : '';
     document.getElementById('secCartaZonas').style.display = esZonas ? '' : 'none';
-    document.getElementById('secBoundaryImg').src = '../img/config/' + (sec.boundary ? 'SectionOffBoundary.png' : 'SectionOnBoundary.png');
-    document.getElementById('secBoundary').classList.toggle('sel', sec.boundary);
+    // Corte en el lindero: selector de dos opciones, una sola marcada
+    // (true = apenas asoma una punta, false = recién cuando sale entera).
+    document.querySelectorAll('#secBoundary .chkimg').forEach(function (el) {
+      el.classList.toggle('sel', (el.dataset.boundary === '1') === !!sec.boundary);
+    });
     if (esZonas) secPintarZonas(); else secPintarInd();
   }
 
@@ -855,26 +879,136 @@
     }
   }
 
+  // ---- Modo simple "Sembradora" ---------------------------------------------
+  // Tres números (surcos, distancia entre surcos, anticipación) y un botón
+  // que arma la geometría en modo individual con N anchos iguales + el timing.
+  // Sus inputs NO marcan sec.dirty: nada cambia hasta "Aplicar y guardar".
+  var SEC_AVANZADO_KEY = 'pilotx.secAvanzado';
+
+  // "Simple" = modo individual con los N anchos iguales entre sí.
+  function secEsSimple() {
+    if (sec.modo !== 'ind' || sec.num < 1) return false;
+    var w0 = sec.widths[0];
+    for (var i = 1; i < sec.num; i++) {
+      if (Math.abs((sec.widths[i] || 0) - (w0 || 0)) > 0.01) return false;
+    }
+    return true;
+  }
+
+  function secAvanzadoPintar(visible) {
+    var cont = document.getElementById('secAvanzado');
+    if (!cont) return;
+    cont.hidden = !visible;
+    document.getElementById('btnSecAvanzado').textContent = visible ? 'Avanzado ▴' : 'Avanzado ▾';
+  }
+
+  // Visible siempre que la config NO sea simple (zonas, anchos distintos: no
+  // se puede esconder lo que la sembradora no representa); si es simple manda
+  // la preferencia manual (localStorage) y, sin preferencia, queda oculto.
+  function secAvanzadoDefault() {
+    var pref = null;
+    try { pref = localStorage.getItem(SEC_AVANZADO_KEY); } catch (e) { }
+    secAvanzadoPintar(!secEsSimple() || pref === '1');
+  }
+
+  function simplePintar() {
+    var t = snap.timing || {};
+    var surcos = sec.modo === 'ind' ? sec.num : Math.min(sec.numMulti || 1, 16);
+    var dist = sec.modo === 'ind' ? sec.widths[0] : m2disp(sec.widthMulti || 0);
+    document.getElementById('nudSimpleSurcos').value = Math.max(1, Math.min(surcos || 1, 16));
+    document.getElementById('nudSimpleDist').value = Math.round(dist || 0);
+    document.getElementById('nudSimpleAnt').value = t.look_ahead_on != null ? t.look_ahead_on : '';
+  }
+
+  // Cut y cobertura leídos de los campos actuales — mismo body que leave() en
+  // modo individual; null si algo quedó en rojo.
+  function secBodyControl() {
+    var cut = leerNudDec(document.getElementById('nudCutoff'), limCutoff()[0], limCutoff()[1]);
+    var cov = leerNud(document.getElementById('nudMinCoverage'), 50, 95);
+    if (cut === null || cov === null) return null;
+    return {
+      is_sections_not_zones: sec.modo === 'ind',
+      is_section_off_when_out: sec.boundary,
+      slow_speed_cutoff: snap.is_metric ? cut : cut / 0.621371, // el setting SIEMPRE km/h
+      min_coverage: cov
+    };
+  }
+
+  async function simpleAplicar() {
+    var surcos = leerNud(document.getElementById('nudSimpleSurcos'), 1, 16);
+    var dist = leerNud(document.getElementById('nudSimpleDist'), limDefWidth()[0], limDefWidth()[1]);
+    var ant = leerNudDec(document.getElementById('nudSimpleAnt'), 0.2, 10);
+    if (surcos === null || dist === null || ant === null) { setEstado('Revisá los valores marcados en rojo', 'err'); return false; }
+    if (surcos * dist > secCapDisp()) { setEstado('Ancho total excedido (máx ' + secCapDisp() + ' ' + unidad() + ')', 'err'); return false; }
+    sec.modo = 'ind';
+    sec.num = surcos;
+    sec.defWidth = dist;
+    sec.widths = [];
+    for (var i = 0; i < 16; i++) sec.widths.push(dist);
+    var body = secBodyControl();
+    if (!body) { setEstado('Revisá los valores marcados en rojo', 'err'); return false; }
+    body.is_sections_not_zones = true;
+    body.num_sections = sec.num;
+    body.default_section_width = disp2m(dist);
+    body.section_widths = sec.widths.map(function (w) { return disp2m(w); });
+    secPintar();
+    trnPintar(); // la tira de trenes sigue a la cantidad nueva
+    var ok = await guardar('secciones', body);
+    if (!ok) { sec.dirty = true; return false; }
+    await trnGuardar(); // igual que leave(): los trenes van sobre la cantidad ya firme
+    // apagado = mitad del encendido, sin retardo (sigue el clamp off ≤ 0,8 × on)
+    var okT = await guardar('timing', {
+      look_ahead_on: ant,
+      look_ahead_off: Math.round(ant * 0.5 * 10) / 10,
+      turn_off_delay: 0
+    });
+    if (!okT) return false;
+    sec.dirty = false;
+    ts.dirty = false;
+    secPintar();
+    setEstado('Sembradora aplicada: ' + surcos + ' surcos × ' + dist + ' ' + unidad() +
+      ', anticipación ' + String(ant).replace('.', ',') + ' s', 'ok');
+    return true;
+  }
+
+  document.getElementById('btnSimpleAplicar').addEventListener('click', function () { simpleAplicar(); });
+  document.getElementById('btnSecAvanzado').addEventListener('click', function () {
+    var visible = document.getElementById('secAvanzado').hidden; // estaba oculto → mostrar
+    secAvanzadoPintar(visible);
+    try { localStorage.setItem(SEC_AVANZADO_KEY, visible ? '1' : '0'); } catch (e) { }
+  });
+  // Tipear en la sembradora no es un cambio pendiente (recién aplica con el
+  // botón): no dejar que el flotante "Guardar" se prenda por estos inputs.
+  ['input', 'change'].forEach(function (ev) {
+    document.getElementById('secCartaSimple').addEventListener(ev, function (e) { e.stopPropagation(); });
+  });
+
   tabs.tsections = {
     enter: function () {
       // réplica del Enter nativo: con lote abierto apaga los masters Auto/Manual
-      api('/secciones/preparar', {}).catch(function () {});
+      api('/secciones/preparar', {}).catch(function () {}).then(function () {
+        // no pisar un "Guardado ✔" recién puesto (el flotante re-entra tras guardar)
+        if (estado.className !== 'ok') setEstado('Con lote abierto, las secciones quedan apagadas mientras editás', '');
+      });
       var z = snap.secciones;
       sec.modo = z.is_sections_not_zones ? 'ind' : 'zonas';
       sec.num = z.num_sections;
-      sec.widths = z.section_widths.map(function (m) { return m2disp(m); });
+      sec.widths = (z.section_widths || []).map(function (m) { return m2disp(m); });
       sec.defWidth = m2disp(z.default_section_width);
       sec.numMulti = z.num_sections_multi;
       sec.widthMulti = z.section_width_multi;
       sec.zonas = Math.max(2, Math.min(z.zones, 8));
       sec.ranges = z.zone_ranges.slice(0, 8);
-      sec.boundary = z.is_section_off_when_out;
+      sec.boundary = !!z.is_section_off_when_out;
       document.getElementById('nudCutoff').value =
         Math.round((snap.is_metric ? z.slow_speed_cutoff : z.slow_speed_cutoff * 0.621371) * 10) / 10;
       document.getElementById('secCutoffUnidad').textContent = snap.is_metric ? 'km/h' : 'MPH';
-      document.getElementById('nudMinCoverage').value = z.min_coverage;
+      // 50..95 (antes 0..100): el motor lo usa de verdad, con histéresis 20 puntos abajo
+      document.getElementById('nudMinCoverage').value = z.min_coverage != null ? Math.max(50, Math.min(z.min_coverage, 95)) : 90;
       sec.dirty = false;
       secPintar();
+      simplePintar();
+      secAvanzadoDefault();
       trnCargar(); // trenes de siembra: fuente única, el implemento central
     },
     leave: function () {
@@ -882,15 +1016,8 @@
       // tira sin tocar cantidades): guardarlos igual, y que el resultado
       // mande — si fallan, el botón queda en dirty y se puede reintentar.
       if (!sec.dirty) return trnGuardar();
-      var cut = leerNudDec(document.getElementById('nudCutoff'), limCutoff()[0], limCutoff()[1]);
-      var cov = leerNud(document.getElementById('nudMinCoverage'), 0, 100);
-      if (cut === null || cov === null) { setEstado('Revisá los valores marcados en rojo', 'err'); return Promise.resolve(false); }
-      var body = {
-        is_sections_not_zones: sec.modo === 'ind',
-        is_section_off_when_out: sec.boundary,
-        slow_speed_cutoff: snap.is_metric ? cut : cut / 0.621371, // el setting SIEMPRE km/h
-        min_coverage: cov
-      };
+      var body = secBodyControl();
+      if (!body) { setEstado('Revisá los valores marcados en rojo', 'err'); return Promise.resolve(false); }
       if (sec.modo === 'ind') {
         if (secTotalInd() > secCapDisp()) { setEstado('Ancho total excedido (máx ' + secCapDisp() + ' ' + unidad() + ')', 'err'); return Promise.resolve(false); }
         var dw = leerNud(document.getElementById('nudDefaultWidth'), limDefWidth()[0], limDefWidth()[1]);
@@ -923,10 +1050,13 @@
     secPintar();
     trnPintar(); // el modo cambia la cantidad efectiva de surcos
   });
-  document.getElementById('secBoundary').addEventListener('click', function () {
-    sec.boundary = !sec.boundary;
-    sec.dirty = true;
-    secPintar();
+  // Corte en el lindero: dos opciones, una sola marcada (sigue siendo booleano).
+  document.querySelectorAll('#secBoundary .chkimg').forEach(function (el) {
+    el.addEventListener('click', function () {
+      sec.boundary = el.dataset.boundary === '1';
+      sec.dirty = true;
+      secPintar();
+    });
   });
   document.getElementById('selNumSections').addEventListener('change', function () {
     sec.num = parseInt(this.value, 10);

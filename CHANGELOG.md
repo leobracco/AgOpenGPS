@@ -12,6 +12,49 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.68] — 2026-09-09
+
+Revisión del corte automático por secciones: dos bugs en el motor y la
+configuración reordenada para que se entienda. Aplica a la cabina, al
+celular/Android (misma página HTML) y a la ayuda.
+
+### Fixed
+- **La sección apagada prendía tarde al salir de zona sembrada.** El
+  evaluador de solape preguntaba primero por la distancia de apagado (la
+  corta) sin importar el estado, así que una sección apagada no podía
+  prender hasta que esa línea pisara terreno limpio: arrancaba (encendido −
+  apagado) segundos tarde en cada reentrada, ≈1 m a 8 km/h con los valores
+  por defecto. Ahora cada estado mira solo su distancia, como el original.
+- **"Cobertura mínima" no hacía nada.** Se guardaba pero el corte usaba 90 %
+  fijo. Ahora es el umbral real de apagado (50..95 %, histéresis 20 puntos
+  abajo); 100 (el valor viejo) se lee como 90 para no cambiar el corte de
+  nadie por actualizar.
+- **La anticipación del anti-solape usaba la velocidad del tractor** para
+  todas las secciones. Ahora usa la de cada sección cuando "Compensar
+  velocidad por sección en curva" está prendido, y la del tractor si está
+  apagado.
+- **Guardar trenes, activar otro implemento o aplicar una plantilla ya no
+  pisa** los tiempos de anticipación, el modo zonas, los anchos desiguales ni
+  el corte en lindero (el implemento central bajaba su copia vieja al motor).
+
+### Changed
+- **"Timing" pasa de Implemento a Secciones › "Anticipación"**, con una nota
+  viva que convierte los segundos a metros a 8 km/h y avisa el tope del motor
+  (20 m encendido / 16 m apagado). Máximo de encendido 10 s (era 22).
+- **"Cortar fuera del lote" pasa a ser un selector** "Corte en el lindero:
+  apenas asoma una punta / recién cuando sale entera": el lindero siempre
+  corta, el flag solo elegía la severidad.
+- **"Cobertura mínima" pasa a "Corta al pisar sembrado (% del ancho)"**, con
+  rango 50..95 y nota.
+- Al entrar a Secciones con lote abierto se avisa que las secciones quedan
+  apagadas mientras se edita.
+
+### Added
+- **Modo simple "Sembradora"** arriba de Secciones: surcos, distancia entre
+  surcos y anticipación, botón "Aplicar y guardar" (arma individuales del
+  mismo ancho y apagado = 0,5 × encendido). El resto queda bajo "Avanzado",
+  cerrado por defecto cuando la configuración ya es simple.
+
 ## [1.0.67] — 2026-09-09
 
 ### Added

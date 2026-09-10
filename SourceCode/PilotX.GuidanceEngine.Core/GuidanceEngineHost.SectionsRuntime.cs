@@ -62,6 +62,21 @@ namespace AgOpenGPS
             lastSectionNumber = 0;
         }
 
+        /// <summary>Velocidad (km/h) con la que anticipa cada sección en el
+        /// anti-solape. Con "Compensar velocidad por sección en curva"
+        /// prendido es la de la propia sección (upstream usa speedPixels: en
+        /// curva la de afuera anticipa más metros que la de adentro); apagado,
+        /// la del tractor, igual que el snapshot que ven QuantiX y SectionX.
+        /// Hasta la 1.0.67 siempre iba la del tractor.</summary>
+        private double VelocidadSeccionKmh(CSection sec)
+        {
+            if (!Properties.Settings.Default.setTool_isCurveSpeedComp) return avgSpeed;
+            // speedPixels: mismas unidades que el snapshot (× 0.36 = km/h);
+            // negativo en reversa, que acá ya cortó antes de llegar.
+            double kmh = System.Math.Abs(sec.speedPixels) * 0.36;
+            return kmh > 0.05 ? kmh : avgSpeed;
+        }
+
         // Llamar en CADA fix con lote abierto (desde UpdateFixPosition), después
         // del pipeline de posición (que ya corrió AddSectionOrPathPoints) y antes
         // de enviar P239/P229 (BuildMachineByte puebla sus bytes de sección).
@@ -215,7 +230,7 @@ namespace AgOpenGPS
                         section[j].rightPoint.easting,
                         section[j].rightPoint.northing,
                         toolPivotPos.heading,
-                        avgSpeed,
+                        VelocidadSeccionKmh(section[j]),
                         section[j].isSectionOn);
                 }
 

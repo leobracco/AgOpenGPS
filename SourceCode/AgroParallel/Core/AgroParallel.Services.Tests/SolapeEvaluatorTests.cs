@@ -12,6 +12,56 @@ namespace AgroParallel.Services.Tests
         private static SolapeInput Caso(double apagado, double encendido, bool estaba)
             => SolapeEvaluator.ConDefaults(apagado, encendido, estaba);
 
+        // ---- Regresión 1.0.68: cada estado mira solo su distancia ----------
+
+        [Test]
+        public void Apagada_PrendeAunqueLaDistanciaDeApagadoSigaCubierta()
+        {
+            // Saliendo de la cabecera: a la distancia de encendido (más lejos) ya
+            // está limpio, a la de apagado (más cerca) todavía no. Tiene que
+            // prender YA, si no arranca (on − off) segundos tarde.
+            var r = SolapeEvaluator.RequeridaOn(Caso(apagado: 1.0, encendido: 0.0, estaba: false));
+            Assert.That(r, Is.True);
+        }
+
+        [Test]
+        public void Encendida_NoApagaPorLoQueHayALaDistanciaDeEncendido()
+        {
+            // Cerca está limpio, lejos ya está sembrado: sigue sembrando hasta
+            // que lo sembrado entre en la distancia de apagado.
+            var r = SolapeEvaluator.RequeridaOn(Caso(apagado: 0.0, encendido: 1.0, estaba: true));
+            Assert.That(r, Is.True);
+        }
+
+        // ---- Umbral desde "Cobertura mínima" ------------------------------
+
+        [Test]
+        public void CoberturaMinima_100EsElNoventaDeSiempre()
+        {
+            Assert.That(SolapeEvaluator.UmbralApagarDesdeCobertura(100), Is.EqualTo(0.90).Within(1e-9));
+        }
+
+        [Test]
+        public void CoberturaMinima_SeAcotaA50y95()
+        {
+            Assert.That(SolapeEvaluator.UmbralApagarDesdeCobertura(10), Is.EqualTo(0.50).Within(1e-9));
+            Assert.That(SolapeEvaluator.UmbralApagarDesdeCobertura(99), Is.EqualTo(0.95).Within(1e-9));
+            Assert.That(SolapeEvaluator.UmbralApagarDesdeCobertura(70), Is.EqualTo(0.70).Within(1e-9));
+        }
+
+        [Test]
+        public void CoberturaMinima_CambiaDondeCorta()
+        {
+            // Con 70 % una sección encendida corta al 75 % cubierto; con 90 no.
+            var con70 = SolapeEvaluator.ConCobertura(0.75, 0.75, true, 70);
+            var con90 = SolapeEvaluator.ConCobertura(0.75, 0.75, true, 90);
+            Assert.That(SolapeEvaluator.RequeridaOn(con70), Is.False);
+            Assert.That(SolapeEvaluator.RequeridaOn(con90), Is.True);
+            // La histéresis queda 20 puntos abajo: con 70, apagada prende recién al 50 %.
+            Assert.That(SolapeEvaluator.RequeridaOn(SolapeEvaluator.ConCobertura(0.6, 0.6, false, 70)), Is.False);
+            Assert.That(SolapeEvaluator.RequeridaOn(SolapeEvaluator.ConCobertura(0.5, 0.5, false, 70)), Is.True);
+        }
+
         // ---- casos claros --------------------------------------------------
 
         [Test]

@@ -169,6 +169,16 @@ public sealed class SeccionesTab : ConfigTab
     private bool _boundary;
     private bool _dirtySec;
 
+    // ---- modo simple "Sembradora" + acordeón Avanzado ---------------------
+    private ComboBox? _cboSimpleSurcos;
+    private TextBox? _txtSimpleDist, _txtSimpleAnt;
+    private StackPanel? _avanzado;
+    private Button? _btnAvanzado;
+    /// <summary>Se decide al entrar: escondido si la config actual ya es
+    /// "simple" (individuales, anchos iguales); el operario lo puede abrir.</summary>
+    private bool _mostrarAvanzado;
+    private Border? _cardLinderoPunta, _cardLinderoEntera;
+
     // ---- modelo local de trenes (el `trn` de config.js) --------------------
     private ImplementoDto? _impl;
     private List<SurcoDto> _memoria = new List<SurcoDto>();
@@ -201,8 +211,6 @@ public sealed class SeccionesTab : ConfigTab
     private StackPanel? _listaTrenes, _panelSurcos;
     private WrapPanel? _pincelHost;
     private TextBlock? _msgTrenes;
-    private Image? _imgBoundary;
-    private Border? _cardBoundary;
 
     public SeccionesTab(CfgCtx c) : base(c) { }
 
@@ -251,10 +259,12 @@ public sealed class SeccionesTab : ConfigTab
         if (C.Client != null)
         {
             try { _ = C.Client.PrepararSeccionesAsync(); } catch { }
+            C.Estado?.Invoke("Con lote abierto, las secciones quedan apagadas mientras editás", "");
         }
 
         CargarDesdeSnapshot();
         _dirtySec = false;
+        _mostrarAvanzado = !EsConfigSimple();
         Rebuild();
 
         // Los trenes viven en OTRO backend: se cargan sin bloquear el enter,
@@ -275,7 +285,7 @@ public sealed class SeccionesTab : ConfigTab
         if (C.Client == null) { C.Estado?.Invoke("Sin conexión con PilotX", "err"); return false; }
 
         double? cut = LeerNudDec(_txtCutoff, LimCutoff());
-        int? cov = LeerNud(_txtCoverage, (0, 100));
+        int? cov = LeerNud(_txtCoverage, (50, 95));   // umbral real del anti-solape
         if (cut == null || cov == null)
         {
             C.Estado?.Invoke("Revisá los valores marcados en rojo", "err");
@@ -446,13 +456,18 @@ public sealed class SeccionesTab : ConfigTab
             raiz.Children.Add(CfgUi.ChipError("Servicio de configuración no disponible", "AGP-NET-201"));
         }
 
-        raiz.Children.Add(CartaModo());
+        // Modo simple arriba; todo lo demás bajo "Avanzado" (revisión 2026-09-09:
+        // armar una sembradora pedía pasar por cinco cartas y tres pestañas).
+        raiz.Children.Add(CartaSembradora());
+        _avanzado = new StackPanel { Spacing = 12, IsVisible = _mostrarAvanzado };
+        _avanzado.Children.Add(CartaModo());
         _cartaInd = CartaIndividuales();
         _cartaZonas = CartaZonas();
-        raiz.Children.Add(_cartaInd);
-        raiz.Children.Add(_cartaZonas);
-        raiz.Children.Add(CartaTrenes());
-        raiz.Children.Add(CartaControl());
+        _avanzado.Children.Add(_cartaInd);
+        _avanzado.Children.Add(_cartaZonas);
+        _avanzado.Children.Add(CartaTrenes());
+        _avanzado.Children.Add(CartaControl());
+        raiz.Children.Add(_avanzado);
 
         Children.Add(raiz);
 
@@ -462,7 +477,154 @@ public sealed class SeccionesTab : ConfigTab
         PintarBoundary();
         PintarControl();
         PintarTrenes();
+        PintarSembradora();
         PintarHabilitado();
+    }
+
+    // ---- Carta 0: sembradora (modo simple) -----------------------------------
+
+    /// <summary>¿La config actual se puede describir con "N surcos a D cm"?
+    /// Individuales y todos los anchos activos iguales.</summary>
+    private bool EsConfigSimple()
+    {
+        if (_modo != "ind") return false;
+        for (int i = 1; i < _num && i < 16; i++)
+            if (Math.Abs(_widths[i] - _widths[0]) > 0.5) return false;
+        return true;
+    }
+
+    private Border CartaSembradora()
+    {
+        var carta = new StackPanel { Spacing = 10 };
+        carta.Children.Add(CfgUi.Titulo("Sembradora (modo simple)"));
+        carta.Children.Add(CfgUi.Nota(
+            "Tres datos y listo: arma secciones individuales del mismo ancho y la anticipación "
+            + "del corte (apagado = la mitad del encendido). Lo demás está en Avanzado."));
+
+        _cboSimpleSurcos = CfgUi.Combo();
+        _cboSimpleSurcos.MinWidth = 100;
+        for (int i = 1; i <= 16; i++) _cboSimpleSurcos.Items.Add(i.ToString(Inv));
+
+        _txtSimpleDist = Nud("Distancia entre surcos", 120);
+        _txtSimpleAnt = Nud("Anticipación", 120);
+
+        var fila = CfgUi.Grilla();
+        fila.Children.Add(CampoFila("Surcos", _cboSimpleSurcos));
+        fila.Children.Add(CampoFila("Distancia entre surcos", _txtSimpleDist, Unidad(C.Unidad())));
+        fila.Children.Add(CampoFila("Anticipación", _txtSimpleAnt, Unidad("s")));
+        carta.Children.Add(fila);
+
+        var acciones = CfgUi.Fila();
+        acciones.Children.Add(CfgUi.Boton("Aplicar y guardar", () => _ = AplicarSembradoraAsync(), primario: true));
+        _btnAvanzado = CfgUi.Boton(_mostrarAvanzado ? "Avanzado ▴" : "Avanzado ▾", AlternarAvanzado);
+        acciones.Children.Add(_btnAvanzado);
+        carta.Children.Add(acciones);
+
+        return CfgUi.Carta(carta);
+    }
+
+    private void PintarSembradora()
+    {
+        bool prev = _cargando;
+        _cargando = true;
+        try
+        {
+            int n = _modo == "ind" ? _num : _numMulti;
+            if (_cboSimpleSurcos != null) _cboSimpleSurcos.SelectedIndex = Math.Max(0, Math.Min(15, n - 1));
+            double d = _modo == "ind" ? _widths[0] : C.M2Disp(_widthMulti);
+            if (_txtSimpleDist != null) { SetTexto(_txtSimpleDist, Ent(d)); Invalido(_txtSimpleDist, false); }
+            double ant = C.Snap?.Timing?.LookAheadOn ?? 1.0;
+            if (_txtSimpleAnt != null) { SetTexto(_txtSimpleAnt, Num(ant)); Invalido(_txtSimpleAnt, false); }
+        }
+        finally { _cargando = prev; }
+    }
+
+    private void AlternarAvanzado()
+    {
+        _mostrarAvanzado = !_mostrarAvanzado;
+        if (_avanzado != null) _avanzado.IsVisible = _mostrarAvanzado;
+        if (_btnAvanzado != null) _btnAvanzado.Content = T(_mostrarAvanzado ? "Avanzado ▴" : "Avanzado ▾");
+    }
+
+    /// <summary>Aplica el modo simple: individuales, N surcos del mismo ancho,
+    /// guarda la geometría (mismo camino que al salir) y después la
+    /// anticipación con apagado = 0,5 × encendido y sin retardo.</summary>
+    private async Task AplicarSembradoraAsync()
+    {
+        if (_guardando || !Editable()) return;
+        int surcos = (_cboSimpleSurcos?.SelectedIndex ?? -1) + 1;
+        int? dist = LeerNud(_txtSimpleDist, LimDefWidth());
+        double? ant = LeerDecimal(_txtSimpleAnt, 0.2, 10.0);
+        if (surcos < 1 || dist == null || ant == null)
+        {
+            C.Estado?.Invoke("Revisá los valores marcados en rojo", "err");
+            return;
+        }
+        if (surcos * dist.Value > CapDisp())
+        {
+            C.Estado?.Invoke("Demasiado ancho (máx " + Ent(CapDisp()) + " " + C.Unidad() + ")", "err");
+            return;
+        }
+
+        _modo = "ind";
+        _num = surcos;
+        _defWidth = dist.Value;
+        for (int i = 0; i < 16; i++) _widths[i] = dist.Value;
+        Ensuciar();
+
+        // Reflejar en las cartas avanzadas sin disparar sus handlers.
+        bool prev = _cargando;
+        _cargando = true;
+        try
+        {
+            if (_cboNum != null) _cboNum.SelectedIndex = _num - 1;
+            if (_txtDefWidth != null) SetTexto(_txtDefWidth, Ent(_defWidth));
+        }
+        finally { _cargando = prev; }
+        PintarModo();
+        PintarInd();
+        PintarTrenes();
+
+        bool ok = await AlSalirAsync().ConfigureAwait(true);
+        if (!ok) return;
+
+        double off = Math.Round(ant.Value * 0.5, 1);
+        var r = await C.Client.GuardarAsync("timing", new
+        {
+            look_ahead_on = ant.Value,
+            look_ahead_off = off,
+            turn_off_delay = 0.0,
+        }).ConfigureAwait(true);
+        if (r == null || !r.Ok)
+        {
+            C.Estado?.Invoke("Secciones guardadas, pero la anticipación no: "
+                + (r == null ? "sin conexión con PilotX" : ErrorEnCriollo(r.Error)), "err");
+            return;
+        }
+        if (C.RefrescarSnapshot != null)
+        {
+            try { await C.RefrescarSnapshot(CancellationToken.None).ConfigureAwait(true); }
+            catch { }
+        }
+        C.Estado?.Invoke("Sembradora aplicada: " + surcos + " surcos × " + Ent(dist.Value) + " "
+            + C.Unidad() + ", anticipación " + Num(ant.Value) + " s", "ok");
+    }
+
+    /// <summary>Decimal con coma o punto, clamp al rango y marca en rojo lo
+    /// que no parsea (el leerNudDec del HTML, para el campo de anticipación).</summary>
+    private double? LeerDecimal(TextBox? t, double min, double max)
+    {
+        if (t == null) return null;
+        string s = (t.Text ?? "").Trim().Replace(',', '.');
+        if (!double.TryParse(s, NumberStyles.Float, Inv, out double v) || double.IsNaN(v))
+        {
+            Invalido(t, true);
+            return null;
+        }
+        v = Math.Max(min, Math.Min(max, Math.Round(v, 1)));
+        SetTexto(t, Num(v));
+        Invalido(t, false);
+        return v;
     }
 
     // ---- Carta 1: modo -----------------------------------------------------
@@ -761,41 +923,27 @@ public sealed class SeccionesTab : ConfigTab
         var carta = new StackPanel { Spacing = 10 };
         carta.Children.Add(CfgUi.Titulo("Control de secciones"));
 
-        _imgBoundary = new Image
-        {
-            Width = 64, Height = 64, MaxWidth = 64, MaxHeight = 64, Stretch = Stretch.Uniform,
-        };
-        var pilaB = new StackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
-        pilaB.Children.Add(new Border
-        {
-            Background = CfgUi.BgFila, CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(2), HorizontalAlignment = HorizontalAlignment.Center,
-            Child = _imgBoundary,
-        });
-        pilaB.Children.Add(new TextBlock
-        {
-            Text = T("Cortar fuera del lote"),
-            Foreground = CfgUi.TextoMuted, FontSize = 12, FontWeight = FontWeight.SemiBold,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap,
-        });
-        _cardBoundary = new Border
-        {
-            Width = 190, MinHeight = 118,
-            Background = CfgUi.BgFila,
-            BorderBrush = CfgUi.Borde, BorderThickness = new Thickness(2),
-            CornerRadius = new CornerRadius(10), Padding = new Thickness(6),
-            Margin = new Thickness(0, 0, 16, 8),
-            Cursor = new Cursor(StandardCursorType.Hand),
-            Child = pilaB,
-        };
-        _cardBoundary.Tapped += (_, __) => AlternarBoundary();
+        // "Cortar fuera del lote" NO es un on/off: el lindero corta siempre y
+        // el flag elige la severidad (una punta afuera vs. la sección entera).
+        // El tilde viejo prometía otra cosa (revisión 2026-09-09).
+        var pilaLindero = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 16, 8) };
+        pilaLindero.Children.Add(CfgUi.Etiqueta("Corte en el lindero"));
+        var opciones = CfgUi.Fila(8);
+        _cardLinderoPunta = TarjetaOpcion("SectionOffBoundary.png", "Apenas asoma una punta",
+            () => ElegirLindero(true));
+        _cardLinderoEntera = TarjetaOpcion("SectionOnBoundary.png", "Recién cuando sale entera",
+            () => ElegirLindero(false));
+        opciones.Children.Add(_cardLinderoPunta);
+        opciones.Children.Add(_cardLinderoEntera);
+        pilaLindero.Children.Add(opciones);
+        pilaLindero.Children.Add(CfgUi.Nota(
+            "El lindero corta siempre; esto elige cuándo: con una punta afuera o con la sección entera afuera."));
 
         _txtCutoff = Nud("Cortar por debajo de", 120);
         _txtCutoff.TextChanged += (_, __) => { if (!_cargando) Ensuciar(); };
         _lblUnidadCutoff = Unidad();
 
-        _txtCoverage = Nud("Cobertura mínima", 120);
+        _txtCoverage = Nud("Corta al pisar sembrado", 120);
         _txtCoverage.TextChanged += (_, __) => { if (!_cargando) Ensuciar(); };
 
         var derecha = new StackPanel { Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
@@ -809,22 +957,60 @@ public sealed class SeccionesTab : ConfigTab
         filaCut.Children.Add(CampoFila("Cortar por debajo de", _txtCutoff, _lblUnidadCutoff));
         derecha.Children.Add(filaCut);
 
-        derecha.Children.Add(CampoFila("Cobertura mínima", _txtCoverage, Unidad("%")));
+        derecha.Children.Add(CampoFila("Corta al pisar sembrado", _txtCoverage, Unidad("% del ancho")));
+        derecha.Children.Add(CfgUi.Nota(
+            "90 = corta cuando el 90 % del ancho de la sección ya está sembrado. "
+            + "Menos = corta antes. Entre 50 y 95."));
 
         var fila = CfgUi.Grilla();
-        fila.Children.Add(_cardBoundary);
+        fila.Children.Add(pilaLindero);
         fila.Children.Add(derecha);
         carta.Children.Add(fila);
 
         return CfgUi.Carta(carta);
     }
 
-    private void AlternarBoundary()
+    private void ElegirLindero(bool apenasUnaPunta)
     {
         if (_guardando || !Editable()) return;
-        _boundary = !_boundary;
+        if (_boundary == apenasUnaPunta) return;
+        _boundary = apenasUnaPunta;
         Ensuciar();
         PintarBoundary();
+    }
+
+    /// <summary>Tarjeta táctil de una opción (dibujo + texto), resaltable.</summary>
+    private Border TarjetaOpcion(string icono, string texto, Action alTocar)
+    {
+        var pila = new StackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
+        pila.Children.Add(new Border
+        {
+            Background = CfgUi.BgFila, CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(2), HorizontalAlignment = HorizontalAlignment.Center,
+            Child = new Image
+            {
+                Source = Icono(icono),
+                Width = 56, Height = 56, MaxWidth = 56, MaxHeight = 56, Stretch = Stretch.Uniform,
+            },
+        });
+        pila.Children.Add(new TextBlock
+        {
+            Text = T(texto),
+            Foreground = CfgUi.TextoMuted, FontSize = 12, FontWeight = FontWeight.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap,
+        });
+        var card = new Border
+        {
+            Width = 150, MinHeight = 110,
+            Background = CfgUi.BgFila,
+            BorderBrush = CfgUi.Borde, BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(10), Padding = new Thickness(6),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Child = pila,
+        };
+        card.Tapped += (_, __) => alTocar();
+        return card;
     }
 
     // =======================================================================
@@ -844,13 +1030,15 @@ public sealed class SeccionesTab : ConfigTab
 
     private void PintarBoundary()
     {
-        if (_imgBoundary != null)
-            _imgBoundary.Source = Icono(_boundary ? "SectionOffBoundary.png" : "SectionOnBoundary.png");
-        if (_cardBoundary != null)
-        {
-            _cardBoundary.BorderBrush = _boundary ? CfgUi.Verde : CfgUi.Borde;
-            _cardBoundary.Background = _boundary ? CfgUi.BgFilaSel : CfgUi.BgFila;
-        }
+        Resaltar(_cardLinderoPunta, _boundary);
+        Resaltar(_cardLinderoEntera, !_boundary);
+    }
+
+    private static void Resaltar(Border? card, bool sel)
+    {
+        if (card == null) return;
+        card.BorderBrush = sel ? CfgUi.Verde : CfgUi.Borde;
+        card.Background = sel ? CfgUi.BgFilaSel : CfgUi.BgFila;
     }
 
     /// <summary>Cutoff (con conversión a MPH), su unidad y la cobertura.</summary>
@@ -1479,7 +1667,9 @@ public sealed class SeccionesTab : ConfigTab
         bool editable = Editable() && !_guardando;
         foreach (var t in new Control?[] { _cboNum, _cboZonas, _txtDefWidth, _txtNumMulti,
                                            _txtWidthMulti, _txtCutoff, _txtCoverage,
-                                           _grillaAnchos, _grillaZonas })
+                                           _grillaAnchos, _grillaZonas,
+                                           _cboSimpleSurcos, _txtSimpleDist, _txtSimpleAnt,
+                                           _cardLinderoPunta, _cardLinderoEntera })
         {
             if (t == null) continue;
             t.IsEnabled = editable;
