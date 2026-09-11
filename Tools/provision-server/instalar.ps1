@@ -97,6 +97,7 @@ Avisar "corriendo Provision-Pantalla.ps1" "instalando"
 $psArgs = @("-ExecutionPolicy", "Bypass", "-File", "$kit\Provision-Pantalla.ps1", "-Cliente", $reg.cliente, "-SinKiosko")
 if ($reg.cuit) { $psArgs += @("-Cuit", $reg.cuit) }
 if ($reg.nombre_equipo) { $psArgs += @("-NombreEquipo", $reg.nombre_equipo) }
+if ($reg.soporte_pass) { $psArgs += @("-SoportePass", $reg.soporte_pass) }   # la genera y guarda el instalador
 $p = Start-Process powershell -ArgumentList $psArgs -Wait -PassThru -NoNewWindow
 Paso "Provision-Pantalla terminó con código $($p.ExitCode)"
 

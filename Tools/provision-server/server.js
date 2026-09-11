@@ -129,6 +129,10 @@ function orbitx(metodo, ruta, body, conJwt = true) {
 // ---------------------------------------------------------------------------
 function nuevoCodigo() { const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 6; i++) s += abc[crypto.randomInt(abc.length)]; return s; }
 function buscarPedido(codigo) { return estado.pedidos.find(p => p.codigo === String(codigo || "").toUpperCase()); }
+// Clave del admin local 'soporte' de cada pantalla: 8 minusculas/digitos sin
+// ambiguos, queda guardada en el pedido (estado.json de esta PC) y se ve en la
+// web. Es lo que despues usa WinRM/RustDesk para entrar a esa pantalla.
+function nuevaClave() { const abc = "abcdefghjkmnpqrstuvwxyz23456789"; let s = ""; for (let i = 0; i < 8; i++) s += abc[crypto.randomInt(abc.length)]; return s; }
 function slugDe(nombre) {
   return String(nombre || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
 }
@@ -222,11 +226,20 @@ const rutas = {
     const p = {
       codigo, cliente, cuit: String(body.cuit || "").trim(), estab_slug: body.estab_slug,
       nombre_equipo: String(body.nombre_equipo || "").trim(), version, kiosko: body.kiosko !== false,
+      soporte_pass: String(body.soporte_pass || "").trim() || nuevaClave(),
       creado: Date.now(), estado: "esperando", device_id: null, hostname: null, pasos: [],
     };
     estado.pedidos.unshift(p); guardarEstado();
     log("pedido " + codigo + " para " + cliente + " (" + p.estab_slug + ", PilotX " + version + ")");
     return { ok: true, pedido: p, comando: comandoDe(req, codigo) };
+  },
+  // Cargar/corregir a mano la clave de soporte de un pedido (equipos instalados
+  // antes de que el instalador las generara, o cambiadas en la pantalla).
+  "POST /api/pedidos/clave": async (req, body) => {
+    const p = buscarPedido(body.codigo); if (!p) throw new Error("Pedido no existe");
+    p.soporte_pass = String(body.soporte_pass || "").trim(); guardarEstado();
+    log("pedido " + p.codigo + ": clave de soporte actualizada");
+    return { ok: true };
   },
   "DELETE /api/pedidos": async (req, body) => {
     const i = estado.pedidos.findIndex(p => p.codigo === String(body.codigo || "").toUpperCase());
@@ -262,6 +275,7 @@ const rutas = {
     return {
       ok: true, device_id, device_token: token, estab_slug: p.estab_slug, server_url: cfg.orbitx_url,
       cliente: p.cliente, cuit: p.cuit, nombre_equipo: p.nombre_equipo, version: p.version, kiosko: p.kiosko,
+      soporte_pass: p.soporte_pass || "",
       paquete: "/paquetes/PilotX_v" + p.version + ".zip",
     };
   },

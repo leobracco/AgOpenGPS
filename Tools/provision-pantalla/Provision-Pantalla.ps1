@@ -29,6 +29,7 @@ param(
     [Parameter(Mandatory=$true)][string]$Cliente,
     [string]$Cuit = "",
     [string]$NombreEquipo = "",
+    [string]$SoportePass = "",     # clave del admin 'soporte'; vacio = se pide por consola
     [switch]$SoloRevisar,
     [switch]$SinKiosko
 )
@@ -184,13 +185,20 @@ if (-not (Get-LocalUser -Name "pilotx" -ErrorAction SilentlyContinue)) {
 
 # 'soporte': admin local para nosotros. Contraseña se pide en el momento
 # (no viaja hardcodeada en el script, ver commit 7e42e851).
+# Si viene -SoportePass (instalador LAN: la genera y la guarda por equipo en
+# la web del taller) no se pregunta nada; si el usuario ya existia, se le
+# pone esa clave para que la registrada sea la que vale.
+if ($SoportePass) { $pass = ConvertTo-SecureString $SoportePass -AsPlainText -Force }
 if (-not (Get-LocalUser -Name "soporte" -ErrorAction SilentlyContinue)) {
-    $pass = Read-Host "Contraseña para el usuario admin 'soporte'" -AsSecureString
+    if (-not $SoportePass) { $pass = Read-Host "Contraseña para el usuario admin 'soporte'" -AsSecureString }
     New-LocalUser -Name "soporte" -Password $pass -FullName "Soporte Agro Parallel" `
         -PasswordNeverExpires -Description "Admin de mantenimiento Agro Parallel" | Out-Null
     Add-LocalGroupMember -Group "Administrators" -Member "soporte" -ErrorAction SilentlyContinue
     Add-LocalGroupMember -Group "Administradores" -Member "soporte" -ErrorAction SilentlyContinue
     Paso "Usuario 'soporte' (admin) creado"
+} elseif ($SoportePass) {
+    Set-LocalUser -Name "soporte" -Password $pass
+    Paso "Usuario 'soporte' ya existía: clave actualizada a la registrada en el instalador"
 } else { Paso "Usuario 'soporte' ya existía" }
 
 # ============================================================================
