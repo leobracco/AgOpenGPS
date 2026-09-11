@@ -35,6 +35,8 @@ const cfg = Object.assign({
   puerto: 8090,
   orbitx_url: "https://orbitx.agroparallel.com",
   ip_preferida: "",           // vacío = la primera 192.168.x que no sea VirtualBox/Hyper-V
+  // ViewX TabletTools (NetApplyWatcher.ps1 y compañía): hermano del repo en Productos.
+  tablettools_dir: path.resolve(REPO, "..", "..", "..", "..", "ViewX", "Software", "TabletTools"),
 }, leerJson(CONFIG_PATH, {}));
 
 let estado = Object.assign({ jwt: null, usuario: null, pedidos: [], eventos: [] }, leerJson(ESTADO_PATH, {}));
@@ -69,6 +71,9 @@ function paquetes() {
 function kit() {
   const items = [
     { nombre: "Provision-Pantalla.ps1", ruta: path.join(REPO, "Tools", "provision-pantalla", "Provision-Pantalla.ps1"), req: true },
+    // Helper de red de ViewX TabletTools (tarea SYSTEM PilotXNetApply): sin él
+    // PilotX no puede aplicar la IP fija del Ethernet (tablet de Clancy, 2026-09-11).
+    { nombre: "TabletTools/NetApplyWatcher.ps1", ruta: path.join(cfg.tablettools_dir, "NetApplyWatcher.ps1"), req: true },
     { nombre: "PilotX-KioskSetup.exe", ruta: path.join(REPO, "Build", "PilotX-KioskSetup.exe"), req: true },
     { nombre: "Branding/logo.png", ruta: path.join(REPO, "Build", "Branding", "logo.png") },
     { nombre: "Branding/logo-fondo-blanco.png", ruta: path.join(REPO, "Build", "Branding", "logo-fondo-blanco.png") },
@@ -287,6 +292,10 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, await rutas[clave](req, body));
     }
     if (u.pathname === "/instalar.ps1") return texto(res, 200, scriptInstalar(req, u.searchParams.get("p") || ""));
+    if (u.pathname === "/red.ps1") {
+      const base = "http://" + ipServidor(req) + ":" + cfg.puerto;
+      return texto(res, 200, fs.readFileSync(path.join(AQUI, "red.ps1"), "utf8").replace(/__SERVIDOR__/g, base));
+    }
     if (u.pathname === "/comando") { const c = u.searchParams.get("p") || ""; return texto(res, 200, comandoDe(req, c)); }
     if (u.pathname.startsWith("/paquetes/")) {
       const nombre = decodeURIComponent(u.pathname.slice("/paquetes/".length));

@@ -137,6 +137,12 @@ if ($reg.kiosko -and (Test-Path "$kit\PilotX-KioskSetup.exe")) {
     Paso "Kiosko: código $($k.ExitCode)"
 }
 
+# ── 8. Helper de red (tarea SYSTEM PilotXNetApply, de ViewX TabletTools) ────
+# Sin esto PilotX (usuario limitado) no puede aplicar la IP fija del Ethernet.
+Avisar "instalando helper de red (PilotXNetApply)" "instalando"
+try { Invoke-Expression (Invoke-RestMethod -Uri "$Servidor/red.ps1" -TimeoutSec 30) }
+catch { Write-Host "Helper de red: $($_.Exception.Message) — correr después: irm $Servidor/red.ps1 | iex" -ForegroundColor Yellow }
+
 Avisar "instalación terminada; falta reiniciar" "instalado"
 Stop-Transcript | Out-Null
 Write-Host ""
