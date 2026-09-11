@@ -1,0 +1,2941 @@
+{
+  "_leeme": {
+    "que_es": "Diccionario de la interfaz de PilotX. La CLAVE es el texto en castellano tal cual aparece en la pantalla.",
+    "si_falta_una_entrada": "Se ve en castellano. Nunca una clave cruda ni una pantalla rota.",
+    "como_corregir": "Editar la traduccion en este archivo y reiniciar PilotX. No hace falta recompilar.",
+    "quien_lo_usa": "La pantalla nativa (PilotX.Cockpit.Bars/Traductor.cs) y las paginas del Hub (wwwroot/js/i18n.js).",
+    "no_se_traduce": "Nombres de producto (PilotX, QuantiX, VistaX, CoreX, FlowX, StormX, SectionX, LineX, OrbitX, Agro Parallel) ni unidades/siglas (km/h, ha, sem/m, kg/ha, rpm, PWM, GPS, RTK, IMU, MQTT, UID, AB, XTE, NTRIP)."
+  },
+  "Idioma": {
+    "en": "Language",
+    "pt": "Idioma"
+  },
+  "SIN LOTE": {
+    "en": "NO FIELD",
+    "pt": "SEM TALHÃO"
+  },
+  "sin guía": {
+    "en": "no line",
+    "pt": "sem linha"
+  },
+  "Sin lote activo": {
+    "en": "No active field",
+    "pt": "Sem talhão ativo"
+  },
+  "Sin lote activo - presiona FieldTools para iniciar trabajo": {
+    "en": "No active field - press FieldTools to start a job",
+    "pt": "Sem talhão ativo - toque em FieldTools para iniciar o trabalho"
+  },
+  "SISTEMA": {
+    "en": "SYSTEM",
+    "pt": "SISTEMA"
+  },
+  "Sistema": {
+    "en": "System",
+    "pt": "Sistema"
+  },
+  "TRABAJO": {
+    "en": "JOB",
+    "pt": "TRABALHO"
+  },
+  "Trabajo": {
+    "en": "Job",
+    "pt": "Trabalho"
+  },
+  "LOTE": {
+    "en": "FIELD",
+    "pt": "TALHÃO"
+  },
+  "Lote": {
+    "en": "Field",
+    "pt": "Talhão"
+  },
+  "PANTALLA": {
+    "en": "DISPLAY",
+    "pt": "TELA"
+  },
+  "Pantalla": {
+    "en": "Display",
+    "pt": "Tela"
+  },
+  "SEÑAL": {
+    "en": "SIGNAL",
+    "pt": "SINAL"
+  },
+  "TIEMPO": {
+    "en": "TIME",
+    "pt": "TEMPO"
+  },
+  "HERRAMIENTAS": {
+    "en": "TOOLS",
+    "pt": "FERRAMENTAS"
+  },
+  "Herramientas": {
+    "en": "Tools",
+    "pt": "Ferramentas"
+  },
+  "Herram.": {
+    "en": "Tools",
+    "pt": "Ferram."
+  },
+  "Herram. límites": {
+    "en": "Boundary tools",
+    "pt": "Ferram. de contorno"
+  },
+  "AREA": {
+    "en": "AREA",
+    "pt": "ÁREA"
+  },
+  "A LA LÍNEA": {
+    "en": "TO LINE",
+    "pt": "À LINHA"
+  },
+  "SALTEA": {
+    "en": "SKIP",
+    "pt": "SALTA"
+  },
+  "OBJETIVO": {
+    "en": "TARGET",
+    "pt": "OBJETIVO"
+  },
+  "Objetivo": {
+    "en": "Target",
+    "pt": "Objetivo"
+  },
+  "SURCOS ACTIVOS": {
+    "en": "ACTIVE ROWS",
+    "pt": "LINHAS ATIVAS"
+  },
+  "SPM PROMEDIO": {
+    "en": "AVG SPM",
+    "pt": "SPM MÉDIO"
+  },
+  "FALLAS": {
+    "en": "FAULTS",
+    "pt": "FALHAS"
+  },
+  "Fallas": {
+    "en": "Faults",
+    "pt": "Falhas"
+  },
+  "IMPLEMENTO": {
+    "en": "IMPLEMENT",
+    "pt": "IMPLEMENTO"
+  },
+  "Implemento": {
+    "en": "Implement",
+    "pt": "Implemento"
+  },
+  "Abrir": {
+    "en": "Open",
+    "pt": "Abrir"
+  },
+  "Nuevo": {
+    "en": "New",
+    "pt": "Novo"
+  },
+  "Cerrar": {
+    "en": "Close",
+    "pt": "Fechar"
+  },
+  "Continuar": {
+    "en": "Resume",
+    "pt": "Continuar"
+  },
+  "Guardar": {
+    "en": "Save",
+    "pt": "Salvar"
+  },
+  "Guardando…": {
+    "en": "Saving…",
+    "pt": "Salvando…"
+  },
+  "Guardado ✔": {
+    "en": "Saved ✔",
+    "pt": "Salvo ✔"
+  },
+  "Sin conexión con PilotX": {
+    "en": "No connection to PilotX",
+    "pt": "Sem conexão com o PilotX"
+  },
+  "Servicio de configuración no disponible": {
+    "en": "Configuration service unavailable",
+    "pt": "Serviço de configuração indisponível"
+  },
+  "PilotX no responde — todavía no llegaron los datos.": {
+    "en": "PilotX is not responding — no data yet.",
+    "pt": "O PilotX não responde — os dados ainda não chegaram."
+  },
+  "Cancelar": {
+    "en": "Cancel",
+    "pt": "Cancelar"
+  },
+  "Cancelar (descartar)": {
+    "en": "Cancel (discard)",
+    "pt": "Cancelar (descartar)"
+  },
+  "Confirmar": {
+    "en": "Confirm",
+    "pt": "Confirmar"
+  },
+  "Borrar": {
+    "en": "Delete",
+    "pt": "Apagar"
+  },
+  "Crear": {
+    "en": "Create",
+    "pt": "Criar"
+  },
+  "Iniciar": {
+    "en": "Start",
+    "pt": "Iniciar"
+  },
+  "Parar": {
+    "en": "Stop",
+    "pt": "Parar"
+  },
+  "Reset": {
+    "en": "Reset",
+    "pt": "Reset"
+  },
+  "Reiniciar": {
+    "en": "Restart",
+    "pt": "Reiniciar"
+  },
+  "Terminar": {
+    "en": "Finish",
+    "pt": "Finalizar"
+  },
+  "Salir": {
+    "en": "Exit",
+    "pt": "Sair"
+  },
+  "Volver": {
+    "en": "Back",
+    "pt": "Voltar"
+  },
+  "‹ Volver": {
+    "en": "‹ Back",
+    "pt": "‹ Voltar"
+  },
+  "Deshacer": {
+    "en": "Undo",
+    "pt": "Desfazer"
+  },
+  "Recargar": {
+    "en": "Reload",
+    "pt": "Recarregar"
+  },
+  "Refrescar": {
+    "en": "Refresh",
+    "pt": "Atualizar"
+  },
+  "Importar": {
+    "en": "Import",
+    "pt": "Importar"
+  },
+  "Exportar": {
+    "en": "Export",
+    "pt": "Exportar"
+  },
+  "Renombrar": {
+    "en": "Rename",
+    "pt": "Renomear"
+  },
+  "Duplicar": {
+    "en": "Duplicate",
+    "pt": "Duplicar"
+  },
+  "Subir": {
+    "en": "Move up",
+    "pt": "Subir"
+  },
+  "Bajar": {
+    "en": "Move down",
+    "pt": "Descer"
+  },
+  "Configurar": {
+    "en": "Configure",
+    "pt": "Configurar"
+  },
+  "Activar": {
+    "en": "Enable",
+    "pt": "Ativar"
+  },
+  "Aceptar": {
+    "en": "Accept",
+    "pt": "Aceitar"
+  },
+  "Silenciar": {
+    "en": "Mute",
+    "pt": "Silenciar"
+  },
+  "Descargar": {
+    "en": "Download",
+    "pt": "Baixar"
+  },
+  "Acercar": {
+    "en": "Zoom in",
+    "pt": "Aproximar"
+  },
+  "Alejar": {
+    "en": "Zoom out",
+    "pt": "Afastar"
+  },
+  "Detalles": {
+    "en": "Details",
+    "pt": "Detalhes"
+  },
+  "Ayuda": {
+    "en": "Help",
+    "pt": "Ajuda"
+  },
+  "Guías": {
+    "en": "Lines",
+    "pt": "Linhas"
+  },
+  "Guía sig.": {
+    "en": "Next line",
+    "pt": "Próx. linha"
+  },
+  "Guía ant.": {
+    "en": "Prev. line",
+    "pt": "Linha ant."
+  },
+  "Auto guía": {
+    "en": "Auto guidance",
+    "pt": "Guia automática"
+  },
+  "Guia activa": {
+    "en": "Active guidance line",
+    "pt": "Linha de guia ativa"
+  },
+  "Guía activa": {
+    "en": "Active guidance line",
+    "pt": "Linha de guia ativa"
+  },
+  "Guías guardadas": {
+    "en": "Saved guidance lines",
+    "pt": "Linhas de guia salvas"
+  },
+  "Nueva guía": {
+    "en": "New guidance line",
+    "pt": "Nova linha de guia"
+  },
+  "Borrar guía": {
+    "en": "Delete guidance line",
+    "pt": "Apagar linha de guia"
+  },
+  "Usar guía seleccionada": {
+    "en": "Use selected guidance line",
+    "pt": "Usar linha de guia selecionada"
+  },
+  "Nombre de la guía": {
+    "en": "Guidance line name",
+    "pt": "Nome da linha de guia"
+  },
+  "Editar nombre": {
+    "en": "Edit name",
+    "pt": "Editar nome"
+  },
+  "Guías extra": {
+    "en": "Extra guidance lines",
+    "pt": "Linhas de guia extras"
+  },
+  "Cantidad de líneas guía": {
+    "en": "Number of guidance lines",
+    "pt": "Quantidade de linhas de guia"
+  },
+  "AB + Curva": {
+    "en": "AB + Curve",
+    "pt": "AB + Curva"
+  },
+  "Curva": {
+    "en": "Curve",
+    "pt": "Curva"
+  },
+  "Marcar A": {
+    "en": "Set A",
+    "pt": "Marcar A"
+  },
+  "Marcar": {
+    "en": "Mark",
+    "pt": "Marcar"
+  },
+  "Marca de giro puesta": {
+    "en": "Turn mark set",
+    "pt": "Marca de giro colocada"
+  },
+  "Marca de giro puesta · se borró una marca de otra guía": {
+    "en": "Turn mark set · a mark from another guidance line was removed",
+    "pt": "Marca de giro colocada · removida uma marca de outra guia"
+  },
+  "Guía activada": {
+    "en": "Guidance line activated",
+    "pt": "Guia ativada"
+  },
+  "Poner en cero — con las ruedas derechas": {
+    "en": "Zero the sensor — with wheels straight",
+    "pt": "Zerar o sensor — com as rodas retas"
+  },
+  "No hay guías para activar": {
+    "en": "No guidance lines to activate",
+    "pt": "Não há guias para ativar"
+  },
+  "No se pudo activar la guía": {
+    "en": "Could not activate the guidance line",
+    "pt": "Não foi possível ativar a guia"
+  },
+  "Marcar giro: línea perpendicular a la guía acá, el giro automático dobla ahí": {
+    "en": "Mark turn: a line perpendicular to the guidance line here, the auto U-turn turns there",
+    "pt": "Marcar giro: linha perpendicular à guia aqui, o giro automático vira ali"
+  },
+  "Borrar las marcas de giro": {
+    "en": "Delete the turn marks",
+    "pt": "Apagar as marcas de giro"
+  },
+  "Fijar punto A": {
+    "en": "Set point A",
+    "pt": "Fixar ponto A"
+  },
+  "Fijar punto B": {
+    "en": "Set point B",
+    "pt": "Fixar ponto B"
+  },
+  "Invertir A↔B": {
+    "en": "Swap A↔B",
+    "pt": "Inverter A↔B"
+  },
+  "Suavizar AB": {
+    "en": "Smooth AB",
+    "pt": "Suavizar AB"
+  },
+  "Lado de referencia": {
+    "en": "Reference side",
+    "pt": "Lado de referência"
+  },
+  "Iniciar grabación / agregar punto": {
+    "en": "Start recording / add point",
+    "pt": "Iniciar gravação / adicionar ponto"
+  },
+  "Pausa/Reanudar": {
+    "en": "Pause/Resume",
+    "pt": "Pausar/Retomar"
+  },
+  "Usar posición GPS actual": {
+    "en": "Use current GPS position",
+    "pt": "Usar posição GPS atual"
+  },
+  "Usar GPS en A": {
+    "en": "Use GPS at A",
+    "pt": "Usar GPS em A"
+  },
+  "Usar GPS en B": {
+    "en": "Use GPS at B",
+    "pt": "Usar GPS em B"
+  },
+  "Importar KML…": {
+    "en": "Import KML…",
+    "pt": "Importar KML…"
+  },
+  "Mostrar/ocultar todas": {
+    "en": "Show/hide all",
+    "pt": "Mostrar/ocultar todas"
+  },
+  "Ubicá el tractor en el inicio y tocá A": {
+    "en": "Place the tractor at the start and tap A",
+    "pt": "Posicione o trator no início e toque em A"
+  },
+  "No hay guías en el lote.": {
+    "en": "No guidance lines in the field.",
+    "pt": "Não há linhas de guia no talhão."
+  },
+  "Tocá A al empezar la pasada": {
+    "en": "Tap A at the start of the pass",
+    "pt": "Toque em A ao começar a passada"
+  },
+  "Grabando": {
+    "en": "Recording",
+    "pt": "Gravando"
+  },
+  "Mostrar/ocultar": {
+    "en": "Show/hide",
+    "pt": "Mostrar/ocultar"
+  },
+  "Lindero": {
+    "en": "Boundary",
+    "pt": "Contorno"
+  },
+  "Lindero (contorno del lote)": {
+    "en": "Boundary (field outline)",
+    "pt": "Contorno (limite do talhão)"
+  },
+  "Contorno": {
+    "en": "Boundary",
+    "pt": "Contorno"
+  },
+  "Borrar contorno": {
+    "en": "Delete boundary",
+    "pt": "Apagar contorno"
+  },
+  "Ocultar contornos": {
+    "en": "Hide boundaries",
+    "pt": "Ocultar contornos"
+  },
+  "El lote no tiene contorno todavía.": {
+    "en": "The field has no boundary yet.",
+    "pt": "O talhão ainda não tem contorno."
+  },
+  "Crear manejando": {
+    "en": "Record by driving",
+    "pt": "Criar dirigindo"
+  },
+  "Grabar": {
+    "en": "Record",
+    "pt": "Gravar"
+  },
+  "Punto": {
+    "en": "Point",
+    "pt": "Ponto"
+  },
+  "puntos": {
+    "en": "points",
+    "pt": "pontos"
+  },
+  "Límites": {
+    "en": "Boundaries",
+    "pt": "Limites"
+  },
+  "Solo con secciones: No": {
+    "en": "Only with sections: No",
+    "pt": "Somente com seções: Não"
+  },
+  "Cabecera": {
+    "en": "Headland",
+    "pt": "Cabeceira"
+  },
+  "Cabeceras": {
+    "en": "Headlands",
+    "pt": "Cabeceiras"
+  },
+  "Cab. secc.": {
+    "en": "Hdl. sect.",
+    "pt": "Seç. cab."
+  },
+  "Construir": {
+    "en": "Build",
+    "pt": "Construir"
+  },
+  "Construir cabecera por distancia · vista previa": {
+    "en": "Build headland by distance · preview",
+    "pt": "Construir cabeceira por distância · prévia"
+  },
+  "Primero creá un contorno del lote para poder construir la cabecera.": {
+    "en": "Create a field boundary first to build the headland.",
+    "pt": "Crie primeiro um contorno do talhão para poder construir a cabeceira."
+  },
+  "Reset al contorno": {
+    "en": "Reset to boundary",
+    "pt": "Redefinir para o contorno"
+  },
+  "Apagar cabecera": {
+    "en": "Turn headland off",
+    "pt": "Desligar cabeceira"
+  },
+  "Secciones controladas en cabecera": {
+    "en": "Sections controlled at headland",
+    "pt": "Seções controladas na cabeceira"
+  },
+  "Distancia a cabecera": {
+    "en": "Distance to headland",
+    "pt": "Distância à cabeceira"
+  },
+  "Corte por cabecera: activar": {
+    "en": "Headland cut: enable",
+    "pt": "Corte na cabeceira: ativar"
+  },
+  "Corte por cabecera: secciones": {
+    "en": "Headland cut: sections",
+    "pt": "Corte na cabeceira: seções"
+  },
+  "Giro": {
+    "en": "U-turn",
+    "pt": "Manobra"
+  },
+  "Giro en la cabecera": {
+    "en": "U-turn at the headland",
+    "pt": "Manobra na cabeceira"
+  },
+  "Giro automático en cabecera": {
+    "en": "Automatic u-turn at headland",
+    "pt": "Manobra automática na cabeceira"
+  },
+  "Geometría del giro": {
+    "en": "U-turn geometry",
+    "pt": "Geometria da manobra"
+  },
+  "Girar ahora a la derecha": {
+    "en": "Turn right now",
+    "pt": "Manobrar agora para a direita"
+  },
+  "Girar ahora a la izquierda": {
+    "en": "Turn left now",
+    "pt": "Manobrar agora para a esquerda"
+  },
+  "Tocá para cambiar el lado del giro": {
+    "en": "Tap to change the turn side",
+    "pt": "Toque para mudar o lado da manobra"
+  },
+  "Por medio": {
+    "en": "Alternate",
+    "pt": "Alternada"
+  },
+  "Guía de por medio": {
+    "en": "Every other guidance line",
+    "pt": "Linha de guia alternada"
+  },
+  "Saltear una guía más": {
+    "en": "Skip one more line",
+    "pt": "Saltar uma linha a mais"
+  },
+  "Saltear una guía menos": {
+    "en": "Skip one line less",
+    "pt": "Saltar uma linha a menos"
+  },
+  "Suavizar una guía curva": {
+    "en": "Smooth a curved guidance line",
+    "pt": "Suavizar uma linha de guia curva"
+  },
+  "Piloto": {
+    "en": "Autosteer",
+    "pt": "Piloto"
+  },
+  "Piloto automático": {
+    "en": "Autosteer",
+    "pt": "Piloto automático"
+  },
+  "Autoguiado": {
+    "en": "Autosteer",
+    "pt": "Piloto automático"
+  },
+  "El botón del piloto está gris": {
+    "en": "The autosteer button is gray",
+    "pt": "O botão do piloto está cinza"
+  },
+  "El piloto no sigue la línea": {
+    "en": "Autosteer doesn't follow the line",
+    "pt": "O piloto não segue a linha"
+  },
+  "La alarma frena el autoguiado": {
+    "en": "The alarm stops autosteer",
+    "pt": "O alarme interrompe o piloto automático"
+  },
+  "Dirección": {
+    "en": "Steering",
+    "pt": "Direção"
+  },
+  "Direccion": {
+    "en": "Steering",
+    "pt": "Direção"
+  },
+  "Switch de dirección": {
+    "en": "Steer switch",
+    "pt": "Chave de direção"
+  },
+  "Marcas de dirección": {
+    "en": "Steering marks",
+    "pt": "Marcas de direção"
+  },
+  "Gráfico dirección": {
+    "en": "Steering chart",
+    "pt": "Gráfico de direção"
+  },
+  "Gráfico de dirección": {
+    "en": "Steering chart",
+    "pt": "Gráfico de direção"
+  },
+  "Gráfico XTE": {
+    "en": "XTE chart",
+    "pt": "Gráfico XTE"
+  },
+  "Gráfico de desvío a la línea": {
+    "en": "Cross-track error chart",
+    "pt": "Gráfico de desvio da linha"
+  },
+  "Gráfico rumbo": {
+    "en": "Heading chart",
+    "pt": "Gráfico de rumo"
+  },
+  "Rumbo": {
+    "en": "Heading",
+    "pt": "Rumo"
+  },
+  "Rumbo (°)": {
+    "en": "Heading (°)",
+    "pt": "Rumo (°)"
+  },
+  "Offset de rumbo": {
+    "en": "Heading offset",
+    "pt": "Offset de rumo"
+  },
+  "Distancia de rumbo:": {
+    "en": "Heading distance:",
+    "pt": "Distância de rumo:"
+  },
+  "Izq": {
+    "en": "Left",
+    "pt": "Esq"
+  },
+  "Der": {
+    "en": "Right",
+    "pt": "Dir"
+  },
+  "Izquierda": {
+    "en": "Left",
+    "pt": "Esquerda"
+  },
+  "Derecha": {
+    "en": "Right",
+    "pt": "Direita"
+  },
+  "Centro": {
+    "en": "Center",
+    "pt": "Centro"
+  },
+  "Centrar": {
+    "en": "Center",
+    "pt": "Centrar"
+  },
+  "Centrar sobre la línea": {
+    "en": "Center on the line",
+    "pt": "Centralizar sobre a linha"
+  },
+  "Corregir posición": {
+    "en": "Nudge position",
+    "pt": "Corrigir posição"
+  },
+  "Corregir posición del tractor": {
+    "en": "Nudge tractor position",
+    "pt": "Corrigir posição do trator"
+  },
+  "Corregir a la derecha": {
+    "en": "Nudge right",
+    "pt": "Corrigir para a direita"
+  },
+  "Corregir a la izquierda": {
+    "en": "Nudge left",
+    "pt": "Corrigir para a esquerda"
+  },
+  "Corregir la línea": {
+    "en": "Correct the line",
+    "pt": "Corrigir a linha"
+  },
+  "Ajuste fino (nudge)": {
+    "en": "Fine adjust (nudge)",
+    "pt": "Ajuste fino (nudge)"
+  },
+  "Corrección de offset": {
+    "en": "Offset correction",
+    "pt": "Correção de offset"
+  },
+  "Corrección roll": {
+    "en": "Roll correction",
+    "pt": "Correção de rolagem"
+  },
+  "Enderezar": {
+    "en": "Straighten",
+    "pt": "Endireitar"
+  },
+  "Enderezar implemento": {
+    "en": "Straighten implement",
+    "pt": "Endireitar implemento"
+  },
+  "Bandera": {
+    "en": "Flag",
+    "pt": "Bandeira"
+  },
+  "Banderas": {
+    "en": "Flags",
+    "pt": "Bandeiras"
+  },
+  "No hay banderas en el lote.": {
+    "en": "No flags in the field.",
+    "pt": "Não há bandeiras no talhão."
+  },
+  "Notas": {
+    "en": "Notes",
+    "pt": "Notas"
+  },
+  "Color — tocá para crear": {
+    "en": "Color — tap to create",
+    "pt": "Cor — toque para criar"
+  },
+  "Roja": {
+    "en": "Red",
+    "pt": "Vermelha"
+  },
+  "Verde": {
+    "en": "Green",
+    "pt": "Verde"
+  },
+  "Amarilla": {
+    "en": "Yellow",
+    "pt": "Amarela"
+  },
+  "Naranja": {
+    "en": "Orange",
+    "pt": "Laranja"
+  },
+  "Gris": {
+    "en": "Gray",
+    "pt": "Cinza"
+  },
+  "Rojo": {
+    "en": "Red",
+    "pt": "Vermelho"
+  },
+  "Color": {
+    "en": "Color",
+    "pt": "Cor"
+  },
+  "Secciones": {
+    "en": "Sections",
+    "pt": "Seções"
+  },
+  "Secciones activas": {
+    "en": "Active sections",
+    "pt": "Seções ativas"
+  },
+  "Secciones del implemento": {
+    "en": "Implement sections",
+    "pt": "Seções do implemento"
+  },
+  "Secciones en automático": {
+    "en": "Sections in auto",
+    "pt": "Seções em automático"
+  },
+  "Secciones en manual": {
+    "en": "Sections in manual",
+    "pt": "Seções em manual"
+  },
+  "Secciones: Manual": {
+    "en": "Sections: Manual",
+    "pt": "Seções: Manual"
+  },
+  "Secciones: Auto": {
+    "en": "Sections: Auto",
+    "pt": "Seções: Auto"
+  },
+  "Secciones individuales": {
+    "en": "Individual sections",
+    "pt": "Seções individuais"
+  },
+  "Secciones simétricas": {
+    "en": "Symmetric sections",
+    "pt": "Seções simétricas"
+  },
+  "Modo de secciones": {
+    "en": "Section mode",
+    "pt": "Modo das seções"
+  },
+  "Control de secciones": {
+    "en": "Section control",
+    "pt": "Controle de seções"
+  },
+  "Control automatico de secciones": {
+    "en": "Automatic section control",
+    "pt": "Controle automático de seções"
+  },
+  "Ancho de sección": {
+    "en": "Section width",
+    "pt": "Largura da seção"
+  },
+  "Líneas de sección": {
+    "en": "Section lines",
+    "pt": "Linhas de seção"
+  },
+  "Tiempos de anticipación de secciones": {
+    "en": "Section look-ahead times",
+    "pt": "Tempos de antecipação das seções"
+  },
+  "Las secciones no cortan solas": {
+    "en": "Sections don't cut off automatically",
+    "pt": "As seções não cortam sozinhas"
+  },
+  "Secciones y pintado": {
+    "en": "Sections and coverage",
+    "pt": "Seções e pintura"
+  },
+  "Sin job activo. Las secciones se muestran cuando arranca un trabajo.": {
+    "en": "No active job. Sections appear when a job starts.",
+    "pt": "Nenhum trabalho ativo. As seções aparecem quando um trabalho começa."
+  },
+  "Automático": {
+    "en": "Auto",
+    "pt": "Automático"
+  },
+  "Manual": {
+    "en": "Manual",
+    "pt": "Manual"
+  },
+  "Cortar fuera del lote": {
+    "en": "Cut off outside the field",
+    "pt": "Cortar fora do talhão"
+  },
+  "Cortar por debajo de": {
+    "en": "Cut off below",
+    "pt": "Cortar abaixo de"
+  },
+  "Cobertura mínima": {
+    "en": "Minimum coverage",
+    "pt": "Cobertura mínima"
+  },
+  "Switch de trabajo": {
+    "en": "Work switch",
+    "pt": "Chave de trabalho"
+  },
+  "Activo con contacto cerrado": {
+    "en": "Active with contact closed",
+    "pt": "Ativo com contato fechado"
+  },
+  "ToolX (switch inalámbrico)": {
+    "en": "ToolX (wireless switch)",
+    "pt": "ToolX (chave sem fio)"
+  },
+  "ToolX (switch inalámbrico) · conectado": {
+    "en": "ToolX (wireless switch) · connected",
+    "pt": "ToolX (chave sem fio) · conectado"
+  },
+  "Borrar pintado": {
+    "en": "Clear coverage",
+    "pt": "Apagar pintura"
+  },
+  "Apagá las secciones primero para poder borrar el pintado.": {
+    "en": "Turn the sections off first to clear the coverage.",
+    "pt": "Desligue as seções primeiro para poder apagar a pintura."
+  },
+  "tapado": {
+    "en": "blocked",
+    "pt": "entupido"
+  },
+  "dosis no alcanzada": {
+    "en": "rate not reached",
+    "pt": "dose não atingida"
+  },
+  "tolva vacía": {
+    "en": "hopper empty",
+    "pt": "tolva vazia"
+  },
+  "exceso de dosis": {
+    "en": "rate exceeded",
+    "pt": "dose excedida"
+  },
+  "sin sensor": {
+    "en": "no sensor",
+    "pt": "sem sensor"
+  },
+  "sin ECU": {
+    "en": "no ECU",
+    "pt": "sem ECU"
+  },
+  "RUMBO": {
+    "en": "HEADING",
+    "pt": "RUMO"
+  },
+  "ROLIDO": {
+    "en": "ROLL",
+    "pt": "ROLAGEM"
+  },
+  "CABECEO": {
+    "en": "PITCH",
+    "pt": "ARFAGEM"
+  },
+  "Fallas de siembra": {
+    "en": "Seeding faults",
+    "pt": "Falhas de semeadura"
+  },
+  "fallas de siembra": {
+    "en": "seeding faults",
+    "pt": "falhas de semeadura"
+  },
+  "Borrar cobertura pintada": {
+    "en": "Clear painted coverage",
+    "pt": "Apagar cobertura pintada"
+  },
+  "Pintado de secciones PilotX": {
+    "en": "PilotX section coverage",
+    "pt": "Pintura de seções do PilotX"
+  },
+  "Anti-solape": {
+    "en": "Anti-overlap",
+    "pt": "Antissobreposição"
+  },
+  "Repintado": {
+    "en": "Re-covered",
+    "pt": "Sobreposição"
+  },
+  "Repintada": {
+    "en": "Re-covered",
+    "pt": "Sobreposta"
+  },
+  "incluye solapamientos": {
+    "en": "includes overlaps",
+    "pt": "inclui sobreposições"
+  },
+  "sin contar repintado": {
+    "en": "excluding re-covered area",
+    "pt": "sem contar sobreposição"
+  },
+  "% solapamiento": {
+    "en": "% overlap",
+    "pt": "% de sobreposição"
+  },
+  "Overlap / Gap": {
+    "en": "Overlap / Gap",
+    "pt": "Sobreposição / Falha"
+  },
+  "Área cubierta": {
+    "en": "Covered area",
+    "pt": "Área coberta"
+  },
+  "Area cubierta": {
+    "en": "Covered area",
+    "pt": "Área coberta"
+  },
+  "Area neta": {
+    "en": "Net area",
+    "pt": "Área líquida"
+  },
+  "Área total trabajada": {
+    "en": "Total worked area",
+    "pt": "Área total trabalhada"
+  },
+  "Area total trabajada": {
+    "en": "Total worked area",
+    "pt": "Área total trabalhada"
+  },
+  "Área que NO repintaste": {
+    "en": "Area you did NOT re-cover",
+    "pt": "Área que você NÃO sobrepôs"
+  },
+  "Area que NO repintaste": {
+    "en": "Area you did NOT re-cover",
+    "pt": "Área que você NÃO sobrepôs"
+  },
+  "Área del lote (lindero)": {
+    "en": "Field area (boundary)",
+    "pt": "Área do talhão (contorno)"
+  },
+  "(superficie del lindero)": {
+    "en": "(boundary surface)",
+    "pt": "(superfície do contorno)"
+  },
+  "Porcentaje": {
+    "en": "Percentage",
+    "pt": "Percentual"
+  },
+  "Datos del lote": {
+    "en": "Field data",
+    "pt": "Dados do talhão"
+  },
+  "Lote activo": {
+    "en": "Active field",
+    "pt": "Talhão ativo"
+  },
+  "Lote en curso": {
+    "en": "Current field",
+    "pt": "Talhão em andamento"
+  },
+  "Abrir lote": {
+    "en": "Open field",
+    "pt": "Abrir talhão"
+  },
+  "Nuevo lote": {
+    "en": "New field",
+    "pt": "Novo talhão"
+  },
+  "Cerrar lote": {
+    "en": "Close field",
+    "pt": "Fechar talhão"
+  },
+  "Entrar al lote": {
+    "en": "Enter field",
+    "pt": "Entrar no talhão"
+  },
+  "Nombre del lote": {
+    "en": "Field name",
+    "pt": "Nome do talhão"
+  },
+  "Sin lote previo": {
+    "en": "No previous field",
+    "pt": "Sem talhão anterior"
+  },
+  "Sin lote abierto": {
+    "en": "No field open",
+    "pt": "Sem talhão aberto"
+  },
+  "Abierto:": {
+    "en": "Open:",
+    "pt": "Aberto:"
+  },
+  "No hay lotes": {
+    "en": "No fields",
+    "pt": "Não há talhões"
+  },
+  "Tocá un lote para abrirlo": {
+    "en": "Tap a field to open it",
+    "pt": "Toque em um talhão para abri-lo"
+  },
+  "Tocá el lote que querés usar de plantilla": {
+    "en": "Tap the field to use as template",
+    "pt": "Toque no talhão para usar como modelo"
+  },
+  "Nombre del lote nuevo (clonado de": {
+    "en": "New field name (cloned from",
+    "pt": "Nome do novo talhão (clonado de"
+  },
+  "Desde existente": {
+    "en": "From existing",
+    "pt": "A partir de existente"
+  },
+  "Desde KML": {
+    "en": "From KML",
+    "pt": "A partir de KML"
+  },
+  "Ej: Lote 12 — Maíz": {
+    "en": "e.g.: Field 12 — Corn",
+    "pt": "Ex.: Talhão 12 — Milho"
+  },
+  "Herramientas de lote - datos del lote activo (requiere lote)": {
+    "en": "Field tools - active field data (requires field)",
+    "pt": "Ferramentas de talhão - dados do talhão ativo (requer talhão)"
+  },
+  "Trabajo en curso": {
+    "en": "Current job",
+    "pt": "Trabalho em andamento"
+  },
+  "Sin trabajo": {
+    "en": "No job",
+    "pt": "Sem trabalho"
+  },
+  "Velocidad": {
+    "en": "Speed",
+    "pt": "Velocidade"
+  },
+  "Vel": {
+    "en": "Spd",
+    "pt": "Vel"
+  },
+  "Sec": {
+    "en": "Sec",
+    "pt": "Seç"
+  },
+  "Por velocidad": {
+    "en": "By speed",
+    "pt": "Por velocidade"
+  },
+  "Velocidad de conmutación": {
+    "en": "Switching speed",
+    "pt": "Velocidade de comutação"
+  },
+  "Posición": {
+    "en": "Position",
+    "pt": "Posição"
+  },
+  "Posicion": {
+    "en": "Position",
+    "pt": "Posição"
+  },
+  "Posición (WGS84)": {
+    "en": "Position (WGS84)",
+    "pt": "Posição (WGS84)"
+  },
+  "Coordenadas": {
+    "en": "Coordinates",
+    "pt": "Coordenadas"
+  },
+  "Latitud": {
+    "en": "Latitude",
+    "pt": "Latitude"
+  },
+  "Longitud": {
+    "en": "Longitude",
+    "pt": "Longitude"
+  },
+  "Datos GPS": {
+    "en": "GPS data",
+    "pt": "Dados GPS"
+  },
+  "Antena": {
+    "en": "Antenna",
+    "pt": "Antena"
+  },
+  "Antena GPS": {
+    "en": "GPS antenna",
+    "pt": "Antena GPS"
+  },
+  "Tipo de antena": {
+    "en": "Antenna type",
+    "pt": "Tipo de antena"
+  },
+  "Antena dual": {
+    "en": "Dual antenna",
+    "pt": "Antena dupla"
+  },
+  "Antena simple (Fix)": {
+    "en": "Single antenna (Fix)",
+    "pt": "Antena simples (Fix)"
+  },
+  "Posición de antena": {
+    "en": "Antenna position",
+    "pt": "Posição da antena"
+  },
+  "Altura de antena": {
+    "en": "Antenna height",
+    "pt": "Altura da antena"
+  },
+  "Offset de antena": {
+    "en": "Antenna offset",
+    "pt": "Offset da antena"
+  },
+  "Alarmas GPS": {
+    "en": "GPS alarms",
+    "pt": "Alarmes de GPS"
+  },
+  "Alarma RTK": {
+    "en": "RTK alarm",
+    "pt": "Alarme RTK"
+  },
+  "Salto de fix": {
+    "en": "Fix jump",
+    "pt": "Salto de fix"
+  },
+  "Sin fix": {
+    "en": "No fix",
+    "pt": "Sem fix"
+  },
+  "SIN FIX": {
+    "en": "NO FIX",
+    "pt": "SEM FIX"
+  },
+  "RTK FIJO": {
+    "en": "RTK FIXED",
+    "pt": "RTK FIXO"
+  },
+  "Señal libre": {
+    "en": "Free signal",
+    "pt": "Sinal livre"
+  },
+  "SIMULADOR": {
+    "en": "SIMULATOR",
+    "pt": "SIMULADOR"
+  },
+  "Simulador (banco)": {
+    "en": "Simulator (bench)",
+    "pt": "Simulador (bancada)"
+  },
+  "Sin conexion": {
+    "en": "No connection",
+    "pt": "Sem conexão"
+  },
+  "Detección de reversa": {
+    "en": "Reverse detection",
+    "pt": "Detecção de ré"
+  },
+  "Distancia de reversa": {
+    "en": "Reverse distance",
+    "pt": "Distância de ré"
+  },
+  "Fusión:": {
+    "en": "Fusion:",
+    "pt": "Fusão:"
+  },
+  "Cero de rolido": {
+    "en": "Roll zero",
+    "pt": "Zero de rolagem"
+  },
+  "Rolido": {
+    "en": "Roll",
+    "pt": "Rolagem"
+  },
+  "Invertir rolido": {
+    "en": "Invert roll",
+    "pt": "Inverter rolagem"
+  },
+  "Poner el rolido actual como cero": {
+    "en": "Set current roll as zero",
+    "pt": "Definir a rolagem atual como zero"
+  },
+  "Quitar offset": {
+    "en": "Remove offset",
+    "pt": "Remover offset"
+  },
+  "Reiniciar IMU": {
+    "en": "Restart IMU",
+    "pt": "Reiniciar IMU"
+  },
+  "Calibrar IMU": {
+    "en": "Calibrate IMU",
+    "pt": "Calibrar IMU"
+  },
+  "Filtro": {
+    "en": "Filter",
+    "pt": "Filtro"
+  },
+  "Configuración": {
+    "en": "Settings",
+    "pt": "Configuração"
+  },
+  "Config": {
+    "en": "Config",
+    "pt": "Config"
+  },
+  "Guardar config": {
+    "en": "Save config",
+    "pt": "Salvar config"
+  },
+  "Config por defecto": {
+    "en": "Default config",
+    "pt": "Config padrão"
+  },
+  "Resumen": {
+    "en": "Summary",
+    "pt": "Resumo"
+  },
+  "Vehículo": {
+    "en": "Vehicle",
+    "pt": "Veículo"
+  },
+  "Vehiculo": {
+    "en": "Vehicle",
+    "pt": "Veículo"
+  },
+  "Perfiles del vehículo": {
+    "en": "Vehicle profiles",
+    "pt": "Perfis do veículo"
+  },
+  "Perfiles": {
+    "en": "Profiles",
+    "pt": "Perfis"
+  },
+  "Perfil: —": {
+    "en": "Profile: —",
+    "pt": "Perfil: —"
+  },
+  "Tipo y marca": {
+    "en": "Type and brand",
+    "pt": "Tipo e marca"
+  },
+  "Tipo de vehículo": {
+    "en": "Vehicle type",
+    "pt": "Tipo de veículo"
+  },
+  "Tractor": {
+    "en": "Tractor",
+    "pt": "Trator"
+  },
+  "Cosechadora": {
+    "en": "Harvester",
+    "pt": "Colheitadeira"
+  },
+  "Articulado": {
+    "en": "Articulated",
+    "pt": "Articulado"
+  },
+  "La cosechadora fuerza el implemento a frontal.": {
+    "en": "The harvester forces the implement to front.",
+    "pt": "A colheitadeira força o implemento para frontal."
+  },
+  "La cosechadora usa siempre implemento frontal — no hay nada que elegir.": {
+    "en": "The harvester always uses a front implement — there is nothing to choose.",
+    "pt": "A colheitadeira usa sempre implemento frontal — não há nada para escolher."
+  },
+  "El estilo define el signo del enganche: frontal lo pone adelante y los demás, atrás.": {
+    "en": "The style sets the hitch sign: front puts it ahead, the others behind.",
+    "pt": "O estilo define o sinal do engate: frontal o coloca à frente e os demais, atrás."
+  },
+  "Marca": {
+    "en": "Brand",
+    "pt": "Marca"
+  },
+  "Imagen": {
+    "en": "Image",
+    "pt": "Imagem"
+  },
+  "Sin imagen": {
+    "en": "No image",
+    "pt": "Sem imagem"
+  },
+  "Opacidad del dibujo en el mapa (20–100%).": {
+    "en": "Drawing opacity on the map (20–100%).",
+    "pt": "Opacidade do desenho no mapa (20–100%)."
+  },
+  "Dimensiones": {
+    "en": "Dimensions",
+    "pt": "Dimensões"
+  },
+  "Dimensiones del vehículo": {
+    "en": "Vehicle dimensions",
+    "pt": "Dimensões do veículo"
+  },
+  "Entre ejes": {
+    "en": "Wheelbase",
+    "pt": "Entre eixos"
+  },
+  "Entre ejes:": {
+    "en": "Wheelbase:",
+    "pt": "Entre eixos:"
+  },
+  "Trocha": {
+    "en": "Track width",
+    "pt": "Bitola"
+  },
+  "Enganche": {
+    "en": "Hitch",
+    "pt": "Engate"
+  },
+  "Estilo de enganche": {
+    "en": "Hitch style",
+    "pt": "Tipo de engate"
+  },
+  "Largo de enganche": {
+    "en": "Hitch length",
+    "pt": "Comprimento do engate"
+  },
+  "Distancia del eje rígido al enganche": {
+    "en": "Fixed axle to hitch distance",
+    "pt": "Distância do eixo rígido ao engate"
+  },
+  "La distancia del eje rígido al enganche no aplica con implemento fijo o frontal — se configura en la pestaña Distancias del implemento.": {
+    "en": "The fixed axle to hitch distance does not apply with a fixed or front implement — it is set in the implement's Distances tab.",
+    "pt": "A distância do eixo rígido ao engate não se aplica com implemento fixo ou frontal — configura-se na aba Distâncias do implemento."
+  },
+  "Distancias de enganche": {
+    "en": "Hitch distances",
+    "pt": "Distâncias do engate"
+  },
+  "Enganche de arrastre": {
+    "en": "Trailing hitch",
+    "pt": "Engate de arrasto"
+  },
+  "Enganche del tanque": {
+    "en": "Tank hitch",
+    "pt": "Engate do tanque"
+  },
+  "Fijo trasero": {
+    "en": "Rear fixed",
+    "pt": "Fixo traseiro"
+  },
+  "Tanque intermedio (TBT)": {
+    "en": "Tank between (TBT)",
+    "pt": "Tanque intermediário (TBT)"
+  },
+  "Frontal": {
+    "en": "Front",
+    "pt": "Frontal"
+  },
+  "De arrastre": {
+    "en": "Trailed",
+    "pt": "De arrasto"
+  },
+  "Distancias": {
+    "en": "Distances",
+    "pt": "Distâncias"
+  },
+  "Distancia al pivote": {
+    "en": "Distance to pivot",
+    "pt": "Distância ao pivô"
+  },
+  "Distancia al límite": {
+    "en": "Distance to boundary",
+    "pt": "Distância ao limite"
+  },
+  "Distancia rueda / pivote del implemento": {
+    "en": "Implement wheel / pivot distance",
+    "pt": "Distância roda / pivô do implemento"
+  },
+  "Pivote": {
+    "en": "Pivot",
+    "pt": "Pivô"
+  },
+  "Offset": {
+    "en": "Offset",
+    "pt": "Offset"
+  },
+  "Offset del implemento": {
+    "en": "Implement offset",
+    "pt": "Offset do implemento"
+  },
+  "Largo de barra": {
+    "en": "Bar length",
+    "pt": "Comprimento da barra"
+  },
+  "Ancho barra": {
+    "en": "Bar width",
+    "pt": "Largura da barra"
+  },
+  "Ancho de herramienta": {
+    "en": "Implement width",
+    "pt": "Largura do implemento"
+  },
+  "Ancho total": {
+    "en": "Total width",
+    "pt": "Largura total"
+  },
+  "Ancho total:": {
+    "en": "Total width:",
+    "pt": "Largura total:"
+  },
+  "Ancho por defecto": {
+    "en": "Default width",
+    "pt": "Largura padrão"
+  },
+  "Cantidad": {
+    "en": "Quantity",
+    "pt": "Quantidade"
+  },
+  "Zonas": {
+    "en": "Zones",
+    "pt": "Zonas"
+  },
+  "Adelante": {
+    "en": "Forward",
+    "pt": "À frente"
+  },
+  "Detrás": {
+    "en": "Behind",
+    "pt": "Atrás"
+  },
+  "Timing": {
+    "en": "Timing",
+    "pt": "Tempos"
+  },
+  "Encendido (s)": {
+    "en": "On (s)",
+    "pt": "Ligado (s)"
+  },
+  "Apagado (s)": {
+    "en": "Off (s)",
+    "pt": "Desligado (s)"
+  },
+  "Retardo de apagado (s)": {
+    "en": "Off delay (s)",
+    "pt": "Atraso de desligamento (s)"
+  },
+  "Switches": {
+    "en": "Switches",
+    "pt": "Chaves"
+  },
+  "Máquina": {
+    "en": "Machine",
+    "pt": "Máquina"
+  },
+  "Módulo": {
+    "en": "Module",
+    "pt": "Módulo"
+  },
+  "Módulos": {
+    "en": "Modules",
+    "pt": "Módulos"
+  },
+  "Pines del módulo de máquina": {
+    "en": "Machine module pins",
+    "pt": "Pinos do módulo da máquina"
+  },
+  "Todos sin función": {
+    "en": "All unassigned",
+    "pt": "Todos sem função"
+  },
+  "Enviar + Guardar": {
+    "en": "Send + Save",
+    "pt": "Enviar + Salvar"
+  },
+  "Levante hidráulico": {
+    "en": "Hydraulic lift",
+    "pt": "Levante hidráulico"
+  },
+  "Habilitar levante": {
+    "en": "Enable lift",
+    "pt": "Habilitar levante"
+  },
+  "Levante": {
+    "en": "Lift",
+    "pt": "Levante"
+  },
+  "Hidráulico": {
+    "en": "Hydraulic",
+    "pt": "Hidráulico"
+  },
+  "Tiempo de subida": {
+    "en": "Raise time",
+    "pt": "Tempo de subida"
+  },
+  "Tiempo de bajada": {
+    "en": "Lower time",
+    "pt": "Tempo de descida"
+  },
+  "Anticipación del levante": {
+    "en": "Lift look-ahead",
+    "pt": "Antecipação do levante"
+  },
+  "Invertir relés": {
+    "en": "Invert relays",
+    "pt": "Inverter relés"
+  },
+  "Usuario 1": {
+    "en": "User 1",
+    "pt": "Usuário 1"
+  },
+  "Usuario 2": {
+    "en": "User 2",
+    "pt": "Usuário 2"
+  },
+  "Usuario 3": {
+    "en": "User 3",
+    "pt": "Usuário 3"
+  },
+  "Usuario 4": {
+    "en": "User 4",
+    "pt": "Usuário 4"
+  },
+  "Trochas (tramlines)": {
+    "en": "Tramlines",
+    "pt": "Rodados (tramlines)"
+  },
+  "Trochas": {
+    "en": "Tramlines",
+    "pt": "Rodados"
+  },
+  "Ancho de trocha": {
+    "en": "Tramline width",
+    "pt": "Largura do rodado"
+  },
+  "Ancho tram:": {
+    "en": "Tramline width:",
+    "pt": "Largura dos rodados:"
+  },
+  "Tram": {
+    "en": "Tramlines",
+    "pt": "Rodados"
+  },
+  "Mostrar control en pantalla": {
+    "en": "Show control on screen",
+    "pt": "Mostrar controle na tela"
+  },
+  "Invertir exterior / interior": {
+    "en": "Invert outer / inner",
+    "pt": "Inverter externo / interno"
+  },
+  "Radio": {
+    "en": "Radius",
+    "pt": "Raio"
+  },
+  "Suavizado y extensión": {
+    "en": "Smoothing and extension",
+    "pt": "Suavização e extensão"
+  },
+  "Suavizado de líneas": {
+    "en": "Line smoothing",
+    "pt": "Suavização das linhas"
+  },
+  "Elementos en pantalla": {
+    "en": "On-screen elements",
+    "pt": "Elementos na tela"
+  },
+  "Polígonos": {
+    "en": "Polygons",
+    "pt": "Polígonos"
+  },
+  "Velocímetro": {
+    "en": "Speedometer",
+    "pt": "Velocímetro"
+  },
+  "Teclado": {
+    "en": "Keyboard",
+    "pt": "Teclado"
+  },
+  "Brillo": {
+    "en": "Brightness",
+    "pt": "Brilho"
+  },
+  "Brillo +": {
+    "en": "Brightness +",
+    "pt": "Brilho +"
+  },
+  "Brillo −": {
+    "en": "Brightness −",
+    "pt": "Brilho −"
+  },
+  "Brillo de pantalla": {
+    "en": "Screen brightness",
+    "pt": "Brilho da tela"
+  },
+  "Día / Noche": {
+    "en": "Day / Night",
+    "pt": "Dia / Noite"
+  },
+  "Flecha Svenn": {
+    "en": "Svenn arrow",
+    "pt": "Seta Svenn"
+  },
+  "Iniciar pantalla completa": {
+    "en": "Start full screen",
+    "pt": "Iniciar em tela cheia"
+  },
+  "Registrar elevación": {
+    "en": "Log elevation",
+    "pt": "Registrar elevação"
+  },
+  "Textura de piso": {
+    "en": "Ground texture",
+    "pt": "Textura do solo"
+  },
+  "Grilla": {
+    "en": "Grid",
+    "pt": "Grade"
+  },
+  "Unidades": {
+    "en": "Units",
+    "pt": "Unidades"
+  },
+  "Unidades:": {
+    "en": "Units:",
+    "pt": "Unidades:"
+  },
+  "Métrico": {
+    "en": "Metric",
+    "pt": "Métrico"
+  },
+  "Imperial": {
+    "en": "Imperial",
+    "pt": "Imperial"
+  },
+  "Menú de campo": {
+    "en": "Field menu",
+    "pt": "Menu de campo"
+  },
+  "Menú de herramientas": {
+    "en": "Tools menu",
+    "pt": "Menu de ferramentas"
+  },
+  "Menú inferior": {
+    "en": "Bottom menu",
+    "pt": "Menu inferior"
+  },
+  "Menú": {
+    "en": "Menu",
+    "pt": "Menu"
+  },
+  "Lateral": {
+    "en": "Lateral",
+    "pt": "Lateral"
+  },
+  "Camino grabado": {
+    "en": "Recorded path",
+    "pt": "Caminho gravado"
+  },
+  "Cámara web": {
+    "en": "Webcam",
+    "pt": "Webcam"
+  },
+  "Webcam": {
+    "en": "Webcam",
+    "pt": "Webcam"
+  },
+  "Cámaras": {
+    "en": "Cameras",
+    "pt": "Câmeras"
+  },
+  "Camaras": {
+    "en": "Cameras",
+    "pt": "Câmeras"
+  },
+  "1 cámara": {
+    "en": "1 camera",
+    "pt": "1 câmera"
+  },
+  "2 cámaras": {
+    "en": "2 cameras",
+    "pt": "2 câmeras"
+  },
+  "4 cámaras": {
+    "en": "4 cameras",
+    "pt": "4 câmeras"
+  },
+  "Cámaras visibles": {
+    "en": "Visible cameras",
+    "pt": "Câmeras visíveis"
+  },
+  "+ Agregar cámara": {
+    "en": "+ Add camera",
+    "pt": "+ Adicionar câmera"
+  },
+  "No hay cámaras activas configuradas.": {
+    "en": "No active cameras configured.",
+    "pt": "Nenhuma câmera ativa configurada."
+  },
+  "Doble click en una cámara para enfocarla / volver.": {
+    "en": "Double-click a camera to focus it / go back.",
+    "pt": "Duplo clique em uma câmera para focar / voltar."
+  },
+  "Refresco (ms)": {
+    "en": "Refresh (ms)",
+    "pt": "Atualização (ms)"
+  },
+  "Nombre": {
+    "en": "Name",
+    "pt": "Nome"
+  },
+  "Puerto": {
+    "en": "Port",
+    "pt": "Porta"
+  },
+  "Canal": {
+    "en": "Channel",
+    "pt": "Canal"
+  },
+  "Usuario": {
+    "en": "User",
+    "pt": "Usuário"
+  },
+  "Clave": {
+    "en": "Password",
+    "pt": "Senha"
+  },
+  "Activa": {
+    "en": "Active",
+    "pt": "Ativa"
+  },
+  "Activo": {
+    "en": "Active",
+    "pt": "Ativo"
+  },
+  "Estado": {
+    "en": "Status",
+    "pt": "Estado"
+  },
+  "Estado:": {
+    "en": "Status:",
+    "pt": "Estado:"
+  },
+  "Estado en vivo": {
+    "en": "Live status",
+    "pt": "Estado ao vivo"
+  },
+  "Estado en tiempo real del sistema": {
+    "en": "Real-time system status",
+    "pt": "Estado do sistema em tempo real"
+  },
+  "Tipo": {
+    "en": "Type",
+    "pt": "Tipo"
+  },
+  "Nodos": {
+    "en": "Nodes",
+    "pt": "Nós"
+  },
+  "Ver nodos": {
+    "en": "View nodes",
+    "pt": "Ver nós"
+  },
+  "Nodos detectados": {
+    "en": "Nodes found",
+    "pt": "Nós detectados"
+  },
+  "Nodos conocidos": {
+    "en": "Known nodes",
+    "pt": "Nós conhecidos"
+  },
+  "Buscando nodos…": {
+    "en": "Searching for nodes…",
+    "pt": "Procurando nós…"
+  },
+  "No hay nodos en esta vista.": {
+    "en": "No nodes in this view.",
+    "pt": "Nenhum nó nesta visão."
+  },
+  "Nodos del implemento activo offline": {
+    "en": "Nodes of the active implement are offline",
+    "pt": "Nós do implemento ativo offline"
+  },
+  "Un nodo no aparece": {
+    "en": "A node doesn't show up",
+    "pt": "Um nó não aparece"
+  },
+  "Enviar a nodos": {
+    "en": "Send to nodes",
+    "pt": "Enviar aos nós"
+  },
+  "Re-escanear nodos": {
+    "en": "Rescan nodes",
+    "pt": "Reescanear nós"
+  },
+  "Dispositivos AgroParallel descubiertos en la LAN": {
+    "en": "Agro Parallel devices found on the LAN",
+    "pt": "Dispositivos Agro Parallel encontrados na LAN"
+  },
+  "Asistente de primera vez": {
+    "en": "First-time wizard",
+    "pt": "Assistente de primeira vez"
+  },
+  "Alias / UID": {
+    "en": "Alias / UID",
+    "pt": "Alias / UID"
+  },
+  "UID (nodo)": {
+    "en": "UID (node)",
+    "pt": "UID (nó)"
+  },
+  "Última señal": {
+    "en": "Last signal",
+    "pt": "Último sinal"
+  },
+  "Ultima senal": {
+    "en": "Last signal",
+    "pt": "Último sinal"
+  },
+  "Ultima lectura": {
+    "en": "Last reading",
+    "pt": "Última leitura"
+  },
+  "Ultima consulta": {
+    "en": "Last check",
+    "pt": "Última consulta"
+  },
+  "Pendientes": {
+    "en": "Pending",
+    "pt": "Pendentes"
+  },
+  "Aceptados": {
+    "en": "Accepted",
+    "pt": "Aceitos"
+  },
+  "Ignorados": {
+    "en": "Ignored",
+    "pt": "Ignorados"
+  },
+  "Off-line": {
+    "en": "Off-line",
+    "pt": "Off-line"
+  },
+  "¿Cómo funciona?": {
+    "en": "How does it work?",
+    "pt": "Como funciona?"
+  },
+  "Diagnóstico MQTT": {
+    "en": "MQTT diagnostics",
+    "pt": "Diagnóstico MQTT"
+  },
+  "Conexión al broker": {
+    "en": "Broker connection",
+    "pt": "Conexão com o broker"
+  },
+  "Reconectar al broker": {
+    "en": "Reconnect to broker",
+    "pt": "Reconectar ao broker"
+  },
+  "Intentos de conexión": {
+    "en": "Connection attempts",
+    "pt": "Tentativas de conexão"
+  },
+  "Última conexión OK": {
+    "en": "Last successful connection",
+    "pt": "Última conexão OK"
+  },
+  "Suscripciones": {
+    "en": "Subscriptions",
+    "pt": "Assinaturas"
+  },
+  "Mensajes perdidos (gaps)": {
+    "en": "Lost messages (gaps)",
+    "pt": "Mensagens perdidas (gaps)"
+  },
+  "Reboots detectados": {
+    "en": "Reboots detected",
+    "pt": "Reinícios detectados"
+  },
+  "Últimos mensajes MQTT": {
+    "en": "Latest MQTT messages",
+    "pt": "Últimas mensagens MQTT"
+  },
+  "— sin mensajes aún —": {
+    "en": "— no messages yet —",
+    "pt": "— sem mensagens ainda —"
+  },
+  "Detalle técnico (soporte)": {
+    "en": "Technical detail (support)",
+    "pt": "Detalhe técnico (suporte)"
+  },
+  "consultando…": {
+    "en": "querying…",
+    "pt": "consultando…"
+  },
+  "Siembra": {
+    "en": "Seeding",
+    "pt": "Semeadura"
+  },
+  "Monitoreo de siembra": {
+    "en": "Seeding monitor",
+    "pt": "Monitoramento de semeadura"
+  },
+  "Monitor de siembra": {
+    "en": "Seeding monitor",
+    "pt": "Monitor de semeadura"
+  },
+  "Monitor": {
+    "en": "Monitor",
+    "pt": "Monitor"
+  },
+  "Promedio siembra": {
+    "en": "Seeding average",
+    "pt": "Média de semeadura"
+  },
+  "Objetivo de siembra": {
+    "en": "Seeding target",
+    "pt": "Alvo de semeadura"
+  },
+  "Objetivo propio (sem/m)": {
+    "en": "Own target (sem/m)",
+    "pt": "Alvo próprio (sem/m)"
+  },
+  "Calculadora": {
+    "en": "Calculator",
+    "pt": "Calculadora"
+  },
+  "Calculadora de siembra": {
+    "en": "Seeding calculator",
+    "pt": "Calculadora de semeadura"
+  },
+  "Trenes de siembra": {
+    "en": "Seeding trains",
+    "pt": "Trens de semeadura"
+  },
+  "+ Agregar tren": {
+    "en": "+ Add train",
+    "pt": "+ Adicionar trem"
+  },
+  "Trenes": {
+    "en": "Trains",
+    "pt": "Trens"
+  },
+  "Tren": {
+    "en": "Train",
+    "pt": "Trem"
+  },
+  "Surco": {
+    "en": "Row",
+    "pt": "Linha"
+  },
+  "Surcos": {
+    "en": "Rows",
+    "pt": "Linhas"
+  },
+  "Surcos activos": {
+    "en": "Active rows",
+    "pt": "Linhas ativas"
+  },
+  "Número de surcos": {
+    "en": "Number of rows",
+    "pt": "Número de linhas"
+  },
+  "Distancia entre surcos": {
+    "en": "Row spacing",
+    "pt": "Espaçamento entre linhas"
+  },
+  "Surcos (uno por bajada)": {
+    "en": "Rows (one per row unit)",
+    "pt": "Linhas (uma por linha)"
+  },
+  "Surcos por torre": {
+    "en": "Rows per tower",
+    "pt": "Linhas por torre"
+  },
+  "Quitar surco": {
+    "en": "Remove row",
+    "pt": "Remover linha"
+  },
+  "Bajada": {
+    "en": "Row unit",
+    "pt": "Linha"
+  },
+  "Torres (agrupado)": {
+    "en": "Towers (grouped)",
+    "pt": "Torres (agrupado)"
+  },
+  "N° de torres": {
+    "en": "No. of towers",
+    "pt": "Nº de torres"
+  },
+  "Conteo de semillas": {
+    "en": "Seed count",
+    "pt": "Contagem de sementes"
+  },
+  "Contar semillas de cada surco en un tramo": {
+    "en": "Count seeds of each row over a stretch",
+    "pt": "Contar sementes de cada linha em um trecho"
+  },
+  "Semillas": {
+    "en": "Seeds",
+    "pt": "Sementes"
+  },
+  "Metros a contar": {
+    "en": "Meters to count",
+    "pt": "Metros a contar"
+  },
+  "Esperadas": {
+    "en": "Expected",
+    "pt": "Esperadas"
+  },
+  "Logrado": {
+    "en": "Achieved",
+    "pt": "Alcançado"
+  },
+  "Desvío": {
+    "en": "Deviation",
+    "pt": "Desvio"
+  },
+  "Tolerancia desvío (%)": {
+    "en": "Deviation tolerance (%)",
+    "pt": "Tolerância de desvio (%)"
+  },
+  "detenido": {
+    "en": "stopped",
+    "pt": "parado"
+  },
+  "Dosis": {
+    "en": "Rate",
+    "pt": "Dose"
+  },
+  "Dosis actual": {
+    "en": "Current rate",
+    "pt": "Dose atual"
+  },
+  "Dosis aplicada": {
+    "en": "Applied rate",
+    "pt": "Dose aplicada"
+  },
+  "Shape (dosis)": {
+    "en": "Shape (rate)",
+    "pt": "Shape (dose)"
+  },
+  "Tasa variable": {
+    "en": "Variable rate",
+    "pt": "Taxa variável"
+  },
+  "Prescripciones": {
+    "en": "Prescriptions",
+    "pt": "Prescrições"
+  },
+  "Prescripciones guardadas": {
+    "en": "Saved prescriptions",
+    "pt": "Prescrições salvas"
+  },
+  "Subir shapefile de prescripción": {
+    "en": "Upload prescription shapefile",
+    "pt": "Enviar shapefile de prescrição"
+  },
+  "Arrastrá los archivos acá": {
+    "en": "Drag the files here",
+    "pt": "Arraste os arquivos aqui"
+  },
+  "o tocá para elegirlos del explorador": {
+    "en": "or tap to pick them from the file browser",
+    "pt": "ou toque para escolhê-los no explorador"
+  },
+  "Subir y cargar en PilotX": {
+    "en": "Upload and load into PilotX",
+    "pt": "Enviar e carregar no PilotX"
+  },
+  "Quitar capa actual": {
+    "en": "Remove current layer",
+    "pt": "Remover camada atual"
+  },
+  "Capa activa": {
+    "en": "Active layer",
+    "pt": "Camada ativa"
+  },
+  "Tocá una zona de la vista previa para ver su dosis.": {
+    "en": "Tap a zone in the preview to see its rate.",
+    "pt": "Toque em uma zona da prévia para ver sua dose."
+  },
+  "sin shape": {
+    "en": "no shape",
+    "pt": "sem shape"
+  },
+  "Mostrar shapefile": {
+    "en": "Show shapefile",
+    "pt": "Mostrar shapefile"
+  },
+  "Motores": {
+    "en": "Motors",
+    "pt": "Motores"
+  },
+  "+ Motor": {
+    "en": "+ Motor",
+    "pt": "+ Motor"
+  },
+  "Auto-repartir": {
+    "en": "Auto-distribute",
+    "pt": "Distribuir automaticamente"
+  },
+  "Sembradora · color = motor": {
+    "en": "Planter · color = motor",
+    "pt": "Semeadora · cor = motor"
+  },
+  "tocá un surco para pintarlo con el motor activo": {
+    "en": "tap a row to paint it with the active motor",
+    "pt": "toque em uma linha para pintá-la com o motor ativo"
+  },
+  "Pincel: —": {
+    "en": "Brush: —",
+    "pt": "Pincel: —"
+  },
+  "Tabla": {
+    "en": "Table",
+    "pt": "Tabela"
+  },
+  "Calibración": {
+    "en": "Calibration",
+    "pt": "Calibração"
+  },
+  "Prueba": {
+    "en": "Test",
+    "pt": "Teste"
+  },
+  "Control PID - 2 motores por nodo": {
+    "en": "PID control - 2 motors per node",
+    "pt": "Controle PID - 2 motores por nó"
+  },
+  "Estado PID": {
+    "en": "PID status",
+    "pt": "Estado do PID"
+  },
+  "Lab PID": {
+    "en": "PID lab",
+    "pt": "Lab PID"
+  },
+  "Diagnóstico PWM": {
+    "en": "PWM diagnostics",
+    "pt": "Diagnóstico PWM"
+  },
+  "PWM bomba": {
+    "en": "Pump PWM",
+    "pt": "PWM da bomba"
+  },
+  "Insumo": {
+    "en": "Input",
+    "pt": "Insumo"
+  },
+  "Insumos": {
+    "en": "Inputs",
+    "pt": "Insumos"
+  },
+  "Insumo activo": {
+    "en": "Active input",
+    "pt": "Insumo ativo"
+  },
+  "Insumo & calibración": {
+    "en": "Input & calibration",
+    "pt": "Insumo e calibração"
+  },
+  "— Sin insumo activo —": {
+    "en": "— No active input —",
+    "pt": "— Sem insumo ativo —"
+  },
+  "Insumo ahorrado": {
+    "en": "Input saved",
+    "pt": "Insumo economizado"
+  },
+  "Insumo ahorrado por corte automático": {
+    "en": "Input saved by automatic cut-off",
+    "pt": "Insumo economizado pelo corte automático"
+  },
+  "Insumo ahorrado por corte automatico": {
+    "en": "Input saved by automatic cut-off",
+    "pt": "Insumo economizado pelo corte automático"
+  },
+  "Precio del insumo (opcional)": {
+    "en": "Input price (optional)",
+    "pt": "Preço do insumo (opcional)"
+  },
+  "Ahorro estimado": {
+    "en": "Estimated savings",
+    "pt": "Economia estimada"
+  },
+  "Para calcular en plata.": {
+    "en": "To calculate in money.",
+    "pt": "Para calcular em dinheiro."
+  },
+  "Semilla / Fertilizante (kg/ha)": {
+    "en": "Seed / Fertilizer (kg/ha)",
+    "pt": "Semente / Fertilizante (kg/ha)"
+  },
+  "Líquido pulverización (L/ha)": {
+    "en": "Spray liquid (L/ha)",
+    "pt": "Líquido de pulverização (L/ha)"
+  },
+  "Liquido pulverizacion (L/ha)": {
+    "en": "Spray liquid (L/ha)",
+    "pt": "Líquido de pulverização (L/ha)"
+  },
+  "Pulverizacion": {
+    "en": "Spraying",
+    "pt": "Pulverização"
+  },
+  "Control de corte y dosis para pulverizadoras": {
+    "en": "Cut-off and rate control for sprayers",
+    "pt": "Controle de corte e dose para pulverizadores"
+  },
+  "Caudal real": {
+    "en": "Actual flow",
+    "pt": "Vazão real"
+  },
+  "Detectar densidad de siembra": {
+    "en": "Detect seeding density",
+    "pt": "Detectar densidade de semeadura"
+  },
+  "Detectando densidad…": {
+    "en": "Detecting density…",
+    "pt": "Detectando densidade…"
+  },
+  "densidad objetivo": {
+    "en": "target density",
+    "pt": "densidade alvo"
+  },
+  "densidad asumida al saturar": {
+    "en": "assumed density at saturation",
+    "pt": "densidade assumida na saturação"
+  },
+  "Sensor saturado — modo flujo": {
+    "en": "Sensor saturated — flow mode",
+    "pt": "Sensor saturado — modo fluxo"
+  },
+  "modo flujo": {
+    "en": "flow mode",
+    "pt": "modo fluxo"
+  },
+  "Límite del sensor (sem/m)": {
+    "en": "Sensor limit (sem/m)",
+    "pt": "Limite do sensor (sem/m)"
+  },
+  "Guardar límite": {
+    "en": "Save limit",
+    "pt": "Salvar limite"
+  },
+  "Resultado": {
+    "en": "Result",
+    "pt": "Resultado"
+  },
+  "Guardar al insumo": {
+    "en": "Save to input",
+    "pt": "Salvar no insumo"
+  },
+  "Sensor": {
+    "en": "Sensor",
+    "pt": "Sensor"
+  },
+  "Mapeo de sensores": {
+    "en": "Sensor mapping",
+    "pt": "Mapeamento de sensores"
+  },
+  "+ Agregar sensor": {
+    "en": "+ Add sensor",
+    "pt": "+ Adicionar sensor"
+  },
+  "Cable": {
+    "en": "Cable",
+    "pt": "Cabo"
+  },
+  "Timeout sensor (ms)": {
+    "en": "Sensor timeout (ms)",
+    "pt": "Timeout do sensor (ms)"
+  },
+  "Umbral sensores activos": {
+    "en": "Active sensor threshold",
+    "pt": "Limiar de sensores ativos"
+  },
+  "Tiempo confirmación (ms)": {
+    "en": "Confirmation time (ms)",
+    "pt": "Tempo de confirmação (ms)"
+  },
+  "Caída de semilla (umbral N sensores)": {
+    "en": "Seed drop (N sensor threshold)",
+    "pt": "Queda de semente (limiar de N sensores)"
+  },
+  "Método inicio monitoreo": {
+    "en": "Monitoring start method",
+    "pt": "Método de início do monitoramento"
+  },
+  "Alarmas silenciadas": {
+    "en": "Alarms muted",
+    "pt": "Alarmes silenciados"
+  },
+  "sin alarma": {
+    "en": "no alarm",
+    "pt": "sem alarme"
+  },
+  "Silenciar 10 min": {
+    "en": "Mute 10 min",
+    "pt": "Silenciar 10 min"
+  },
+  "Geometría centralizada": {
+    "en": "Centralized geometry",
+    "pt": "Geometria centralizada"
+  },
+  "Parámetros VistaX": {
+    "en": "VistaX parameters",
+    "pt": "Parâmetros do VistaX"
+  },
+  "Vista por defecto": {
+    "en": "Default view",
+    "pt": "Visão padrão"
+  },
+  "Guardar implemento": {
+    "en": "Save implement",
+    "pt": "Salvar implemento"
+  },
+  "Implemento offline": {
+    "en": "Implement offline",
+    "pt": "Implemento offline"
+  },
+  "Archivos": {
+    "en": "Files",
+    "pt": "Arquivos"
+  },
+  "Comportamiento": {
+    "en": "Behavior",
+    "pt": "Comportamento"
+  },
+  "Exportar datos VistaX": {
+    "en": "Export VistaX data",
+    "pt": "Exportar dados do VistaX"
+  },
+  "Estacion meteorologica movil": {
+    "en": "Mobile weather station",
+    "pt": "Estação meteorológica móvel"
+  },
+  "Temperatura": {
+    "en": "Temperature",
+    "pt": "Temperatura"
+  },
+  "Temp. max.": {
+    "en": "Max. temp.",
+    "pt": "Temp. máx."
+  },
+  "Humedad": {
+    "en": "Humidity",
+    "pt": "Umidade"
+  },
+  "Humedad min.": {
+    "en": "Min. humidity",
+    "pt": "Umidade mín."
+  },
+  "Viento": {
+    "en": "Wind",
+    "pt": "Vento"
+  },
+  "Viento max.": {
+    "en": "Max. wind",
+    "pt": "Vento máx."
+  },
+  "Viento min.": {
+    "en": "Min. wind",
+    "pt": "Vento mín."
+  },
+  "Presion": {
+    "en": "Pressure",
+    "pt": "Pressão"
+  },
+  "Delta-T max.": {
+    "en": "Delta-T max.",
+    "pt": "Delta-T máx."
+  },
+  "Umbrales operativos": {
+    "en": "Operating thresholds",
+    "pt": "Limites operacionais"
+  },
+  "Promedio del ultimo segundo": {
+    "en": "Average of the last second",
+    "pt": "Média do último segundo"
+  },
+  "Equipo": {
+    "en": "Machine",
+    "pt": "Equipamento"
+  },
+  "Equipos": {
+    "en": "Equipment",
+    "pt": "Equipamentos"
+  },
+  "Campo": {
+    "en": "Field",
+    "pt": "Campo"
+  },
+  "Mapas": {
+    "en": "Maps",
+    "pt": "Mapas"
+  },
+  "Mapa en vivo · vehículo y herramienta": {
+    "en": "Live map · vehicle and implement",
+    "pt": "Mapa ao vivo · veículo e implemento"
+  },
+  "MAPA": {
+    "en": "MAP",
+    "pt": "MAPA"
+  },
+  "Volver al mapa": {
+    "en": "Back to the map",
+    "pt": "Voltar ao mapa"
+  },
+  "Seguir tractor": {
+    "en": "Follow tractor",
+    "pt": "Seguir o trator"
+  },
+  "Qué ves en el mapa": {
+    "en": "What you see on the map",
+    "pt": "O que você vê no mapa"
+  },
+  "Widgets sobre el mapa": {
+    "en": "Widgets on the map",
+    "pt": "Widgets sobre o mapa"
+  },
+  "Overlays de PilotX": {
+    "en": "PilotX overlays",
+    "pt": "Overlays do PilotX"
+  },
+  "Acciones rápidas": {
+    "en": "Quick actions",
+    "pt": "Ações rápidas"
+  },
+  "Acciones rapidas": {
+    "en": "Quick actions",
+    "pt": "Ações rápidas"
+  },
+  "Abrir QuantiX": {
+    "en": "Open QuantiX",
+    "pt": "Abrir QuantiX"
+  },
+  "Abrir VistaX": {
+    "en": "Open VistaX",
+    "pt": "Abrir VistaX"
+  },
+  "Asistencias": {
+    "en": "Assists",
+    "pt": "Assistências"
+  },
+  "Auto-secciones": {
+    "en": "Auto sections",
+    "pt": "Seções automáticas"
+  },
+  "Recordatorio fin línea": {
+    "en": "End-of-line reminder",
+    "pt": "Lembrete de fim de linha"
+  },
+  "Energía": {
+    "en": "Power",
+    "pt": "Energia"
+  },
+  "Energia": {
+    "en": "Power",
+    "pt": "Energia"
+  },
+  "Apagar la PC": {
+    "en": "Shut down the PC",
+    "pt": "Desligar o PC"
+  },
+  "Reiniciar la PC": {
+    "en": "Restart the PC",
+    "pt": "Reiniciar o PC"
+  },
+  "Suspender": {
+    "en": "Sleep",
+    "pt": "Suspender"
+  },
+  "Cerrar PilotX": {
+    "en": "Close PilotX",
+    "pt": "Fechar PilotX"
+  },
+  "Cierra solo la aplicacion.": {
+    "en": "Closes the application only.",
+    "pt": "Fecha apenas o aplicativo."
+  },
+  "Detiene PilotX y apaga el sistema.": {
+    "en": "Stops PilotX and shuts down the system.",
+    "pt": "Para o PilotX e desliga o sistema."
+  },
+  "Detiene PilotX y reinicia el sistema.": {
+    "en": "Stops PilotX and restarts the system.",
+    "pt": "Para o PilotX e reinicia o sistema."
+  },
+  "Pone la PC en suspensión (S3).": {
+    "en": "Puts the PC to sleep (S3).",
+    "pt": "Coloca o PC em suspensão (S3)."
+  },
+  "Configuración del equipo · brillo y energía": {
+    "en": "Machine settings · brightness and power",
+    "pt": "Configuração do equipamento · brilho e energia"
+  },
+  "Configuración · respaldo": {
+    "en": "Settings · backup",
+    "pt": "Configuração · backup"
+  },
+  "Backups guardados": {
+    "en": "Saved backups",
+    "pt": "Backups salvos"
+  },
+  "Mantenimiento": {
+    "en": "Maintenance",
+    "pt": "Manutenção"
+  },
+  "WiFi de Windows": {
+    "en": "Windows WiFi",
+    "pt": "WiFi do Windows"
+  },
+  "Conectar celular": {
+    "en": "Connect phone",
+    "pt": "Conectar celular"
+  },
+  "Actualizar": {
+    "en": "Update",
+    "pt": "Atualizar"
+  },
+  "Actualizar PilotX": {
+    "en": "Update PilotX",
+    "pt": "Atualizar PilotX"
+  },
+  "Buscar actualizacion": {
+    "en": "Check for updates",
+    "pt": "Procurar atualização"
+  },
+  "Aplicar y reiniciar": {
+    "en": "Apply and restart",
+    "pt": "Aplicar e reiniciar"
+  },
+  "Version disponible": {
+    "en": "Available version",
+    "pt": "Versão disponível"
+  },
+  "Version instalada": {
+    "en": "Installed version",
+    "pt": "Versão instalada"
+  },
+  "Nube y actualizaciones": {
+    "en": "Cloud and updates",
+    "pt": "Nuvem e atualizações"
+  },
+  "Eventos": {
+    "en": "Events",
+    "pt": "Eventos"
+  },
+  "Visor eventos": {
+    "en": "Event viewer",
+    "pt": "Visualizador de eventos"
+  },
+  "Registro de eventos": {
+    "en": "Event log",
+    "pt": "Registro de eventos"
+  },
+  "Cargando…": {
+    "en": "Loading…",
+    "pt": "Carregando…"
+  },
+  "Cargando...": {
+    "en": "Loading…",
+    "pt": "Carregando…"
+  },
+  "Ninguna": {
+    "en": "None",
+    "pt": "Nenhuma"
+  },
+  "sin datos": {
+    "en": "no data",
+    "pt": "sem dados"
+  },
+  "abiertas": {
+    "en": "open",
+    "pt": "abertas"
+  },
+  "Sin cambios": {
+    "en": "No changes",
+    "pt": "Sem alterações"
+  },
+  "Tamano": {
+    "en": "Size",
+    "pt": "Tamanho"
+  },
+  "Ajustes": {
+    "en": "Settings",
+    "pt": "Ajustes"
+  },
+  "Opciones": {
+    "en": "Options",
+    "pt": "Opções"
+  },
+  "Otros": {
+    "en": "Other",
+    "pt": "Outros"
+  },
+  "Grupo": {
+    "en": "Group",
+    "pt": "Grupo"
+  },
+  "Para qué": {
+    "en": "What for",
+    "pt": "Para quê"
+  },
+  "Código": {
+    "en": "Code",
+    "pt": "Código"
+  },
+  "Códigos de error": {
+    "en": "Error codes",
+    "pt": "Códigos de erro"
+  },
+  "Problemas frecuentes": {
+    "en": "Common problems",
+    "pt": "Problemas frequentes"
+  },
+  "Si algo falla": {
+    "en": "If something fails",
+    "pt": "Se algo falhar"
+  },
+  "La pantalla quedó en negro o trabada": {
+    "en": "The screen went black or froze",
+    "pt": "A tela ficou preta ou travada"
+  },
+  "Se cerró PilotX solo": {
+    "en": "PilotX closed by itself",
+    "pt": "O PilotX fechou sozinho"
+  },
+  "Empezar": {
+    "en": "Get started",
+    "pt": "Começar"
+  },
+  "Encender y arrancar": {
+    "en": "Power on and start",
+    "pt": "Ligar e iniciar"
+  },
+  "Partes de la pantalla": {
+    "en": "Parts of the screen",
+    "pt": "Partes da tela"
+  },
+  "Una jornada, paso a paso": {
+    "en": "A workday, step by step",
+    "pt": "Um dia de trabalho, passo a passo"
+  },
+  "Lindero y cabecera": {
+    "en": "Boundary and headland",
+    "pt": "Contorno e cabeceira"
+  },
+  "Nodos y productos X": {
+    "en": "Nodes and X products",
+    "pt": "Nós e produtos X"
+  },
+  "Datos": {
+    "en": "Data",
+    "pt": "Dados"
+  },
+  "Barra de arriba": {
+    "en": "Top bar",
+    "pt": "Barra superior"
+  },
+  "Barra de la pasada": {
+    "en": "Pass bar",
+    "pt": "Barra da passada"
+  },
+  "Barra de la derecha": {
+    "en": "Right bar",
+    "pt": "Barra da direita"
+  },
+  "Menú de la izquierda": {
+    "en": "Left menu",
+    "pt": "Menu da esquerda"
+  },
+  "Menú izquierdo": {
+    "en": "Left menu",
+    "pt": "Menu esquerdo"
+  },
+  "Mostrar/ocultar la barra": {
+    "en": "Show/hide the bar",
+    "pt": "Mostrar/ocultar a barra"
+  },
+  "Ocultar": {
+    "en": "Hide",
+    "pt": "Ocultar"
+  },
+  "Dice": {
+    "en": "Says",
+    "pt": "Diz"
+  },
+  "Qué significa": {
+    "en": "What it means",
+    "pt": "O que significa"
+  },
+  "Por dónde entra el GPS": {
+    "en": "How the GPS comes in",
+    "pt": "Por onde entra o GPS"
+  },
+  "Cómo se hace cada cosa en PilotX · manual de cabina": {
+    "en": "How to do each thing in PilotX · cab manual",
+    "pt": "Como fazer cada coisa no PilotX · manual de cabine"
+  },
+  "Ajustes - Sistema/Vehiculo/Implemento (requiere GPS)": {
+    "en": "Settings - System/Vehicle/Implement (requires GPS)",
+    "pt": "Ajustes - Sistema/Veículo/Implemento (requer GPS)"
+  },
+  "Cerrar (Esc)": {
+    "en": "Close (Esc)",
+    "pt": "Fechar (Esc)"
+  },
+  "Abre Insumo / Implemento / Nodos / Config en el Hub": {
+    "en": "Opens Input / Implement / Nodes / Config in the Hub",
+    "pt": "Abre Insumo / Implemento / Nós / Config no Hub"
+  },
+  "Abre Motores / Shape / PID / Calibracion / Prueba en el Hub": {
+    "en": "Opens Motors / Shape / PID / Calibration / Test in the Hub",
+    "pt": "Abre Motores / Shape / PID / Calibração / Teste no Hub"
+  },
+  "Abre el editor de mapeo en el Hub (surcos a secciones, test de reles)": {
+    "en": "Opens the mapping editor in the Hub (rows to sections, relay test)",
+    "pt": "Abre o editor de mapeamento no Hub (linhas para seções, teste de relés)"
+  },
+  "Rígido": {
+    "en": "Rigid",
+    "pt": "Rígido"
+  },
+  "Pulverizadora": {
+    "en": "Sprayer",
+    "pt": "Pulverizador"
+  },
+  "La pulverizadora se comporta como un vehículo rígido.": {
+    "en": "The sprayer behaves like a rigid vehicle.",
+    "pt": "O pulverizador se comporta como um veículo rígido."
+  },
+  "El vehículo se dibuja en el mapa como el triángulo verde.": {
+    "en": "The vehicle is drawn on the map as the green triangle.",
+    "pt": "O veículo é desenhado no mapa como o triângulo verde."
+  },
+  "Sonidos": {
+    "en": "Sounds",
+    "pt": "Sons"
+  },
+  "Qué avisa la cabina, con qué sonido y cuándo": {
+    "en": "What the cab warns about, with which sound and when",
+    "pt": "O que a cabine avisa, com qual som e quando"
+  },
+  "Silenciar todo": {
+    "en": "Mute all",
+    "pt": "Silenciar tudo"
+  },
+  "SILENCIADO — tocar para activar": {
+    "en": "MUTED — tap to turn on",
+    "pt": "SILENCIADO — toque para ativar"
+  },
+  "Sin alarmas activas.": {
+    "en": "No active alarms.",
+    "pt": "Sem alarmes ativos."
+  },
+  "EVENTOS": {
+    "en": "EVENTS",
+    "pt": "EVENTOS"
+  },
+  "No hay eventos configurables.": {
+    "en": "No configurable events.",
+    "pt": "Sem eventos configuráveis."
+  },
+  "Hub no responde": {
+    "en": "Hub not responding",
+    "pt": "Hub não responde"
+  },
+  "Avisar con este sonido": {
+    "en": "Warn with this sound",
+    "pt": "Avisar com este som"
+  },
+  "Probar el sonido": {
+    "en": "Test the sound",
+    "pt": "Testar o som"
+  },
+  "Elegí el sonido": {
+    "en": "Choose the sound",
+    "pt": "Escolha o som"
+  },
+  "(sin sonido)": {
+    "en": "(no sound)",
+    "pt": "(sem som)"
+  },
+  "(no está)": {
+    "en": "(missing)",
+    "pt": "(não existe)"
+  },
+  "No hay sonidos cargados.": {
+    "en": "No sounds loaded.",
+    "pt": "Nenhum som carregado."
+  },
+  "Subir sonido propio (.wav)": {
+    "en": "Upload your own sound (.wav)",
+    "pt": "Enviar som próprio (.wav)"
+  },
+  "Elegí un sonido .wav": {
+    "en": "Choose a .wav sound",
+    "pt": "Escolha um som .wav"
+  },
+  "guardado": {
+    "en": "saved",
+    "pt": "salvo"
+  },
+  "no se pudo guardar": {
+    "en": "could not save",
+    "pt": "não foi possível salvar"
+  },
+  "no se pudo subir": {
+    "en": "could not upload",
+    "pt": "não foi possível enviar"
+  },
+  "subido": {
+    "en": "uploaded",
+    "pt": "enviado"
+  },
+  "Elegí primero un sonido": {
+    "en": "Choose a sound first",
+    "pt": "Escolha um som primeiro"
+  },
+  "Este equipo no tiene salida de sonido configurada": {
+    "en": "This machine has no sound output configured",
+    "pt": "Este equipamento não tem saída de som configurada"
+  },
+  "No se pudo leer el sonido": {
+    "en": "Could not read the sound",
+    "pt": "Não foi possível ler o som"
+  },
+  "umbral ±": {
+    "en": "threshold ±",
+    "pt": "limiar ±"
+  },
+  "sostenido": {
+    "en": "sustained",
+    "pt": "sustentado"
+  },
+  "repetir": {
+    "en": "repeat",
+    "pt": "repetir"
+  },
+  "Umbral de dosis (%)": {
+    "en": "Rate threshold (%)",
+    "pt": "Limiar de dose (%)"
+  },
+  "Segundos sostenido": {
+    "en": "Sustained seconds",
+    "pt": "Segundos sustentado"
+  },
+  "Repetir cada (s)": {
+    "en": "Repeat every (s)",
+    "pt": "Repetir a cada (s)"
+  },
+  "Umbral: a partir de qué desvío se considera alarma (solo dosis). Sostenido: cuántos segundos debe mantenerse antes de sonar. Repetir: si sigue activa, vuelve a sonar cada tantos segundos (0 = una sola vez).": {
+    "en": "Threshold: how much deviation counts as an alarm (rate only). Sustained: how many seconds it must hold before sounding. Repeat: while still active, it sounds again every so many seconds (0 = only once).",
+    "pt": "Limiar: a partir de qual desvio se considera alarme (somente dose). Sustentado: quantos segundos deve se manter antes de tocar. Repetir: se continuar ativa, toca de novo a cada tantos segundos (0 = uma só vez)."
+  },
+  "Alarmas sonoras: qué avisa la cabina y con qué sonido": {
+    "en": "Sound alarms: what the cab warns about and with which sound",
+    "pt": "Alarmes sonoros: o que a cabine avisa e com qual som"
+  }
+}

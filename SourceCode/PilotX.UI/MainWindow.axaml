@@ -1,0 +1,1588 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="clr-namespace:PilotX.Desktop.Controls"
+        xmlns:vw="clr-namespace:PilotX.Desktop.Views"
+        xmlns:bars="clr-namespace:PilotX.Cockpit.Bars.Views;assembly=PilotX.Cockpit.Bars"
+        xmlns:barsvm="clr-namespace:PilotX.Cockpit.Bars.ViewModels;assembly=PilotX.Cockpit.Bars"
+        x:Class="PilotX.Desktop.MainWindow"
+        Width="1280" Height="800"
+        Background="{StaticResource PilotXBgDeep}"
+        TransparencyLevelHint="Transparent"
+        Title="PilotX">
+    <!-- El mismo conversor de íconos que usan las barras del cockpit: los
+         botones del overlay de pasada muestran ESTADO (piloto on/off, manual
+         on/off), así que la imagen viene del ViewModel, no fija en el XAML. -->
+    <Window.Resources>
+        <bars:AssetImageConverter x:Key="Asset"/>
+    </Window.Resources>
+    <!--
+        Chrome cockpit:
+         · En modo "full" (default): borderless maximizado, sin header,
+           solo FAB X arriba a la derecha. Es el Hub principal de cabina.
+         · En modo "float": ventana chica con header arrastrable, marca
+           PilotX + titulo, esquinas redondeadas. Usado por widgets que
+           tienen que dejar ver el mapa detras (camaras, monitores, etc.).
+    -->
+    <Border Name="RootBorder"
+            Background="{StaticResource PilotXBgDeep}"
+            BorderBrush="{StaticResource PilotXBorderHigh}"
+            BorderThickness="1"
+            CornerRadius="0">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+            <!-- =================== HEADER (modo float) =================== -->
+            <Border Name="HeaderBar"
+                    Grid.Row="0"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="0,0,0,1"
+                    Height="44"
+                    IsVisible="False"
+                    PointerPressed="OnHeaderPressed">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Center">
+
+                    <!-- Marca PX -->
+                    <Border Grid.Column="0"
+                            Width="28" Height="28"
+                            CornerRadius="6"
+                            Background="{StaticResource PilotXAccent}"
+                            Margin="10,0,8,0">
+                        <TextBlock Text="PX"
+                                   Foreground="{StaticResource PilotXBgDeep}"
+                                   FontWeight="Bold"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Titulo -->
+                    <TextBlock Grid.Column="1"
+                               Name="HeaderTitle"
+                               Text="PilotX"
+                               Foreground="{StaticResource PilotXTextHi}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Margin="0,0,12,0"/>
+
+                    <!-- Subtitulo (espacio flexible) -->
+                    <TextBlock Grid.Column="2"
+                               Name="HeaderSubtitle"
+                               Text=""
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="11"
+                               VerticalAlignment="Center"/>
+
+                    <!-- Boton cerrar (rojo translucido) -->
+                    <Button Grid.Column="3"
+                            Name="HeaderCloseButton"
+                            Content="X"
+                            Width="44" Height="44"
+                            FontSize="16"
+                            Foreground="{StaticResource PilotXErr}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="OnCloseClick"
+                            ToolTip.Tip="Cerrar"/>
+                </Grid>
+            </Border>
+
+            <!-- =================== HUD COCKPIT (modo full) =================== -->
+            <!--
+                Barra horizontal con datos vivos del estado de PilotX
+                (speed/heading/GPS) leidos del AgpWebHost via HTTP polling.
+                Solo aparece en modo full (en widgets float seria ruido).
+                Mientras no haya render de mapa nativo en Avalonia, este HUD
+                da "feeling PilotX" desde el cold-start.
+            -->
+            <Border Name="HudBar"
+                    Grid.Row="1"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="0,0,0,1"
+                    Height="44"
+                    IsVisible="False">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto"
+                      VerticalAlignment="Center"
+                      Margin="14,0,14,0">
+
+                    <!-- Marca PX (lado izquierdo, fija) -->
+                    <Border Grid.Column="0"
+                            Width="28" Height="28"
+                            CornerRadius="6"
+                            Background="{StaticResource PilotXAccent}"
+                            Margin="0,0,10,0">
+                        <TextBlock Text="PX"
+                                   Foreground="{StaticResource PilotXBgDeep}"
+                                   FontWeight="Bold"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Chip GPS / Job: pinta verde si IsJobStarted, ambar si no -->
+                    <Border Grid.Column="1"
+                            Name="HudStatusChip"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="999"
+                            Padding="12,4,12,4"
+                            Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Name="HudStatusDot"
+                                     Width="10" Height="10"
+                                     Fill="{StaticResource PilotXTextDim}"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="HudStatusText"
+                                       Text="Sin conexion"
+                                       Foreground="{StaticResource PilotXTextMid}"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Chip Heading -->
+                    <Border Grid.Column="2"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,4,10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="HDG"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Name="HudHeading"
+                                       Text="--"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="°"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Centro flexible (vacio por ahora — placeholder para track / lote) -->
+                    <TextBlock Grid.Column="3"
+                               Name="HudTrack"
+                               Text=""
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+
+                    <!-- Chip Speed (lado derecho, mas grande — dato ancla del operario) -->
+                    <Border Grid.Column="4"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="12,4,12,4"
+                            Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Name="HudSpeed"
+                                       Text="0.0"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="km/h"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,3"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Chip Area trabajada -->
+                    <Border Grid.Column="5"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,4,10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="AREA"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Name="HudArea"
+                                       Text="--"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="ha"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- =================== MAPA NATIVO (default) =================== -->
+            <!--
+                Vista principal del guiado, render nativo Avalonia 2D
+                (placeholder para el upgrade futuro a OpenGlControlBase).
+                Es lo que el operario ve durante el trabajo en cabina.
+                NO HAY WebView residente — es zero-cost Chromium en el
+                hot path de operacion de campo.
+            -->
+            <vw:MapPanel x:Name="MapHost" Grid.Row="2"/>
+
+            <!-- =================== WIDGETS SOBRE EL MAPA =================== -->
+            <!--
+                Overlays que acompañan la labor SIN tapar el mapa: se ven
+                mientras se trabaja y el operario los acomoda arrastrándolos.
+                Canvas porque la posición es libre y se persiste en
+                overlayPrefs.json (las mismas coords que usa la app WinForms).
+
+                Va declarado DESPUÉS del mapa y ANTES de los paneles a propósito,
+                sin ZIndex: así queda sobre el mapa, cualquier panel que se abra
+                lo tapa, y las barras del cockpit (ZIndex 50) siguen arriba de
+                todo. Sin Background para no interceptar el pan/zoom del mapa —
+                solo sus hijos son tocables.
+            -->
+            <Canvas Name="MapOverlaysHost" Grid.Row="2" IsVisible="False">
+                <vw:QuantiXMapOverlay x:Name="QxMapOverlay" IsVisible="False"/>
+                <!-- Franja mínima VistaX: barritas de nivel por surco sobre el
+                     mapa; se auto-minimiza cerca de la cabecera. Toggle:
+                     vx_overlay de overlayPrefs (mismo que WinForms). -->
+                <vw:VistaXMapStrip x:Name="VxMapStrip" IsVisible="False"/>
+                <!-- Overlay de PULVERIZACIÓN (FlowX + franja StormX si la
+                     estación móvil está conectada). Toggle: fx_overlay. -->
+                <vw:FlowXMapOverlay x:Name="FxMapOverlay" IsVisible="False"/>
+                <!-- Overlay de la pasada: flotante y centrado abajo, justo
+                     arriba de las secciones. Lo que el operario toca MIRANDO la
+                     línea, no la barra lateral: corrección lateral (izq /
+                     centrar / der), piloto, giro y el manual/auto de secciones
+                     (pedido usuario 2026-08-04 — los cuatro bajaron de la barra
+                     derecha).
+
+                     Visible SIEMPRE, no solo con guía: lo que no aplica queda
+                     gris pero en su lugar. Es la misma convención de la barra
+                     derecha — el overlay no se mueve solo y el operario ve qué
+                     hay disponible. Si desapareciera con la guía, sin guía se
+                     quedaba sin manual/auto de secciones, que sí aplican.
+
+                     DataContext = BarraDerechaViewModel (lo asigna el
+                     code-behind): los íconos son ESTADO y los comandos son los
+                     mismos verbos que mandaba la barra. -->
+                <Border x:Name="NudgeOverlay" IsVisible="True"
+                        x:DataType="barsvm:BarraDerechaViewModel"
+                        Background="#EEF5F7F4" BorderBrush="#C5CFC5" BorderThickness="1"
+                        CornerRadius="10" Padding="6">
+                  <Border.Styles>
+                    <!-- Ícono apagado cuando el botón no aplica: sin esto se ven
+                         igual de vivos deshabilitados y el operario los toca
+                         esperando que hagan algo. -->
+                    <Style Selector="Button:disabled Image">
+                      <Setter Property="Opacity" Value="0.35"/>
+                    </Style>
+                    <Style Selector="TextBlock.cap">
+                      <Setter Property="FontSize" Value="10"/>
+                      <Setter Property="Foreground" Value="#535E54"/>
+                      <Setter Property="HorizontalAlignment" Value="Center"/>
+                    </Style>
+
+                    <!-- ===== EL ESTADO SE VE EN EL BOTÓN, no en el dibujo =====
+                         Piloto, Automático, Manual, Giro y Activar (cabecera)
+                         cambiaban SOLO el PNG de 26 px: mismo fondo, mismo
+                         borde y misma palabra prendidos que apagados. "¿Está
+                         puesto el piloto?" es la pregunta que más se hace por
+                         pasada, y contestarla mirando el dibujito son casi 4
+                         metros a 8 km/h sin mirar el lote.
+
+                         Tres estados que se distinguen SIN interpretar:
+                         · PRENDIDO      → fondo verde oscuro + texto blanco
+                         · APAGADO       → como estaba (superficie clara)
+                         · NO APLICA     → ícono y palabra atenuados
+
+                         El fondo del prendido NO puede ser el verde de acento
+                         #4ABA3E: los PNG de "puesto" (AutoSteerOn, ManualOn,
+                         SectionMasterOn, HeadlandOn, YouTurn80…) están pintados
+                         EXACTAMENTE en #4ABA3E, así que el ícono desaparecía
+                         dentro del botón —contraste 1,00:1, medido— justo en el
+                         estado que se quería hacer evidente. Y la palabra en
+                         blanco sobre ese verde da 2,5:1: con sol de frente no se
+                         lee. Con #1E5E1A el ícono vuelve a recortarse (3,1:1) y
+                         la palabra da 7,9:1. El acento #4ABA3E se conserva para
+                         bordes, puntitos y barras, que es su rol en la paleta.
+                         Fondo oscuro sobre el mapa: es la excepción documentada
+                         de los flotantes, contraste contra el terreno. -->
+                    <Style Selector="Button.on">
+                      <Setter Property="Background" Value="#1E5E1A"/>
+                      <Setter Property="BorderBrush" Value="#14400F"/>
+                      <Setter Property="BorderThickness" Value="1"/>
+                    </Style>
+                    <Style Selector="Button.on /template/ ContentPresenter#PART_ContentPresenter">
+                      <Setter Property="Background" Value="#1E5E1A"/>
+                      <Setter Property="BorderBrush" Value="#14400F"/>
+                    </Style>
+                    <!-- Hover y pressed van MÁS oscuros, nunca más claros: así
+                         el ícono verde nunca pierde contraste al tocarlo. -->
+                    <Style Selector="Button.on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                      <Setter Property="Background" Value="#1A5216"/>
+                      <Setter Property="BorderBrush" Value="#14400F"/>
+                    </Style>
+                    <Style Selector="Button.on:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                      <Setter Property="Background" Value="#143F11"/>
+                      <Setter Property="BorderBrush" Value="#14400F"/>
+                    </Style>
+                    <Style Selector="Button.on TextBlock.cap">
+                      <Setter Property="Foreground" Value="#FFFFFF"/>
+                      <Setter Property="FontWeight" Value="Bold"/>
+                    </Style>
+                    <!-- Deshabilitado tiene que seguir diferenciándose de
+                         apagado: hasta acá lo único atenuado era el ícono y la
+                         palabra quedaba igual de viva. -->
+                    <Style Selector="Button:disabled TextBlock.cap">
+                      <Setter Property="Foreground" Value="#A2ACA3"/>
+                    </Style>
+                    <!-- Prendido PERO sin poder tocarse (p. ej. el piloto queda
+                         puesto y se pierde la guía): verde apagado, para que no
+                         mienta ni parezca disponible. -->
+                    <Style Selector="Button.on:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                      <Setter Property="Background" Value="#BFDCBA"/>
+                      <Setter Property="BorderBrush" Value="#A9CCA3"/>
+                    </Style>
+                    <Style Selector="Button.on:disabled TextBlock.cap">
+                      <Setter Property="Foreground" Value="#516052"/>
+                    </Style>
+
+                    <Style Selector="Rectangle.sep">
+                      <Setter Property="Width" Value="1"/>
+                      <Setter Property="Fill" Value="#C5CFC5"/>
+                      <Setter Property="Margin" Value="2,4"/>
+                    </Style>
+                  </Border.Styles>
+                  <!-- Orden (pedido usuario 2026-08-05): GEOMETRÍA a la
+                       izquierda (Guías, Lindero, Cabecera), CORRECCIÓN al
+                       centro (Izq · Centrar · Der, con Centrar al medio) y
+                       ACCIÓN a la derecha terminando en el Piloto en la punta
+                       (Giro, Automático, Manual, Piloto): lo que definís antes
+                       de arrancar a la izquierda, lo que tocás a cada rato a
+                       mano derecha. -->
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <!-- Guías (selector de líneas): elegir la guía es parte
+                         del flujo de la pasada, no de la barra lateral. -->
+                    <Button x:Name="BtnOvGuias" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="pick"
+                            ToolTip.Tip="Guías">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/TrackOn.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Guías"/>
+                      </StackPanel>
+                    </Button>
+                    <!-- Marcar giro: el operario marca ACÁ dónde tiene que
+                         doblar el giro automático (línea perpendicular a la
+                         guía). Sin lindero es la única forma de que el U-turn
+                         funcione; con lindero acerca la cabecera. "Borrar"
+                         aparece solo cuando hay marcas puestas. -->
+                    <Button x:Name="BtnOvMarcarGiro" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="marcar_giro"
+                            ToolTip.Tip="Marcar giro: línea perpendicular a la guía acá, el giro automático dobla ahí">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-derecha/YouTurnU.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Marcar"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnOvBorrarMarcas" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="giro_borrar_marcas"
+                            IsVisible="{Binding HayMarcasGiro}"
+                            ToolTip.Tip="Borrar las marcas de giro">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-derecha/YouTurnU.png" Height="26" Opacity="0.5"/>
+                        <TextBlock Classes="cap" Text="Borrar"/>
+                      </StackPanel>
+                    </Button>
+                    <!-- Lindero y Cabecera junto a Guías: los tres definen la
+                         GEOMETRÍA de la pasada — guía por dónde, lindero hasta
+                         dónde, cabecera dónde doblar. -->
+                    <Button x:Name="BtnOvLindero" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="lindero"
+                            ToolTip.Tip="Lindero del lote">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/Boundary.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Lindero"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnOvCabecera" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="cabecera"
+                            ToolTip.Tip="Cabecera">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/HeadlandBuild.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Cabecera"/>
+                      </StackPanel>
+                    </Button>
+                    <!-- Activar/desactivar el corte por cabecera, al lado de
+                         donde se construye (pedido 2026-08-06). Es el mismo
+                         botón que vive en la barra derecha (mismo comando y
+                         mismo ícono de estado); allá queda también, para el
+                         que lo tiene de memoria. Gris sin cabecera hecha. -->
+                    <Button x:Name="BtnOvCabeceraOnOff" Width="64" Height="56"
+                            IsEnabled="{Binding HeadlandVisible}"
+                            Classes.on="{Binding HeadlandOn}"
+                            Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"
+                            ToolTip.Tip="Corte por cabecera: activar">
+                      <StackPanel>
+                        <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Activar"/>
+                      </StackPanel>
+                    </Button>
+
+                    <Rectangle Classes="sep"/>
+
+                    <!-- Corrección lateral: sin guía no hay a qué corregirse. -->
+                    <Button x:Name="BtnNudgeIzq" Width="64" Height="56"
+                            IsEnabled="{Binding NudgeVisible}" ToolTip.Tip="Corregir a la izquierda">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapLeft.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Izq"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnNudgeCentro" Width="64" Height="56"
+                            IsEnabled="{Binding NudgeVisible}" ToolTip.Tip="Centrar sobre la línea">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapToPivot.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Centrar"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnNudgeDer" Width="64" Height="56"
+                            IsEnabled="{Binding NudgeVisible}" ToolTip.Tip="Corregir a la derecha">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapRight.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Der"/>
+                      </StackPanel>
+                    </Button>
+
+                    <Rectangle Classes="sep"/>
+
+                    <!-- Giro en cabecera: pide guía + lindero y sin contorno. -->
+                    <Button x:Name="BtnOvGiro" Width="64" Height="56"
+                            IsEnabled="{Binding UturnVisible}"
+                            Classes.on="{Binding UturnOn}"
+                            Command="{Binding SendCommand}" CommandParameter="uturn"
+                            ToolTip.Tip="Giro automático en cabecera">
+                      <StackPanel>
+                        <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Giro"/>
+                      </StackPanel>
+                    </Button>
+
+                    <!-- Secciones: siempre disponibles, con o sin guía. Más
+                         anchos que el resto porque "Automático" no entra en
+                         64 px y cortado no se lee. -->
+                    <Button x:Name="BtnOvSecAuto" Width="80" Height="56"
+                            Classes.on="{Binding SecAutoOn}"
+                            Command="{Binding SendCommand}" CommandParameter="sec_auto"
+                            ToolTip.Tip="Secciones en automático">
+                      <StackPanel>
+                        <Image Source="{Binding SecAutoImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Automático"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnOvSecManual" Width="80" Height="56"
+                            Classes.on="{Binding SecManualOn}"
+                            Command="{Binding SendCommand}" CommandParameter="sec_manual"
+                            ToolTip.Tip="Secciones en manual">
+                      <StackPanel>
+                        <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Manual"/>
+                      </StackPanel>
+                    </Button>
+
+                    <Rectangle Classes="sep"/>
+
+                    <!-- Herramientas: abre el panel de utilidades sin tener que
+                         desplegar el menú lateral (pedido 2026-08-06 — se usa
+                         desde la pantalla principal, manejando). Panel propio,
+                         NO Flyout (ver la nota del menú SISTEMA). -->
+                    <Button x:Name="BtnOvHerramientas" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="herramientas_menu"
+                            ToolTip.Tip="Herramientas">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/SpecialFunctions.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Herram."/>
+                      </StackPanel>
+                    </Button>
+
+                    <Rectangle Classes="sep"/>
+
+                    <!-- Piloto EN LA PUNTA derecha: es el botón que más se
+                         toca, va donde la mano llega sin mirar. -->
+                    <Button x:Name="BtnOvPiloto" Width="64" Height="56"
+                            IsEnabled="{Binding PilotoEnabled}"
+                            Classes.on="{Binding PilotoOn}"
+                            Command="{Binding SendCommand}" CommandParameter="autosteer"
+                            ToolTip.Tip="Piloto automático">
+                      <StackPanel>
+                        <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Piloto"/>
+                      </StackPanel>
+                    </Button>
+                  </StackPanel>
+                </Border>
+            </Canvas>
+
+            <!-- El zoom del mapa se mudó ARRIBA de la barra derecha del cockpit
+                 (ver CockpitBarsHost, más abajo): flotaba suelto sobre el mapa
+                 y tapaba lo que el operario estaba mirando. -->
+
+            <!-- =================== CLUSTER DEL PILOTO =================== -->
+            <!--
+                Arriba-centro del mapa (debajo de la barra superior del
+                cockpit, que mide 52px y tiene ZIndex 50 — por eso el margen):
+                · DISTANCIA a la línea: visible siempre que haya guía.
+                · GIRO manual (↰/↱) y SALTEO: aparecen al activar el piloto.
+            -->
+            <!-- Fondo OSCURO translúcido (pedido del usuario): sobre el piso
+                 texturado el panel blanco lavaba los textos; en oscuro el
+                 número de distancia, el GIRANDO y las flechas resaltan. -->
+            <Border Name="PilotoCluster" Grid.Row="2" IsVisible="False"
+                    VerticalAlignment="Top" HorizontalAlignment="Center"
+                    Margin="0,64,0,0"
+                    Background="#D9101612" BorderBrush="#66FFFFFF" BorderThickness="1"
+                    CornerRadius="12" Padding="10,6">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button Name="PcGiroIzq" Width="64" Height="56" Padding="0" IsVisible="False"
+                            ToolTip.Tip="Girar ahora a la izquierda">
+                        <TextBlock Text="↰" FontSize="30" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
+
+                    <!-- Distancia a la línea: el número que se mira todo el tiempo.
+                         El triangulito indica hacia dónde corregir (lado opuesto
+                         al desvío, mismo criterio que el lightbar). -->
+                    <StackPanel VerticalAlignment="Center" MinWidth="120">
+                        <TextBlock Text="A LA LÍNEA" FontSize="10" Foreground="#C5CFC5"
+                                   HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                            <TextBlock Name="PcXteFlecha" Text="" FontSize="22" FontWeight="Bold" Foreground="#F5F7F4"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Name="PcXte" Text="—" FontSize="30" FontWeight="Bold" Foreground="#F5F7F4"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Name="PcXteUnidad" Text="cm" FontSize="13" Foreground="#C5CFC5"
+                                       VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+                        </StackPanel>
+                        <!-- Estado del giro en cabecera (réplica 6.8.5): la
+                             distancia al punto de giro cuando está armado,
+                             "GIRANDO" en violeta durante el giro, aviso si el
+                             camino cae fuera del lote. TOCARLO invierte el
+                             lado del giro armado (SwapDirection del nativo);
+                             girando, lo aborta. -->
+                        <TextBlock Name="PcGiroInfo" Text="" FontSize="12" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" IsVisible="False"
+                                   Cursor="Hand"
+                                   ToolTip.Tip="Tocá para cambiar el lado del giro"/>
+                    </StackPanel>
+
+                    <!-- Cuántas guías saltea el giro (0 = va a la contigua). -->
+                    <StackPanel Name="PcGrupoSalteo" VerticalAlignment="Center" IsVisible="False">
+                        <TextBlock Text="SALTEA" FontSize="10" Foreground="#C5CFC5"
+                                   HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                            <Button Name="PcSkipMenos" Width="40" Height="44" Padding="0" FontSize="20"
+                                    Content="−" ToolTip.Tip="Saltear una guía menos"/>
+                            <Border Width="44" Height="44" Background="#EAF6E8"
+                                    BorderBrush="#4ABA3E" BorderThickness="1" CornerRadius="8">
+                                <TextBlock Name="PcSkip" Text="0" FontSize="24" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <Button Name="PcSkipMas" Width="40" Height="44" Padding="0" FontSize="20"
+                                    Content="+" ToolTip.Tip="Saltear una guía más"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Button Name="PcGiroDer" Width="64" Height="56" Padding="0" IsVisible="False"
+                            ToolTip.Tip="Girar ahora a la derecha">
+                        <TextBlock Text="↱" FontSize="30" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- =================== FIELD DATA (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/datos-lote.html. Se muestra cuando
+                el operario tocá FieldTools en la toolbar. SIN WebView.
+            -->
+            <vw:FieldDataPanel x:Name="FieldDataHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== SISTEMA (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/sistema.html (brillo + power).
+                Hace HTTP a /api/sistema/* pero NO instancia WebView.
+            -->
+            <vw:SistemaPanel x:Name="SistemaHost" Grid.Row="2" IsVisible="False"/>
+            <!-- Config de IP (DHCP/fija) por adaptador. Overlay nativo. -->
+            <vw:RedIpPanel x:Name="RedIpHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== DATOS GPS (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/datos-gps.html: lat/lon/easting/
+                northing + rumbo + cardinal + velocidad. Sin WebView, sin
+                red propia: consume el HudSnapshot del HudPoller.
+            -->
+            <vw:GpsDataPanel x:Name="GpsDataHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== STORMX (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/stormx.html: meteo + veredicto de
+                pulverizacion. Polling propio a /api/stormx/live (1Hz) que
+                arranca al abrir el panel y se detiene al cerrarlo.
+            -->
+            <vw:StormXPanel x:Name="StormXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== FLOWX (overlay nativo) =================== -->
+            <!--
+                Monitor nativo de pages/flowx.html: KPIs cabin-critical (caudal
+                real, target, PWM, PID, secciones, ahorro por corte). El resto
+                (reguladoras / PID / cortes / firmware) vive en el
+                FlowXEditorPanel, tambien nativo, via el boton "Configurar" —
+                FlowX ya no abre WebView.
+            -->
+            <vw:FlowXPanel x:Name="FlowXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                Reemplazo nativo PARCIAL de pages/sectionx.html: KPIs cabin-
+                critical (estado del bridge + grilla de secciones abiertas).
+                El editor de mapeo surcos->secciones, test de reles y debug
+                MQTT NO estan portados: el boton "Configurar" abre el
+                WebView lazy sobre sectionx.html.
+            -->
+            <vw:SectionXPanel x:Name="SectionXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                Reemplazo nativo (Monitor) de pages/quantix.html: ver dosis
+                real/objetivo + PWM + estado PID por motor. El resto de las
+                tabs vive en QuantiXEditorPanel (tambien nativo) via el boton
+                "Configurar" — QuantiX ya no abre WebView.
+            -->
+            <vw:QuantiXPanel x:Name="QuantiXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                VistaXPanel — overlay nativo (8vo port).
+                Monitor live de pages/vistax.html: ver SPM por surco, badges
+                por estado, trenes con sensores semilla/ferti (tubitos) y
+                otros sensores (barras). El boton "Configurar" abre el editor
+                NATIVO (VistaXEditorHost, 29no port) — ya no hay WebView.
+            -->
+            <vw:VistaXPanel x:Name="VistaXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== HUB (home nativo, 11vo port) =================== -->
+            <!--
+                HubPanel - reemplazo nativo de pages/hub.html. KPIs del
+                tractor llegan via HudSnapshot @4Hz, lista de nodos via
+                /api/nodos/unified @3s, toggles QX/VX/FX via /api/overlays
+                (FormGPS relee overlayPrefs.json cada 250ms). NO se hace
+                polling redundante del estado de PilotX: se consume el HUD que
+                ya viene.
+            -->
+            <!-- Card flotante centrada, mapa VIVO detrás (antes era takeover
+                 de pantalla completa con el mapa apagado: "página negra",
+                 reporte 2026-08-11 — misma cura que CoreX-ECU). -->
+            <vw:HubPanel x:Name="HubHost" Grid.Row="2" IsVisible="False"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         MaxWidth="860" MaxHeight="620"/>
+
+            <!-- =================== NODOS (overlay nativo, 12vo port CERRADO) =================== -->
+            <!--
+                NodosPanel - reemplazo nativo de pages/nodos.html. Card clara
+                flotante con el mapa VIVO detras. Pantalla Lista (tabs + tabla +
+                banner + acciones de curado, polling 3s a /api/nodos/unified) y
+                pantalla Diagnostico (polling 2s a /api/nodos/diagnostic solo
+                mientras se la mira). Ya NO abre la pagina en WebView: eso era
+                lo ultimo que despertaba Chromium desde este panel.
+                Por la doctrina "nodos solo se agregan automaticamente" no hay
+                un boton "Agregar" - cualquier alta sale del MQTT announcement.
+            -->
+            <vw:NodosPanel x:Name="NodosHost" Grid.Row="2" IsVisible="False"
+                           HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+            <!-- =================== ACTUALIZAR (overlay nativo, 13vo port) =================== -->
+            <!--
+                ActualizarPanel - reemplazo nativo de pages/actualizar.html.
+                Self-update del propio PilotX via OrbitX OTA. Polling 1s a
+                /api/pilotx/update/status; acciones POST a check/download/apply.
+                Cuando Aplicar dispara Updater.exe, PilotX se cierra solo.
+            -->
+            <vw:ActualizarPanel x:Name="ActualizarHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== CAMARAS (overlay nativo, 14vo port) =================== -->
+            <!--
+                CamarasPanel - reemplazo nativo (parcial) de pages/camaras.html.
+                Tab Monitor only: layouts 1x1/2x1/2x2 con snapshot JPEG polling
+                a /api/camaras/{idx}/snapshot. Doble click -> toggle foco 1x1.
+                El tab Config (forms IP/usuario/clave por camara) sigue HTML
+                via boton "Configurar".
+            -->
+            <vw:CamarasPanel x:Name="CamarasHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== CABINA-ALARMAS (overlay top, 10mo port) =================== -->
+            <!--
+                Banner cabin-critical: nodos del implemento ACTIVO offline.
+                NO oculta el mapa ni otros overlays - se acopla arriba con
+                ZIndex alto + VerticalAlignment=Top. Polling 2s independiente,
+                arranca con la app y se autogestiona (mostrar/ocultar).
+                Reemplazo nativo de pages/cabina-alarmas.html.
+            -->
+            <vw:CabinaAlarmasOverlay x:Name="CabinaAlarmasHost"
+                                     Grid.Row="2"
+                                     ZIndex="100"
+                                     VerticalAlignment="Top"/>
+
+            <!-- =================== TECLADO VIRTUAL (embebido) =================== -->
+            <!--
+                El teclado en pantalla para los campos NATIVOS: aparece al
+                instante cuando un TextBox gana el foco (se auto-engancha al
+                TopLevel, sin wiring acá) y se oculta al perderlo. ZIndex 95:
+                arriba de las barras del cockpit (50) — el campo que se está
+                editando vive en esos paneles — y abajo del banner de alarmas
+                (100). La ventana flotante TecladoWindow queda SOLO para las
+                páginas del Hub (WebView), que no tienen TextBox nativo.
+            -->
+            <vw:TecladoVirtual x:Name="TecladoHost" Grid.Row="2" ZIndex="95"
+                               HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                               Margin="0,0,0,10"/>
+
+            <!-- =================== WEBVIEW SLOT (lazy on-demand) =================== -->
+            <!--
+                Contenedor vacio donde se instancia el WebView SOLO cuando
+                el operario abre una pantalla todavia no portada a nativo.
+                Al cerrar la pantalla (boton Atras / Esc), el WebView se
+                hace Dispose y este Panel queda vacio otra vez. Cada
+                pantalla portada a nativo = un WebView menos.
+            -->
+            <Panel x:Name="WebViewSlot" Grid.Row="2" IsVisible="False"/>
+
+            <!-- Boton "Atras" para volver al mapa nativo desde una pantalla web -->
+            <Button x:Name="WebViewBack"
+                    Grid.Row="2"
+                    Content="&lt;-"
+                    Width="48" Height="48"
+                    FontSize="20"
+                    FontWeight="Bold"
+                    Foreground="{StaticResource PilotXTextHi}"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="24"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="14,64,0,0"
+                    IsVisible="False"
+                    Click="OnBackClick"
+                    ToolTip.Tip="Volver al mapa"/>
+            <!-- Margin top 64 y no 12: la BarraSuperior del cockpit (52 px,
+                 declarada más abajo = dibuja ENCIMA) enterraba el botón en
+                 y=12..60. Con Cámaras a pantalla completa eso era quedar
+                 ATRAPADO: la pantalla tapaba todo y el único cierre estaba
+                 abajo de la barra (reporte de cabina 2026-08-05). -->
+
+
+            <!-- El mini-mapa de la esquina inferior izquierda se sacó a pedido
+                 del usuario (2026-07-28): con el mapa nativo a pantalla completa
+                 no aportaba nada y le comía lugar a los widgets de los productos.
+                 El control MiniMapView sigue existiendo por si se lo quiere
+                 volver a colgar en otro lado. -->
+
+
+            <!-- =================== BARRAS COCKPIT (menús reutilizados de PilotX.Cockpit.Bars) =================== -->
+            <!--
+                Las 4 barras reales (superior/derecha/abajo/menú-izquierda) que
+                ya usa PilotX.Bars.Host sobre FormGPS, ahora embebidas como overlay
+                del mapa. Reemplazan el HudBar + BottomToolbar placeholder. Traen
+                crear A/B, curva, A+, piloto, secciones, etc. Los estilos globales
+                de BarStyles (Selector="Button"/"Image") van SCOPEADOS a este Grid
+                para no pisar el resto de la UI de PilotX.Desktop.
+            -->
+            <!--
+                Filas Auto/*/Auto en vez de altos fijos + márgenes que los
+                repitan: la barra de abajo crece cuando aparece la botonera de
+                secciones y se achica cuando no hay lote, sin que nadie tenga
+                que acordarse de actualizar tres números. Con el alto fijo en 58
+                la segunda fila de la barra (donde vive el botón que abre los
+                productos X-*) quedaba CORTADA fuera de la pantalla: el operario
+                no tenía forma de llegar a QuantiX ni a VistaX.
+                La fila del medio queda transparente — el mapa se ve por atrás.
+            -->
+            <Grid Name="CockpitBarsHost" Grid.Row="2" IsVisible="False" ZIndex="50">
+                <Grid.Styles>
+                    <StyleInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarStyles.axaml"/>
+                </Grid.Styles>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <bars:BarraSuperior x:Name="BarSuperior"
+                                    Grid.Row="0" HorizontalAlignment="Stretch" Height="46"/>
+
+                <!-- Menú SISTEMA: panel propio, NO un Flyout. El MenuFlyout
+                     era el único popup de la app y no abría (2026-08-06);
+                     este es el mismo patrón del menú izquierdo, que anda, y
+                     con botones táctiles de verdad. Se abre/cierra con el
+                     botón SISTEMA (comando "sistema_menu"). -->
+                <Border x:Name="SistemaMenu" Grid.Row="1" IsVisible="False"
+                        HorizontalAlignment="Left" VerticalAlignment="Top"
+                        Margin="0,6,0,0"
+                        Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1"
+                        CornerRadius="10" Padding="6">
+                  <StackPanel Spacing="4" MinWidth="210">
+                    <Button x:Name="BtnSisPerfiles" Height="46" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left" Padding="12,0"
+                            Background="Transparent" BorderThickness="0"
+                            Content="Perfiles del vehículo"/>
+                    <Button x:Name="BtnSisAyuda" Height="46" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left" Padding="12,0"
+                            Background="Transparent" BorderThickness="0"
+                            Content="Ayuda"/>
+
+                    <!-- Idioma: despliega los tres in-place. Los nombres van
+                         SIEMPRE en su propio idioma (un brasilero busca
+                         "Português", no "Portugués"), así que estos tres
+                         textos son los únicos que el traductor no toca. -->
+                    <Rectangle Height="1" Fill="#E2E7E2" Margin="6,2"/>
+                    <Button x:Name="BtnSisIdioma" Height="46" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left" Padding="12,0"
+                            Background="Transparent" BorderThickness="0"
+                            Content="Idioma"/>
+                    <StackPanel x:Name="SisIdiomaLista" IsVisible="False" Spacing="2" Margin="10,0,0,0">
+                      <Button x:Name="BtnIdiomaEs" Height="42" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left" Padding="12,0"
+                              Background="Transparent" BorderThickness="0" Content="Español"/>
+                      <Button x:Name="BtnIdiomaEn" Height="42" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left" Padding="12,0"
+                              Background="Transparent" BorderThickness="0" Content="English"/>
+                      <Button x:Name="BtnIdiomaPt" Height="42" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left" Padding="12,0"
+                              Background="Transparent" BorderThickness="0" Content="Português"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+                <bars:MenuIzquierda x:Name="MenuIzq"
+                                    Grid.Row="1"
+                                    HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                                    Width="316"/>
+                <!-- Zoom + barra derecha en la MISMA columna, los dos colgando
+                     de abajo. Van en un solo StackPanel a propósito: la barra
+                     cambia de alto según cuántos botones apliquen en el momento,
+                     así que un margen fijo dejaría el zoom pisándola o flotando
+                     lejos. Apilados, el zoom queda siempre justo arriba.
+                     Sin Background: solo los botones interceptan el toque. -->
+                <!-- Zoom FIJO arriba a la derecha (pedido 2026-08-06): antes
+                     colgaba apilado sobre la barra derecha, que cambia de
+                     alto según cuántos botones apliquen — el + y − se movían
+                     con ella. Ahora quedan clavados bajo la barra superior,
+                     siempre en el mismo lugar. -->
+                <StackPanel Grid.Row="1" Spacing="6"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="0,10,0,0">
+                    <Button Name="BtnZoomIn" Content="+" Width="50" Height="50"
+                            HorizontalAlignment="Right" Margin="0,0,4,2"
+                            FontSize="26" FontWeight="Bold"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                            Background="#D9FFFFFF" Foreground="#101612"
+                            BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
+                    <Button Name="BtnZoomOut" Content="−" Width="50" Height="50"
+                            HorizontalAlignment="Right" Margin="0,0,4,6"
+                            FontSize="26" FontWeight="Bold"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                            Background="#D9FFFFFF" Foreground="#101612"
+                            BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
+                </StackPanel>
+                <!-- Sin Width fijo: la barra se pliega sola por inactividad y
+                     ahí mide solo el handle. Un ancho clavado dejaría 58 px de
+                     aire tapando el mapa justo cuando se replegó para liberarlo.
+                     CENTRADA vertical (pedido 2026-08-14, mismo criterio que el
+                     menú izquierdo): colgada de abajo llegaba hasta el borde y
+                     pisaba la zona de la barra de la pasada. -->
+                <bars:BarraDerecha x:Name="BarDerecha" Grid.Row="1"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <!-- El visor de IMU (rumbo/rolido/cabeceo del ECU, arriba a la
+                     izquierda) se SACÓ (pedido 2026-08-11) — servía para las
+                     pruebas con ECU real del 07-08 y en labor tapaba mapa. La
+                     clase ImuOverlay queda por si se re-engancha; la telemetría
+                     completa vive en Herram. › CoreX-ECU. -->
+
+                <!-- Tractor de rolido, mini, ABAJO A LA DERECHA (pedido
+                     2026-08-10): se inclina con el rolido que usa el guiado.
+                     Margen derecho 74 (libre de la barra derecha) y abajo 150
+                     (arriba de la pila pasada+secciones). Solo lectura. -->
+                <vw:TractorRolidoOverlay x:Name="TractorRolidoHost" Grid.Row="1"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                         Margin="0,0,74,150"/>
+
+                <!-- SENTIDO DEL GIRO EN CABECERA (pedido 2026-09-09): igual que
+                     la flecha grande de AgOpenGPS a la derecha. Muestra hacia
+                     dónde va a girar el U-turn armado (↰ / ↱) y TOCARLO lo
+                     invierte (uturn_swap; girando, lo aborta). Antes ese
+                     cambio estaba solo en el textito de 12 px del centro del
+                     cluster, imposible con guantes. Mismo margen derecho 82
+                     que Contorno/Tram para no pisar la barra derecha. -->
+                <Border Name="PcGiroSentido" Grid.Row="1" IsVisible="False" ZIndex="9"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Margin="0,0,82,0"
+                        Background="#D9101612" BorderBrush="#66FFFFFF" BorderThickness="1"
+                        CornerRadius="16" Padding="0">
+                    <Button Name="PcGiroSentidoBtn" Width="104" Height="112" Padding="0"
+                            Background="Transparent" BorderThickness="0"
+                            ToolTip.Tip="Tocá para cambiar el lado del giro">
+                        <StackPanel VerticalAlignment="Center" Spacing="0">
+                            <TextBlock Name="PcGiroSentidoTitulo" Text="GIRO" FontSize="11" Foreground="#C5CFC5"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Name="PcGiroSentidoFlecha" Text="↱" FontSize="52" FontWeight="Bold"
+                                       Foreground="#F5F7F4" HorizontalAlignment="Center" Margin="0,-4,0,-6"/>
+                            <TextBlock Name="PcGiroSentidoTexto" Text="" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#C5CFC5" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+
+                <!-- REVERSA (pedido 2026-09-09, pantalla de Fran clavada en marcha
+                     atrás): cuando el motor marca reversa aparece este botón rojo
+                     grande arriba del mapa; tocarlo manda reset_direccion (lo que
+                     en AgOpenGPS era tocar el tractor). Va en el mapa NATIVO: la
+                     1.0.61 lo había puesto solo en el mapa web, que el tractor
+                     no usa. Margen superior 130 para quedar debajo del cluster. -->
+                <Border Name="ReversaAviso" Grid.Row="1" IsVisible="False" ZIndex="12"
+                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Margin="0,130,0,0"
+                        Background="#F2E5484D" BorderBrush="#FFFFFF" BorderThickness="1.5"
+                        CornerRadius="14" Padding="0">
+                    <Button Name="ReversaAvisoBtn" Height="72" MinWidth="360" Padding="18,0"
+                            Background="Transparent" BorderThickness="0"
+                            ToolTip.Tip="Tocá para volver a marcha adelante">
+                        <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                            <TextBlock Text="⬇" FontSize="34" FontWeight="Bold" Foreground="White"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="REVERSA" FontSize="20" FontWeight="Bold" Foreground="White"/>
+                                <TextBlock Text="tocá acá para volver a marcha adelante" FontSize="13"
+                                           Foreground="#FFEDED"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+                </Border>
+
+                <!-- Panel de GUÍAS nativo (14vo port, reemplaza tracks.html):
+                     flota sobre el mapa VIVO — al grabar la curva se ve la
+                     traza dibujándose detrás, cosa que la ventana HTML
+                     tapaba. Y no despierta Chromium en plena labor. -->
+                <!-- ZIndex 10: sobre la tira de secciones (misma regla que
+                     HerramientasMenu — lo abierto por el operario gana). -->
+                <vw:GuiasPanel x:Name="GuiasHost" Grid.Row="1" ZIndex="10"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- Menú de LOTE nativo (16vo port, reemplaza lote.html):
+                     abrir un lote se VE cargar en el mapa de atrás. -->
+                <vw:LotePanel x:Name="LoteHost" Grid.Row="1" ZIndex="10"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- CONTORNO nativo (reemplaza pages/contorno.html): era el
+                     ÚNICO diálogo que se abría con el mapa VIVO — se abre
+                     justamente PARA ver los puntos del lindero mientras se
+                     maneja. Card CHICA (340) anclada a la DERECHA y con margen
+                     82 para no pisar la barra derecha (56+18 de riel, mismo
+                     criterio que TractorRolidoOverlay): centrada taparía justo
+                     el tractor y la traza que el operario abre esto para ver. -->
+                <vw:ContornoPanel x:Name="ContornoHost" Grid.Row="1" ZIndex="10"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  Margin="0,0,82,0"/>
+
+                <!-- TRAMLINES nativo (reemplaza pages/tramline.html): la vista
+                     previa de las huellas NO vive en la pantalla, se dibuja
+                     sobre el MAPA — la ventana HTML de 350x340 se paraba justo
+                     encima de lo único que hay para mirar. Card chica (380) a
+                     la DERECHA con el mismo margen 82 que Contorno/Cabecera:
+                     el centro queda para el tractor y las huellas. -->
+                <vw:TramSimplePanel x:Name="TramSimpleHost" Grid.Row="1" ZIndex="10"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Margin="0,0,82,0"/>
+
+                <!-- SUAVIZAR AB nativo (reemplaza pages/suavizar-ab.html): la
+                     vista previa de la curva suavizada tampoco vive en la
+                     pantalla, se dibuja sobre el MAPA (curve.smooList). Misma
+                     card chica (380) a la DERECHA con margen 82 que
+                     Contorno/Cabecera/Tramlines: el centro queda libre para el
+                     tractor y la curva que se está mirando. -->
+                <vw:SuavizarAbPanel x:Name="SuavizarAbHost" Grid.Row="1" ZIndex="10"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Margin="0,0,82,0"/>
+
+                <!-- CORREGIR POSICIÓN nativo (reemplaza
+                     pages/corregir-posicion.html): mueve la posición percibida
+                     de la máquina (deriva GPS norte/este), y el operario la
+                     toca MIRANDO el mapa para ver si la pasada quedó donde
+                     tiene que quedar. Card chica (420) a la DERECHA con el
+                     mismo margen 82 que Contorno/Tramlines/Suavizar AB: el
+                     centro queda para el tractor y la cobertura. -->
+                <vw:CorregirPosicionPanel x:Name="CorregirPosHost" Grid.Row="1" ZIndex="10"
+                                          HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          Margin="0,0,82,0"/>
+
+                <!-- RUTAS GRABADAS nativo (reemplaza pages/recpath.html, ex
+                     FormRecordPicker + FormRecordName): elegir el camino que la
+                     máquina va a repetir sola. La ventana HTML de 460x470 se
+                     paraba sobre el mapa, que es donde se ve si la ruta elegida
+                     es la que se quería. Card chica (420) CENTRADA: es una lista
+                     con selección, no un visor del tractor, y deja mapa a la
+                     vista por los cuatro costados en la pantalla de 10". -->
+                <vw:RecPathPanel x:Name="RecPathHost" Grid.Row="1" ZIndex="10"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- CABECERA nativa (reemplaza pages/cabecera.html): el diálogo
+                     HTML tapaba y APAGABA el mapa justo en la pantalla donde lo
+                     único que importa es ver la franja verde dibujándose contra
+                     el lindero. Card CHICA (320) a la DERECHA con el mismo
+                     margen 82 que Contorno (libre de la barra derecha): el
+                     centro del mapa queda para el tractor y la cabecera. -->
+                <vw:CabeceraPanel x:Name="CabeceraHost" Grid.Row="1" ZIndex="10"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  Margin="0,0,82,0"/>
+
+                <!-- CABECERA POR LÍNEAS nativa (reemplaza
+                     pages/cabecera-lineas.html): la cabecera de los lotes que
+                     no son un rectángulo. Trae su propio lienzo (se toca el
+                     contorno con el dedo), así que la card es más grande que
+                     las otras (640x540) pero sigue dejando mapa a la vista por
+                     los cuatro costados en la pantalla de 10". Va CENTRADA:
+                     es un editor, no un visor del tractor. -->
+                <vw:CabeceraLineasPanel x:Name="CabeceraLineasHost" Grid.Row="1" ZIndex="10"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- TRAMLINES (multi) nativo (reemplaza pages/tramlines.html,
+                     ex FormTramLine): el constructor de huellas por guía, con
+                     el corte de 3 toques que se marca CON EL DEDO sobre el
+                     dibujo. La ventana HTML de 460x470 dejaba ese lienzo del
+                     tamaño de un sello y encima despertaba Chromium en pleno
+                     lote. Card 720x560 CENTRADA — es un editor, no un visor
+                     del tractor — y el mapa sigue a la vista alrededor. -->
+                <vw:TramMultiPanel x:Name="TramMultiHost" Grid.Row="1" ZIndex="10"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- DIRECCIÓN nativa (17vo port): panel angosto ANCLADO A LA
+                     IZQUIERDA (después del riel del menú, ~130px): el centro y
+                     la derecha del mapa quedan libres para ver el tractor
+                     mientras se prueba la dirección (pedido 2026-08-08). -->
+                <vw:DireccionPanel x:Name="DireccionHost" Grid.Row="1"
+                                   HorizontalAlignment="Left" VerticalAlignment="Center"
+                                   Margin="145,8,0,8"/>
+
+                <!-- CoreX-ECU (9no port, Live tab de pages\corex-ecu.html):
+                     telemetria del autosteer (IMU, WAS, GPS, CAN Keya,
+                     Autosteer, Sistema). Era un takeover pantalla completa
+                     oscuro ("ventana gigante negra", reporte 2026-08-07);
+                     ahora es una card clara flotante y el mapa sigue vivo
+                     detras. Las tabs editor siguen en HTML via "Configurar". -->
+                <vw:CoreXEcuPanel x:Name="CoreXEcuHost" Grid.Row="1" IsVisible="False"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- EDITOR de QuantiX (18vo port): las 6 tabs que antes se
+                     abrian con "Configurar" sobre pages/quantix.html. Con
+                     esto QuantiX ya no despierta Chromium para nada. Card
+                     clara flotante, mapa VIVO detras. La pagina HTML queda
+                     intacta para la PWA del celular. -->
+                <vw:QuantiXEditorPanel x:Name="QuantiXEditorHost" Grid.Row="1" ZIndex="10"
+                                       IsVisible="False"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- EDITOR de VistaX (29no port): las pantallas que antes se
+                     abrian con "Configurar" sobre pages/vistax.html — Insumo &
+                     calibracion, Implemento y Config. Con esto VistaX ya no
+                     despierta Chromium para nada. Card clara flotante, mapa
+                     VIVO detras. La pagina HTML queda intacta para la PWA del
+                     celular. -->
+                <vw:VistaXEditorPanel x:Name="VistaXEditorHost" Grid.Row="1" ZIndex="10"
+                                      IsVisible="False"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- EDITOR de FlowX (30mo port): las pantallas que antes se
+                     abrian con "Configurar" sobre pages/flowx.html — Nodo
+                     activo, Reguladoras, Cortes, Electrovalvulas, Firmware y
+                     Nodos en red. Con esto FlowX ya no despierta Chromium para
+                     nada. Card clara flotante, mapa VIVO detras. La pagina HTML
+                     queda intacta para la PWA del celular. -->
+                <vw:FlowXEditorPanel x:Name="FlowXEditorHost" Grid.Row="1" ZIndex="10"
+                                     IsVisible="False"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- SONIDOS (port de pages/sonidos.html, completo): qué avisa
+                     la cabina, con qué sonido y cuándo. Incluye subir un .wav
+                     propio con el file-picker del sistema, así que no queda
+                     ningún camino a HTML — esta pantalla ya no despierta
+                     Chromium. Card clara flotante, mapa VIVO detrás; la página
+                     HTML queda intacta para la PWA del celular. -->
+                <vw:SonidosPanel x:Name="SonidosHost" Grid.Row="1" ZIndex="10"
+                                 IsVisible="False"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- VISOR DE EVENTOS (port de pages/eventos.html, ex
+                     FormEventViewer): el registro de la sesión + el histórico.
+                     Card clara flotante con el mapa VIVO detrás; la página HTML
+                     queda intacta para la PWA del celular. Stretch a propósito:
+                     la card se centra sola (MaxWidth 960 en su propio XAML). -->
+                <vw:EventosPanel x:Name="EventosHost" Grid.Row="1" ZIndex="10"
+                                 IsVisible="False"
+                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- CALCULADORA DE SIEMBRA (port de
+                     pages/calculadora-siembra.html): las cuatro cuentas de
+                     gruesa (densidad, prueba de campo, PMS y motor). Card clara
+                     flotante, mapa VIVO detrás; la página HTML queda intacta
+                     para la PWA del celular. -->
+                <vw:CalculadoraSiembraPanel x:Name="CalculadoraHost" Grid.Row="1" ZIndex="10"
+                                            IsVisible="False"
+                                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- PERFILES (port de pages/perfiles.html): un perfil = TODAS
+                     las configuraciones del vehículo, así que la pantalla es
+                     destructiva (crear / cargar / copiar / proteger / borrar).
+                     Card clara flotante, mapa VIVO detrás; la página HTML queda
+                     intacta para la PWA del celular. Stretch: la card se centra
+                     sola y el diálogo de alta necesita el área entera. -->
+                <vw:PerfilesPanel x:Name="PerfilesHost" Grid.Row="1" ZIndex="10"
+                                  IsVisible="False"
+                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- FIRMWARES (port de pages/firmwares.html): catálogo local de
+                     .bin para cargar desde USB sin internet. Card clara
+                     flotante, mapa VIVO detrás; la página HTML queda intacta
+                     para la PWA del celular. -->
+                <vw:FirmwaresPanel x:Name="FirmwaresHost" Grid.Row="1" ZIndex="10"
+                                   IsVisible="False"
+                                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- BANDERAS nativo (port de pages/banderas.html, ex FormFlags +
+                     FormEnterFlag): el operario marca una piedra o un pozo
+                     MANEJANDO y la lista le dice a qué distancia está cada
+                     bandera en vivo — o sea que lo que hay que ver es el MAPA.
+                     Card chica (380) a la DERECHA con el mismo margen 82 que
+                     Contorno/Corregir posición: el centro queda para el tractor
+                     y la bandera recién marcada. -->
+                <vw:BanderasPanel x:Name="BanderasHost" Grid.Row="1" ZIndex="10"
+                                  IsVisible="False"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  Margin="0,0,82,0"/>
+
+                <!-- Los CUATRO GRÁFICOS (port de grafico-direccion.html,
+                     grafico-rumbo.html, grafico-xte.html y
+                     grafico-correccion.html, ex FormGraphSteer y hermanas):
+                     se miran MANEJANDO, así que van como card flotante con el
+                     mapa VIVO detrás. Comparten un solo GraficosClient. Las
+                     páginas HTML quedan intactas para la PWA del celular. -->
+                <vw:GraficoDireccionPanel x:Name="GrafDireccionHost" Grid.Row="1" ZIndex="10"
+                                          IsVisible="False"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <vw:GraficoRumboPanel x:Name="GrafRumboHost" Grid.Row="1" ZIndex="10"
+                                      IsVisible="False"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <vw:GraficoXtePanel x:Name="GrafXteHost" Grid.Row="1" ZIndex="10"
+                                    IsVisible="False"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <vw:GraficoCorreccionPanel x:Name="GrafCorreccionHost" Grid.Row="1" ZIndex="10"
+                                           IsVisible="False"
+                                           HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- ORBITX CLOUD (port de pages/orbitx.html): vinculación del
+                     tractor con el cloud (código de pareo, estado del sync) y
+                     el atajo a Prescripciones. Card clara flotante, mapa VIVO
+                     detrás; la página HTML queda intacta para la PWA. -->
+                <vw:OrbitXPanel x:Name="OrbitXHost" Grid.Row="1" ZIndex="10"
+                                IsVisible="False"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- RED WIFI (port de pages/wifi.html): el WiFi PROPIO de la
+                     pantalla — escanear, conectar, olvidar. Card clara
+                     flotante, mapa VIVO detrás; la página HTML queda intacta
+                     para la PWA del celular. -->
+                <vw:WifiPanel x:Name="WifiHost" Grid.Row="1" ZIndex="10"
+                              IsVisible="False"
+                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- DEBUG (port de pages/debug.html): el log unificado de todos
+                     los servicios, con sus filtros. Card clara flotante, mapa
+                     VIVO detrás; la página HTML queda intacta para la PWA. -->
+                <vw:DebugPanel x:Name="DebugHost" Grid.Row="1" ZIndex="10"
+                               IsVisible="False"
+                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- CATÁLOGO DE INSUMOS (port de pages/insumos.html): el
+                     catálogo COMPARTIDO que abre VistaX desde su editor. Card
+                     clara flotante, mapa VIVO detrás; la página HTML queda
+                     intacta para la PWA del celular. -->
+                <vw:InsumosPanel x:Name="InsumosHost" Grid.Row="1" ZIndex="10"
+                                 IsVisible="False"
+                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- MAPAS (port de pages/mapas.html): preview y exportación de
+                     los mapas del lote. Card clara flotante, mapa VIVO detrás;
+                     la página HTML queda intacta para la PWA del celular. -->
+                <vw:MapasPanel x:Name="MapasHost" Grid.Row="1" ZIndex="10"
+                               IsVisible="False"
+                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- DETALLE DE NODO (port de pages/nodo-detalle.html): la
+                     matriz wifi/mqtt/target, el OTA y los comandos de UN nodo.
+                     Se entra tocando una fila de Nodos (el UID sale del
+                     announcement MQTT). Card clara flotante, mapa VIVO detrás;
+                     la página HTML queda intacta para la PWA del celular. -->
+                <vw:NodoDetallePanel x:Name="NodoDetalleHost" Grid.Row="1" ZIndex="10"
+                                     IsVisible="False"
+                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- CONFIGURACIÓN nativa (shell del porteo de config.html):
+                     menú lateral por grupos + pestañas + footer con
+                     perfil/ancho/unidades. Hoy trae "Resumen" nativa; las
+                     pestañas que faltan y los módulos embebidos se siguen
+                     abriendo por WebView desde su propio menú (strangler fig).
+                     Card clara flotante, mapa VIVO detrás; pages/config.html
+                     queda intacta para la PWA del celular. -->
+                <!-- Stretch a propósito: la card de la Configuración es de
+                     TAMAÑO FIJO (se estira al área menos un margen constante,
+                     con tope para monitores grandes) — con Center acá, el
+                     tamaño real dependía del contenido de la pestaña activa y
+                     cada toque del menú redimensionaba la ventana entera. -->
+                <vw:ConfigPanel x:Name="ConfigHost" Grid.Row="1" ZIndex="10"
+                                IsVisible="False"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- EXPLORADOR DE ARCHIVOS propio de PilotX (spec 2026-08-20):
+                     card nativa Elegir/Guardar que reemplaza al StorageProvider
+                     de Windows (Firmwares, Shape de QuantiX, Sonidos, export de
+                     Debug). ZIndex ALTO a propósito: se abre ENCIMA de los
+                     paneles que la llaman (que van con ZIndex 10). Scrim propio;
+                     el mapa sigue VIVO detrás — nunca se apaga. -->
+                <vw:ExploradorPanel x:Name="ExploradorHost" Grid.Row="1" ZIndex="30"
+                                    IsVisible="False"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- TOAST transitorio: avisos que NO piden decisión ("apagá las
+                     secciones primero…"). Se va solo a los 4 s y no bloquea
+                     NADA — el aviso modal (ShowDialog) trababa todos los
+                     botones y en cabina eso no va (reporte 2026-08-07). -->
+                <Border x:Name="ToastAviso" Grid.Row="1" IsVisible="False"
+                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Margin="0,64,0,0" MaxWidth="560"
+                        Background="#F2101612" CornerRadius="10"
+                        Padding="16,10" IsHitTestVisible="False">
+                    <TextBlock x:Name="ToastAvisoText" Foreground="White"
+                               FontSize="15" TextWrapping="Wrap"
+                               TextAlignment="Center"/>
+                </Border>
+
+                <!-- Panel de HERRAMIENTAS: se abre desde la barra de la pasada
+                     y flota sobre el mapa (no es Flyout: los popups no se
+                     dibujan sobre el mapa GL). Botones grandes en dos columnas
+                     para tocar con guantes. Se ubica sobre su botón en
+                     UbicarHerramientasMenu.
+                     ZIndex: los paneles que el operario ABRE van sobre la tira
+                     de secciones (SeccionesFloat, declarada después y por eso
+                     ganaba) — el menú quedaba tapado (reporte 2026-08-11). -->
+                <Border x:Name="HerramientasMenu" Grid.Row="1" IsVisible="False"
+                        ZIndex="10"
+                        HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                        Margin="0,0,0,120"
+                        Background="#FAFBFA" BorderBrush="#C5CFC5" BorderThickness="1"
+                        CornerRadius="14" Padding="10"
+                        BoxShadow="0 8 26 0 #33101612">
+                  <Border.Styles>
+                    <!-- Tarjeta por herramienta: ícono arriba, nombre abajo.
+                         Sin fondo hasta que el dedo la toca — la grilla se lee
+                         como una lista de íconos, no como un tablero de cajas. -->
+                    <Style Selector="Button.hr">
+                      <Setter Property="Width" Value="104"/>
+                      <Setter Property="Height" Value="86"/>
+                      <Setter Property="Margin" Value="3"/>
+                      <Setter Property="Padding" Value="0"/>
+                      <Setter Property="Background" Value="Transparent"/>
+                      <Setter Property="BorderBrush" Value="Transparent"/>
+                      <Setter Property="BorderThickness" Value="1"/>
+                      <Setter Property="CornerRadius" Value="10"/>
+                      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                      <Setter Property="VerticalContentAlignment" Value="Center"/>
+                    </Style>
+                    <Style Selector="Button.hr:pointerover">
+                      <Setter Property="Background" Value="#FFFFFF"/>
+                      <Setter Property="BorderBrush" Value="#4ABA3E"/>
+                    </Style>
+                    <Style Selector="Button.hr:pressed">
+                      <Setter Property="Background" Value="#EAF6E8"/>
+                    </Style>
+                    <Style Selector="Button.hr Image">
+                      <Setter Property="Height" Value="34"/>
+                      <Setter Property="Width" Value="34"/>
+                    </Style>
+                    <Style Selector="Button.hr TextBlock">
+                      <Setter Property="FontSize" Value="11"/>
+                      <Setter Property="Foreground" Value="#101612"/>
+                      <Setter Property="TextAlignment" Value="Center"/>
+                      <Setter Property="TextWrapping" Value="Wrap"/>
+                      <Setter Property="Margin" Value="0,5,0,0"/>
+                      <Setter Property="LineHeight" Value="13"/>
+                    </Style>
+                  </Border.Styles>
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="HERRAMIENTAS" FontSize="10" FontWeight="Bold"
+                               Foreground="#747D75" Margin="6,2,0,4"/>
+                    <UniformGrid Columns="4">
+                      <Button x:Name="BtnHrConteo" Classes="hr" ToolTip.Tip="Contar semillas de cada surco en un tramo">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/SectionMapping.png"/>
+                          <TextBlock Text="Conteo de semillas"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrCalc" Classes="hr" ToolTip.Tip="Calculadora de siembra">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/AutoManualIsAuto.png"/>
+                          <TextBlock Text="Calculadora"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrWebcam" Classes="hr" ToolTip.Tip="Cámaras">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/Webcam.png"/>
+                          <TextBlock Text="Cámaras"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrCorregir" Classes="hr" ToolTip.Tip="Corregir posición del tractor">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/YouTurnReverse.png"/>
+                          <TextBlock Text="Corregir posición"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrSuavizar" Classes="hr" ToolTip.Tip="Suavizar una guía curva">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/ABSmooth.png"/>
+                          <TextBlock Text="Suavizar AB"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrEventos" Classes="hr" ToolTip.Tip="Registro de eventos">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/ABTracks.png"/>
+                          <TextBlock Text="Eventos"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrGrafDir" Classes="hr" ToolTip.Tip="Gráfico de dirección">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/AutoSteerOn.png"/>
+                          <TextBlock Text="Gráfico dirección"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrGrafXte" Classes="hr" ToolTip.Tip="Gráfico de desvío a la línea">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/GPSQuality.png"/>
+                          <TextBlock Text="Gráfico XTE"/>
+                        </StackPanel>
+                      </Button>
+                      <!-- El botón Hub se SACÓ de acá (pedido 2026-08-11:
+                           "lleva a cualquier lado cada cosa que se toca") —
+                           cada producto ya tiene su botón directo en este menú
+                           y el home del Hub duplicaba navegación. El panel
+                           nativo (HubPanel/ShowHub) sigue existiendo por si se
+                           lo quiere re-enganchar. -->
+                      <!-- Sonidos: antes vivía dentro de Configuración › Otros
+                           (página HTML). Ahora es panel nativo y entra acá,
+                           que es donde el operario busca las herramientas. -->
+                      <Button x:Name="BtnHrSonidos" Classes="hr" ToolTip.Tip="Alarmas sonoras: qué avisa la cabina y con qué sonido">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/Sonidos.png"/>
+                          <TextBlock Text="Sonidos"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrCorexEcu" Classes="hr" ToolTip.Tip="Telemetría del ECU de dirección (Teensy)">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/CoreX.png"/>
+                          <TextBlock Text="CoreX-ECU"/>
+                        </StackPanel>
+                      </Button>
+                    </UniformGrid>
+                  </StackPanel>
+                </Border>
+
+                <!-- Secciones FLOTANTES: intercambio con la barra de la pasada
+                     (pedido usuario 2026-08-05). Las secciones suben a flotar
+                     centradas (tarjeta redondeada) y la pasada baja pegada al
+                     borde inferior — ver UbicarNudgeOverlay. El margen inferior
+                     de 70 las deja apiladas JUSTO arriba de la pasada (56 de
+                     alto + 6 de borde + 8 de aire). Visibles solo con lote:
+                     el binding es el mismo SeccionesVisible del ViewModel. -->
+                <!-- Margin inferior 96 (era 70): más aire sobre la pasada, a
+                     pedido. Sin corrimiento izquierdo: centradas de verdad
+                     respecto de la pantalla, igual que la pasada — las dos
+                     barras comparten eje. Si se cambia el 96, actualizar la
+                     misma constante en UbicarQxBar. -->
+                <Border x:Name="SeccionesFloat" Grid.Row="1"
+                        x:DataType="barsvm:BarraAbajoViewModel"
+                        VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                        Margin="0,0,0,96"
+                        Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="1"
+                        CornerRadius="10" ClipToBounds="True"
+                        IsVisible="{Binding SeccionesVisible}">
+                    <bars:BarraAbajo x:Name="BarAbajo" HorizontalAlignment="Center"/>
+                </Border>
+            </Grid>
+
+            <!-- =========== Panel de creación de guía A/B (en el mapa) =========== -->
+            <!--
+                Flujo "toco A, manejo, toco B": aparece al tocar Nueva A/B.
+                Botón grande que cicla Marcar A → Marcar B, + Cancelar. El mapa
+                dibuja la marca A y la línea pendiente A→tractor mientras tanto.
+            -->
+            <Border Name="AbCreatePanel"
+                    Grid.Row="2"
+                    IsVisible="False"
+                    ZIndex="60"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,0,80"
+                    Background="#F0101612"
+                    BorderBrush="{StaticResource PilotXAccent}"
+                    BorderThickness="1.5"
+                    CornerRadius="12"
+                    Padding="14,10"
+                    BoxShadow="0 4 16 0 #90000000">
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <TextBlock Name="AbCreateHint"
+                               Text="Ubicá el tractor en el inicio y tocá A"
+                               Foreground="{StaticResource PilotXTextHi}"
+                               FontSize="14"
+                               VerticalAlignment="Center"/>
+                    <Button Name="AbCreateMark"
+                            Content="Marcar A"
+                            Click="OnAbCreateMark"
+                            MinWidth="120" MinHeight="48"
+                            FontSize="16" FontWeight="Bold"
+                            Foreground="#101612"
+                            Background="{StaticResource PilotXAccent}"
+                            BorderThickness="0"
+                            CornerRadius="8"/>
+                    <Button Name="AbCreateCancel"
+                            Content="Cancelar"
+                            Click="OnAbCreateCancel"
+                            MinWidth="90" MinHeight="48"
+                            FontSize="14"
+                            Foreground="{StaticResource PilotXTextHi}"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"/>
+                </StackPanel>
+            </Border>
+
+            <!-- FAB X (modo full, ya que sin header no hay otra forma de cerrar) -->
+            <Button x:Name="CloseButton"
+                    Grid.Row="2"
+                    Content="X"
+                    Width="48" Height="48"
+                    FontSize="20"
+                    Foreground="#FFFFFF"
+                    Background="{StaticResource PilotXErrStrong}"
+                    BorderBrush="#FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="24"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,12,12,0"
+                    IsVisible="False"
+                    Click="OnCloseClick"/>
+
+            <!-- =================== TOOLBAR INFERIOR (placeholder) =================== -->
+            <!--
+                Tres botones placeholder, alineados al toolbar real de FormGPS:
+                · Engranaje  (Settings / vehiculo+implemento)
+                · FieldTools (lote / boundary / job)
+                · Tools      (SpecialFunctions / productos X-* / Hub)
+                Bound a comandos vacios por ahora. La paridad real con FormGPS
+                viene en una iteracion posterior, cuando empecemos a portar
+                botones uno por uno (project_pilotx_toolbar_icons).
+            -->
+            <Border Name="BottomToolbar"
+                    Grid.Row="3"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="0,1,0,0"
+                    Height="64"
+                    IsVisible="False">
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="16">
+                    <!--
+                        Engranaje: ajustes (vehiculo/implemento/sistema). Se
+                        desactiva si no hay GPS fix — coherente con
+                        project_pilotx_toolbar_icons.
+                    -->
+                    <Button Name="BtnSettings"
+                            Width="56" Height="48"
+                            Content="(:)"
+                            Background="{StaticResource PilotXBgHigh}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Click="OnSettingsClick"
+                            ToolTip.Tip="Ajustes - Sistema/Vehiculo/Implemento (requiere GPS)"/>
+                    <!--
+                        FieldTools: datos del lote activo. Se desactiva si no
+                        hay job iniciado (IsJobStarted=false).
+                    -->
+                    <Button Name="BtnFieldTools"
+                            Width="56" Height="48"
+                            Content="[F]"
+                            Background="{StaticResource PilotXBgHigh}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Click="OnFieldToolsClick"
+                            ToolTip.Tip="Herramientas de lote - datos del lote activo (requiere lote)"/>
+                    <!--
+                        Tools (SpecialFunctions): SIEMPRE activo. Abre un
+                        menu con los productos X-* + Hub. Cada item navega
+                        el WebView a su pagina del wwwroot.
+                    -->
+                    <Button Name="BtnTools"
+                            Width="56" Height="48"
+                            Content="[T]"
+                            Background="{StaticResource PilotXBgHigh}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            ToolTip.Tip="Special Functions - productos X-* / Hub">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="Top">
+                                <MenuItem Header="Hub"        Click="OnNavHub"/>
+                                <MenuItem Header="Datos GPS"  Click="OnNavDatosGps"/>
+                                <MenuItem Header="-"/>
+                                <MenuItem Header="Camaras"    Click="OnNavCamaras"/>
+                                <MenuItem Header="VistaX"     Click="OnNavVistaX"/>
+                                <MenuItem Header="QuantiX"    Click="OnNavQuantiX"/>
+                                <MenuItem Header="SectionX"   Click="OnNavSectionX"/>
+                                <MenuItem Header="FlowX"      Click="OnNavFlowX"/>
+                                <MenuItem Header="StormX"     Click="OnNavStormX"/>
+                                <MenuItem Header="CoreX ECU"  Click="OnNavCoreX"/>
+                                <MenuItem Header="-"/>
+                                <MenuItem Header="Nodos"      Click="OnNavNodos"/>
+                                <MenuItem Header="Firmwares"  Click="OnNavFirmwares"/>
+                                <MenuItem Header="OrbitX"     Click="OnNavOrbitX"/>
+                                <MenuItem Header="Actualizar PilotX" Click="OnNavActualizar"/>
+                                <MenuItem Header="Debug"      Click="OnNavDebug"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

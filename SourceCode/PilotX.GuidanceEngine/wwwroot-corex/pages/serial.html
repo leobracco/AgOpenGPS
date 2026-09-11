@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conexión serial — CoreX</title>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <link rel="stylesheet" href="/corex.css">
+</head>
+<body>
+  <div class="cx-shell">
+
+    <aside class="cx-sidebar">
+      <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
+      <div class="cx-mini">CoreX · Agro Parallel</div>
+      <a class="cx-side-item" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
+      <a class="cx-side-item active" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
+      <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <!-- Radio salió 2026-08-18: todos sus endpoints contestan
+           "no-disponible-en-integrado". -->
+      <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
+      <!-- Módulos salió 2026-08-18: /config/modulos contesta
+           "no-disponible-en-integrado". -->
+      <a class="cx-side-item" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
+      <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
+      <!-- Perfil salió 2026-08-18: todos sus endpoints contestan
+           "no-disponible-en-integrado". Ver SISTEMA › Perfiles del vehículo. -->
+      <!-- El link de vuelta ↩️ PilotX salió 2026-08-18: apuntaba a
+           http://127.0.0.1:5180/ y cargaba el Hub HTML viejo adentro de la
+           card de CoreX. Se sale con el ✕ de la card. -->
+    </aside>
+
+    <div class="cx-content">
+      <div class="cx-head">
+        <div>
+          <h2>Conexión serial</h2>
+          <p>GPS · GPS 2 · RTCM · Steer · Máquina · IMU</p>
+        </div>
+        <div class="cx-pills">
+          <span class="cx-pill"><span id="hdrVersion">—</span></span>
+          <span class="cx-pill">perfil&nbsp;<span id="hdrProfile">—</span></span>
+        </div>
+      </div>
+
+      <section class="cx-panel">
+        <h3>Puertos de comunicación</h3>
+        <div class="cx-mod-list">
+
+          <!-- GPS principal -->
+          <div class="cx-mod-row">
+            <div class="cx-mod-icon">🛰️<span class="dot" id="dot-gps"></span></div>
+            <div>
+              <div class="cx-mod-name">GPS</div>
+              <div class="cx-mod-sub">Puerto principal</div>
+            </div>
+            <select id="port-gps" aria-label="Puerto COM del GPS"></select>
+            <select id="baud-gps" aria-label="Velocidad del GPS">
+              <option value="4800">4800</option>
+              <option value="9600">9600</option>
+              <option value="19200">19200</option>
+              <option value="38400">38400</option>
+              <option value="57600">57600</option>
+              <option value="115200">115200</option>
+            </select>
+            <button class="btn-canal" id="btn-gps">Abrir</button>
+          </div>
+
+          <!-- GPS 2 (receptor dual/base) -->
+          <div class="cx-mod-row">
+            <div class="cx-mod-icon">🛰️<span class="dot" id="dot-gps2"></span></div>
+            <div>
+              <div class="cx-mod-name">GPS 2</div>
+              <div class="cx-mod-sub">Receptor dual / base</div>
+            </div>
+            <select id="port-gps2" aria-label="Puerto COM del GPS 2"></select>
+            <select id="baud-gps2" aria-label="Velocidad del GPS 2">
+              <option value="4800">4800</option>
+              <option value="9600">9600</option>
+              <option value="19200">19200</option>
+              <option value="38400">38400</option>
+              <option value="57600">57600</option>
+              <option value="115200">115200</option>
+            </select>
+            <button class="btn-canal" id="btn-gps2">Abrir</button>
+          </div>
+
+          <!-- RTCM (correcciones RTK) -->
+          <div class="cx-mod-row">
+            <div class="cx-mod-icon">📡<span class="dot" id="dot-rtcm"></span></div>
+            <div>
+              <div class="cx-mod-name">RTCM</div>
+              <div class="cx-mod-sub">Correcciones RTK</div>
+            </div>
+            <select id="port-rtcm" aria-label="Puerto COM RTCM"></select>
+            <select id="baud-rtcm" aria-label="Velocidad RTCM">
+              <option value="4800">4800</option>
+              <option value="9600">9600</option>
+              <option value="19200">19200</option>
+              <option value="38400">38400</option>
+              <option value="57600">57600</option>
+              <option value="115200">115200</option>
+            </select>
+            <button class="btn-canal" id="btn-rtcm">Abrir</button>
+          </div>
+
+          <!-- Steer (baud fijo 38400) -->
+          <div class="cx-mod-row">
+            <div class="cx-mod-icon">🛞<span class="dot" id="dot-steer"></span></div>
+            <div>
+              <div class="cx-mod-name">Dirección (Steer)</div>
+              <div class="cx-mod-sub">Autoguiado</div>
+            </div>
+            <select id="port-steer" aria-label="Puerto COM del Steer"></select>
+            <span class="cx-badge">38400 fijo</span>
+            <button class="btn-canal" id="btn-steer">Abrir</button>
+          </div>
+
+          <!-- Machine (baud fijo 38400) -->
+          <div class="cx-mod-row">
+            <div class="cx-mod-icon">🔧<span class="dot" id="dot-machine"></span></div>
+            <div>
+              <div class="cx-mod-name">Máquina</div>
+              <div class="cx-mod-sub">Implemento</div>
+            </div>
+            <select id="port-machine" aria-label="Puerto COM de Máquina"></select>
+            <span class="cx-badge">38400 fijo</span>
+            <button class="btn-canal" id="btn-machine">Abrir</button>
+          </div>
+
+          <!-- IMU (baud fijo 38400) -->
+          <div class="cx-mod-row">
+            <div class="cx-mod-icon">📐<span class="dot" id="dot-imu"></span></div>
+            <div>
+              <div class="cx-mod-name">IMU</div>
+              <div class="cx-mod-sub">Inclinación</div>
+            </div>
+            <select id="port-imu" aria-label="Puerto COM del IMU"></select>
+            <span class="cx-badge">38400 fijo</span>
+            <button class="btn-canal" id="btn-imu">Abrir</button>
+          </div>
+
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="/js/modal.js"></script>
+  <script src="/js/hdr.js"></script>
+  <script src="/js/serial.js"></script>
+</body>
+</html>

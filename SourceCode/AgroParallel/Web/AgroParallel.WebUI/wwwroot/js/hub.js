@@ -1,0 +1,169 @@
+// ============================================================================
+// hub.js — vista resumen del estado del piloto en tiempo real.
+// Pollea /api/aog/state (1Hz), /api/nodos (3s) y /api/corex-bridge/status (2s).
+// ============================================================================
+
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function fmtNum(v, dec) {
+    if (v == null || isNaN(v)) return '—';
+    return Number(v).toFixed(dec == null ? 1 : dec);
+  }
+
+  function radToDeg(r) {
+    if (r == null || isNaN(r)) return null;
+    var d = r * 180 / Math.PI;
+    d = ((d % 360) + 360) % 360;
+    return d;
+  }
+
+  function fmtLatLon(lat, lon) {
+    if (!lat || !lon || (lat === 0 && lon === 0)) return '—';
+    return lat.toFixed(5) + '°, ' + lon.toFixed(5) + '°';
+  }
+
+  function setPill(el, cls, text) {
+    if (!el) return;
+    el.className = 'pill ' + cls;
+    el.innerHTML = '<span class="dot"></span> ' + text;
+  }
+
+  function renderSections(numSections, sectionOnRequest) {
+    var row = $('sectionsRow');
+    if (!row) return;
+    var n = Math.max(0, Math.min(16, numSections || 0));
+    if (row.children.length !== n) {
+      row.innerHTML = '';
+      for (var i = 0; i < n; i++) row.appendChild(document.createElement('span'));
+    }
+    var on = 0;
+    for (var i = 0; i < n; i++) {
+      var active = sectionOnRequest && sectionOnRequest[i];
+      row.children[i].classList.toggle('on', !!active);
+      if (active) on++;
+    }
+    $('kpiSecCount').textContent = on + ' de ' + n + (n === 1 ? ' abierta' : ' abiertas');
+  }
+
+  async function refreshState() {
+    try {
+      var res = await fetch('/api/aog/state', { cache: 'no-store' });
+      var s = await res.json();
+      if (!s) return;
+
+      // /api/aog/state serializa en snake_case (AgpJson).
+      $('kpiSpeed').textContent = fmtNum(s.avg_speed, 1);
+      var hdg = radToDeg(s.heading);
+      $('kpiHeading').textContent = (hdg == null ? '— ' : Math.round(hdg)) + '°';
+
+      var dose = s.shape_current_dose;
+      $('kpiDose').textContent = dose ? fmtNum(dose, 0) : '—';
+      if (dose && s.shape_is_inside) setPill($('kpiShape'), 'ok', 'dentro de zona');
+      else if (dose) setPill($('kpiShape'), 'warn', 'fuera de zona');
+      else setPill($('kpiShape'), 'idle', 'sin shape');
+
+      renderSections(s.num_sections, s.section_on_request);
+      $('kpiToolWidth').textContent = (s.tool_width ? fmtNum(s.tool_width, 2) : '—') + ' m';
+
+      $('kpiLatLon').textContent = fmtLatLon(s.latitude, s.longitude);
+
+      $('kpiField').textContent = s.current_field_directory || '—';
+
+      var jobStarted = !!s.is_job_started;
+      setPill($('pillJob'), jobStarted ? 'ok' : 'idle', jobStarted ? 'Trabajo activo' : 'Sin trabajo');
+    } catch (e) {
+      setPill($('pillJob'), 'bad', 'Piloto offline');
+    }
+  }
+
+  async function refreshNodos() {
+    try {
+      var res = await fetch('/api/nodos', { cache: 'no-store' });
+      var data = await res.json();
+      var nodos = (data && data.nodos) || [];
+      var online = nodos.filter(function (n) { return n.online; }).length;
+      // broker_connected viene del NodoRegistryService.GetDiagnostic().Connected;
+      // distingue "CoreX broker arriba" (verde) de "no hay nodos todavía" (idle).
+      var brokerOk = !!(data && data.broker_connected);
+
+      setPill($('pillBroker'),
+        brokerOk ? 'ok' : 'bad',
+        brokerOk ? 'Broker MQTT' : 'Broker MQTT offline');
+      setPill($('pillNodos'), online > 0 ? 'ok' : 'idle', online + (online === 1 ? ' nodo' : ' nodos'));
+
+      var list = $('hubNodeList');
+      if (!list) return;
+      if (!nodos.length) {
+        list.innerHTML = '<div class="card" style="text-align:center; color:var(--agp-text-muted)">Sin nodos detectados todavía</div>';
+        return;
+      }
+      list.innerHTML = nodos.slice(0, 6).map(function (n) {
+        var stateClass = n.online ? '' : 'offline';
+        var fwBadge = n.online
+          ? '<span class="pill ok"><span class="dot"></span> ' + (n.firmware ? 'v' + esc(n.firmware) + ' · ' : '') + 'online</span>'
+          : '<span class="pill idle"><span class="dot"></span> offline</span>';
+        return '' +
+          '<div class="node ' + stateClass + '">' +
+            '<span class="led"></span>' +
+            '<div><div class="name">' + esc(n.type || '?') + '</div><div class="uid">' + esc(n.uid) + '</div></div>' +
+            '<div class="ip">' + esc(n.ip || '—') + '</div>' +
+            fwBadge +
+          '</div>';
+      }).join('');
+    } catch (e) {
+      setPill($('pillBroker'), 'bad', 'Broker MQTT');
+    }
+  }
+
+  // Tira de módulos (CoreX + GPS/IMU/Machine/Steer). Refleja exactamente la
+  // misma lógica ok/bad/idle que usa el propio dashboard de CoreX
+  // (wwwroot-corex/js/corex.js, setDot): GPS no tiene estado "no conectado"
+  // (siempre se espera), Motor/IMU/Machine sí (son módulos opcionales según
+  // qué nodos tenga enchufados el tractor).
+  async function refreshModulos() {
+    try {
+      var res = await fetch('/api/corex-bridge/status', { cache: 'no-store' });
+      var d = await res.json();
+      if (!d || !d.ok) {
+        setPill($('pillCorex'), 'bad', 'CoreX offline');
+        setPill($('pillMotor'), 'idle', 'Motor');
+        setPill($('pillGps'), 'idle', 'GPS');
+        setPill($('pillImu'), 'idle', 'IMU');
+        setPill($('pillMachine'), 'idle', 'Machine');
+        return;
+      }
+      setPill($('pillCorex'), 'ok', 'CoreX');
+      setPill($('pillGps'), d.gps_alive ? 'ok' : 'bad', 'GPS');
+      setModulePill($('pillMotor'), 'Motor', d.steer_configured, d.steer_hello);
+      setModulePill($('pillImu'), 'IMU', d.imu_configured, d.imu_hello);
+      setModulePill($('pillMachine'), 'Machine', d.machine_configured, d.machine_hello);
+    } catch (e) {
+      setPill($('pillCorex'), 'bad', 'CoreX offline');
+      setPill($('pillMotor'), 'idle', 'Motor');
+      setPill($('pillGps'), 'idle', 'GPS');
+      setPill($('pillImu'), 'idle', 'IMU');
+      setPill($('pillMachine'), 'idle', 'Machine');
+    }
+  }
+
+  function setModulePill(el, label, configured, hello) {
+    if (!configured) { setPill(el, 'idle', label + ' no conectado'); return; }
+    setPill(el, hello ? 'ok' : 'bad', hello ? label : label + ' sin responder');
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  refreshState();
+  refreshNodos();
+  refreshModulos();
+  setInterval(refreshState, 1000);
+  setInterval(refreshNodos, 3000);
+  setInterval(refreshModulos, 2000);
+})();

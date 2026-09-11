@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es" class="widget-mode">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Botonera · PilotX</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Launcher de comandos del piloto: todos los botones sueltos + carpetas
+       que arma el operario tirando botones adentro (drag & drop táctil). */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--agp-bg-soft, #F5F7F4);
+      color: var(--agp-text, #101612);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px;
+      background: var(--agp-bg, #E2E7E2);
+      border-bottom: 1px solid var(--agp-border, #C5CFC5);
+      flex: 0 0 auto;
+    }
+    header h1 { font-size: 15px; font-weight: 700; }
+    header .hint { font-size: 11px; color: var(--agp-text-muted, #5a675c); flex: 1; }
+    .hbtn {
+      min-height: 44px; padding: 8px 14px;
+      border: 1px solid var(--agp-border, #C5CFC5); border-radius: 8px;
+      background: var(--agp-bg-soft, #F5F7F4); color: var(--agp-text, #101612);
+      font: 600 13px "Segoe UI", sans-serif; cursor: pointer;
+    }
+    .hbtn.primary { background: var(--agp-accent, #4ABA3E); border-color: var(--agp-accent, #4ABA3E); color: #fff; }
+
+    /* fila para nombrar carpeta nueva (inline, sin window.prompt) */
+    #newFolderRow {
+      display: none; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      background: var(--agp-bg, #E2E7E2);
+      border-bottom: 1px solid var(--agp-border, #C5CFC5);
+    }
+    #newFolderRow.show { display: flex; }
+    #newFolderRow input {
+      flex: 1; min-height: 44px; padding: 6px 10px;
+      border: 1px solid var(--agp-border, #C5CFC5); border-radius: 8px;
+      font: 600 15px "Segoe UI", sans-serif;
+    }
+
+    main { flex: 1 1 auto; overflow-y: auto; padding: 10px; }
+
+    h2 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--agp-text-muted, #5a675c);
+      margin: 10px 4px 6px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 8px;
+    }
+    .cmd, .folder {
+      min-height: 84px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; padding: 6px 4px;
+      border: 1px solid var(--agp-border, #C5CFC5); border-radius: 10px;
+      background: var(--agp-bg, #E2E7E2); color: var(--agp-text, #101612);
+      font: 600 11.5px/1.15 "Segoe UI", sans-serif; text-align: center;
+      cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+      touch-action: pan-y;   /* scroll vertical libre; el drag arranca con hold */
+      position: relative;
+    }
+    .cmd .ico, .folder .ico { font-size: 26px; line-height: 1; }
+    .cmd:active { background: var(--agp-border, #C5CFC5); }
+    .cmd.flash { border-color: var(--agp-accent, #4ABA3E); box-shadow: 0 0 0 2px rgba(74,186,62,0.35); }
+    .cmd.lifted { opacity: 0.35; }
+
+    /* modo ORDENAR: los tiles capturan el puntero (touch-action none) y se
+       arrastran directo; ondulan levemente para que se note el modo */
+    body.arrange .cmd { touch-action: none; animation: wiggle 0.35s ease-in-out infinite alternate; border-style: dashed; }
+    body.arrange .cmd:nth-child(2n) { animation-delay: 0.15s; }
+    @keyframes wiggle { from { transform: rotate(-0.8deg); } to { transform: rotate(0.8deg); } }
+    body.arrange #btnArrange { background: var(--agp-accent, #4ABA3E); border-color: var(--agp-accent, #4ABA3E); color: #fff; }
+    /* cue de reordenamiento: el botón sobre el que vas a soltar muestra una
+       barra verde a la izquierda = "se inserta antes de este" */
+    .cmd.insertBefore { box-shadow: inset 4px 0 0 var(--agp-accent, #4ABA3E); border-color: var(--agp-accent, #4ABA3E); animation: none; }
+
+    .folder {
+      border-style: dashed; border-color: var(--agp-accent, #4ABA3E);
+      background: rgba(74,186,62,0.08);
+    }
+    .folder .count {
+      position: absolute; top: 4px; right: 6px;
+      min-width: 20px; height: 20px; border-radius: 10px;
+      background: var(--agp-accent, #4ABA3E); color: #fff;
+      font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; padding: 0 5px;
+    }
+    .folder.dropTarget { background: rgba(74,186,62,0.30); border-style: solid; }
+
+    /* ghost que sigue al dedo durante el drag */
+    #ghost {
+      position: fixed; z-index: 100; pointer-events: none;
+      width: 96px; min-height: 84px;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; border: 1px solid var(--agp-accent, #4ABA3E); border-radius: 10px;
+      background: var(--agp-bg, #E2E7E2); opacity: 0.9;
+      font: 600 11.5px/1.15 "Segoe UI", sans-serif; text-align: center;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    }
+    #ghost .ico { font-size: 26px; }
+
+    /* panel de carpeta abierta */
+    #folderView {
+      display: none; position: fixed; inset: 0; z-index: 50;
+      background: rgba(16,22,18,0.45);
+      align-items: center; justify-content: center;
+    }
+    #folderView.show { display: flex; }
+    #folderView .panel {
+      background: var(--agp-bg-soft, #F5F7F4);
+      border: 1px solid var(--agp-border, #C5CFC5); border-radius: 12px;
+      width: min(92vw, 640px); max-height: 84vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    }
+    #folderView .panel-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; border-bottom: 1px solid var(--agp-border, #C5CFC5);
+    }
+    #folderView .panel-head h3 { flex: 1; font-size: 15px; }
+    #folderView .panel-body { padding: 10px; overflow-y: auto; }
+    #folderView .grid .cmd .rm {
+      position: absolute; top: 2px; right: 4px;
+      width: 26px; height: 26px; border-radius: 13px; border: 0;
+      background: rgba(201,45,45,0.15); color: #E15A5A;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    .danger { color: #E15A5A; border-color: rgba(201,45,45,0.4) !important; background: rgba(201,45,45,0.08) !important; }
+
+    #toast {
+      position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
+      background: var(--agp-text, #101612); color: #fff;
+      padding: 8px 16px; border-radius: 8px; font: 600 13px "Segoe UI", sans-serif;
+      opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 200;
+    }
+    #toast.show { opacity: 0.92; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Botonera</h1>
+    <div class="hint" id="modeHint">Tocá un botón y ejecuta</div>
+    <button type="button" class="hbtn" id="btnArrange">✋ Ordenar</button>
+    <button type="button" class="hbtn primary" id="btnNewFolder">＋ Carpeta</button>
+  </header>
+
+  <div id="newFolderRow">
+    <input type="text" id="newFolderName" placeholder="Nombre de la carpeta" maxlength="18">
+    <button type="button" class="hbtn primary" id="btnFolderOk">Crear</button>
+    <button type="button" class="hbtn" id="btnFolderCancel">Cancelar</button>
+  </div>
+
+  <main>
+    <h2 id="foldersTitle" hidden>Mis carpetas</h2>
+    <div class="grid" id="foldersGrid"></div>
+    <h2>Todos los botones</h2>
+    <div class="grid" id="looseGrid"></div>
+  </main>
+
+  <!-- ghost de drag -->
+  <div id="ghost"><span class="ico"></span><span class="glabel"></span></div>
+
+  <!-- carpeta abierta -->
+  <div id="folderView">
+    <div class="panel">
+      <div class="panel-head">
+        <h3 id="fvTitle">Carpeta</h3>
+        <button type="button" class="hbtn danger" id="fvDelete">Eliminar carpeta</button>
+        <button type="button" class="hbtn" id="fvClose">Cerrar</button>
+      </div>
+      <div class="panel-body"><div class="grid" id="fvGrid"></div></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/pilot-commands.js?v=2"></script>
+  <script src="../js/botonera.js?v=2"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

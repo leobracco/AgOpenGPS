@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AB rápido</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ============================================================================
+       Widget AB RÁPIDO — ventana chica sobre PilotX (reemplazo de FormQuickAB).
+       Sin sidebar/menú del Hub: panel angosto estilo vistax-stats. Crea guías
+       manejando en 3 modos: Curva, Línea AB y A+. El preview se dibuja en el
+       mapa; acá solo mandamos comandos (POST /api/quickab/*).
+       ============================================================================ */
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: var(--agp-bg); color: var(--agp-text);
+    }
+    body {
+      font-family: var(--agp-font-sans);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .qa-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: clamp(3px, 1vh, 6px) 10px;
+      background: var(--agp-surface);
+      border-bottom: 1px solid var(--agp-border);
+      flex-shrink: 0;
+    }
+    .qa-head .title { font-weight: var(--agp-fw-bold); font-size: 13px; flex: 1; }
+    .qa-head .pill {
+      padding: 2px 10px; border-radius: var(--agp-radius-pill);
+      font-size: 10px; font-weight: var(--agp-fw-bold);
+      background: var(--agp-surface-2, var(--agp-bg)); color: var(--agp-text-muted);
+      border: 1px solid var(--agp-border);
+    }
+
+    /* Responsive: todo escala con el alto/ancho de la ventana (clamp), así el
+       widget puede achicarse al mínimo sin cortar controles ni scrollear. */
+    .qa-body {
+      flex: 1; overflow-y: auto;
+      padding: clamp(4px, 1.5vh, 10px);
+      display: flex; flex-direction: column; gap: clamp(3px, 1.2vh, 10px);
+    }
+
+    .btn {
+      min-height: clamp(30px, 8.5vh, 54px);
+      font-family: var(--agp-font-sans); font-size: clamp(11px, 2.6vh, 15px);
+      background: var(--agp-surface); color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .qa-accent { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+
+    .qa-modes { display: flex; flex-direction: column; gap: clamp(3px, 1.2vh, 8px); }
+    .qa-modes .btn { min-height: clamp(36px, 11vh, 58px); font-size: clamp(12px, 3vh, 16px); }
+
+    .qa-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .qa-label { font-size: clamp(11px, 2.3vh, 13px); color: var(--agp-text); }
+    .qa-big {
+      font-family: var(--agp-font-mono); font-size: clamp(15px, 6vh, 32px); font-weight: var(--agp-fw-bold);
+      color: var(--agp-accent); text-align: center; padding: 1px 0;
+    }
+    .qa-move { display: flex; gap: clamp(5px, 1.2vw, 8px); }
+    .qa-move .btn { flex: 1 1 0; }
+    .qa-foot { display: flex; gap: clamp(5px, 1.2vw, 8px); margin-top: 2px; }
+    .qa-foot .btn { flex: 1 1 0; min-height: clamp(28px, 7.5vh, 48px); }
+    .qa-input {
+      flex: 1 1 auto; min-height: clamp(30px, 8vh, 46px); text-align: center;
+      font-family: var(--agp-font-mono); font-size: clamp(13px, 2.8vh, 16px);
+      background: var(--agp-bg); color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      min-width: 0;
+    }
+    .qa-hint { font-size: clamp(8px, 1.9vh, 11px); color: var(--agp-text-muted); text-align: center; }
+    .qa-warn {
+      display: none; background: #5a2c2c; color: #fff;
+      border-radius: var(--agp-radius-sm);
+      padding: 8px; font-size: 12px;
+    }
+    .qa-warn.show { display: block; }
+    .hiddenTab { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="qa-head">
+    <span class="title">AB rápido</span>
+    <span class="pill" id="statusText">—</span>
+  </div>
+
+  <div class="qa-body">
+    <div id="warnBox" class="qa-warn">Abrí primero un lote para poder crear guías.</div>
+
+    <!-- ── Fase: elegir modo ── -->
+    <div id="paneChoose">
+      <div class="qa-modes">
+        <button class="btn" id="btnModeCurve">〰 Curva</button>
+        <button class="btn" id="btnModeAb">📐 Línea AB</button>
+        <button class="btn" id="btnModeAplus">🧭 A + rumbo</button>
+      </div>
+      <div class="qa-hint" style="margin-top:8px;">
+        La guía se dibuja sobre el mapa mientras manejás.
+      </div>
+    </div>
+
+    <!-- ── Fase: captura ── -->
+    <div id="paneCapture" class="hiddenTab">
+      <div class="qa-big" id="valInfo">—</div>
+      <div class="qa-hint" id="hintCapture">—</div>
+
+      <div class="qa-row" style="margin-top:8px;">
+        <span class="qa-label">Lado de referencia</span>
+        <button class="btn" id="btnSide" style="min-height:46px; min-width:130px;">Derecha ▶</button>
+      </div>
+
+      <!-- A+ : rumbo manual -->
+      <div class="qa-row hiddenTab" id="rowHeading" style="margin-top:8px;">
+        <span class="qa-label">Rumbo</span>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <input id="inpHeading" class="qa-input" style="width:100px;" type="text" inputmode="decimal" value="0" />
+          <span class="qa-label">°</span>
+        </div>
+      </div>
+
+      <div class="qa-move" style="margin-top:10px;">
+        <button class="btn" id="btnMarkA">Marcar A</button>
+        <button class="btn" id="btnMarkB">Marcar B</button>
+      </div>
+      <div class="qa-move hiddenTab" id="rowPause" style="margin-top:8px;">
+        <button class="btn" id="btnPause">⏸ Pausar</button>
+      </div>
+      <div class="qa-move hiddenTab" id="rowCommit" style="margin-top:8px;">
+        <button class="btn qa-accent" id="btnCommit">✓ Listo</button>
+      </div>
+
+      <div class="qa-foot">
+        <button class="btn" id="btnCancelCapture">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- ── Fase: nombre + guardar ── -->
+    <div id="paneName" class="hiddenTab">
+      <div class="qa-hint">Nombre de la guía</div>
+      <div class="qa-row" style="margin-top:6px;">
+        <input id="inpName" class="qa-input" type="text" value="" />
+      </div>
+      <div class="qa-foot">
+        <button class="btn" id="btnCancelName">Cancelar</button>
+        <button class="btn qa-accent" id="btnSave">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/ab-rapido.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

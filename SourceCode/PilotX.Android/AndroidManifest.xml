@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Loopback :5180 + broker :1883 + nodos en LAN -->
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- Self-update (bloque 12): instalar el APK bajado de OrbitX sin pasar
+       por Play Store. El usuario igual confirma en el dialogo del sistema
+       (no hay silent-install sin MDM/device-owner). -->
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+  <!-- Arranque automatico al bootear la tablet (BootReceiver): la cabina no
+       tiene que tocar nada, igual que el kiosko de Windows. -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <!-- WiFi propio del Hub (AndroidWifiService): escanear redes exige
+       ubicacion en Android 9+; conectar/olvidar usa CHANGE_WIFI_STATE. -->
+  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <!-- Brillo del sistema (AndroidSistemaService): el usuario lo autoriza una
+       vez desde ACTION_MANAGE_WRITE_SETTINGS; sin permiso se ajusta solo la
+       ventana de PilotX. -->
+  <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+  <application android:label="PilotX" android:usesCleartextTraffic="true">
+    <!-- Expone Updates/<version>/payload.apk como content:// para el
+         instalador (AndroidPilotXUpdateService.ApplyAsync). -->
+    <provider android:name="androidx.core.content.FileProvider"
+              android:authorities="${applicationId}.fileprovider"
+              android:exported="false"
+              android:grantUriPermissions="true">
+      <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                 android:resource="@xml/file_paths" />
+    </provider>
+  </application>
+</manifest>

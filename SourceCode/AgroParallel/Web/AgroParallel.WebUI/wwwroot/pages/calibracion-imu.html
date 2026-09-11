@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calibración IMU · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ---- mismo lenguaje visual que config-implemento.html/vehiculo.html ---- */
+    .big-field { text-align: center; }
+    .big-field label { display: block; font-weight: var(--agp-fw-semi); margin-bottom: 4px; }
+    .help { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 4px; }
+
+    .imu-readout {
+      display: flex; gap: var(--agp-sp-6); flex-wrap: wrap;
+    }
+    .imu-stat { text-align: center; min-width: 110px; }
+    .imu-stat .v { font-size: 26px; font-weight: 700; color: var(--agp-accent); }
+    .imu-stat .l { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+
+    .stepper { display: inline-flex; align-items: center; gap: var(--agp-sp-2); }
+    .stepper button {
+      width: 56px; height: 56px;
+      font-size: 28px; font-weight: 700;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft); color: var(--agp-text);
+      cursor: pointer;
+    }
+    .stepper button:active { transform: translateY(1px); }
+
+    .big-toggle {
+      display: inline-flex; align-items: center; gap: var(--agp-sp-2);
+      min-height: var(--agp-touch-min);
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft);
+      color: var(--agp-text-muted);
+      font: inherit; cursor: pointer;
+    }
+    .big-toggle .knob {
+      width: 46px; height: 26px; border-radius: 13px;
+      background: var(--agp-border); position: relative; transition: background 0.15s;
+    }
+    .big-toggle .knob::after {
+      content: ""; position: absolute; top: 3px; left: 3px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; transition: left 0.15s;
+    }
+    .big-toggle.on { color: var(--agp-text); border-color: var(--agp-accent); }
+    .big-toggle.on .knob { background: var(--agp-accent); }
+    .big-toggle.on .knob::after { left: 23px; }
+
+    input[type="range"] { width: 100%; accent-color: var(--agp-accent); }
+
+    #imuToast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--agp-text); color: #fff;
+      padding: 12px 20px; border-radius: var(--agp-radius-md);
+      font-size: var(--agp-fs-md); font-weight: var(--agp-fw-medium);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+      z-index: 9999; max-width: 480px; text-align: center;
+    }
+    #imuToast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    #imuToast.ok   { background: var(--agp-accent); }
+    #imuToast.bad  { background: #b3261e; }
+    #imuToast.warn { background: #b07900; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="calibracion-imu"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Calibración IMU</h1>
+        <div class="subtitle">Nivelar el sensor de roll — tractor parado y a nivel</div>
+      </div>
+      <span class="pill idle" id="imuStatus"><span class="dot"></span> Cargando…</span>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Lectura en vivo</h3>
+      <div class="imu-readout">
+        <div class="imu-stat"><div class="v" id="imuRollLive">—</div><div class="l">° roll crudo</div></div>
+        <div class="imu-stat"><div class="v" id="imuHeadingLive">—</div><div class="l">° heading IMU</div></div>
+        <div class="imu-stat"><div class="v" id="imuRollZeroVal">—</div><div class="l">° offset guardado</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Nivelar (Zero Roll)</h3>
+      <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+        Con el tractor parado en terreno nivelado, tocá Nivelar para que PilotX tome el roll
+        actual como referencia de "nivel". Si no hay dato del sensor todavía, el botón queda
+        deshabilitado.
+      </p>
+      <div style="display:flex; gap: var(--agp-sp-3); flex-wrap:wrap; align-items:center">
+        <button type="button" class="btn primary" id="btnImuZero" style="min-height: var(--agp-touch-min)">Nivelar</button>
+        <div class="stepper">
+          <button type="button" id="btnRollDown" aria-label="Bajar offset">−</button>
+          <span class="help" style="min-width:80px; text-align:center; margin:0">ajuste fino ±0.1°</span>
+          <button type="button" id="btnRollUp" aria-label="Subir offset">+</button>
+        </div>
+        <button type="button" class="btn" id="btnRollRemove">Quitar offset</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Ajustes</h3>
+      <div style="display:flex; flex-wrap:wrap; gap: var(--agp-sp-4); align-items:flex-start">
+        <button type="button" class="big-toggle" id="imuInvert">
+          <span class="knob"></span><span>Invertir sentido del roll</span>
+        </button>
+        <div class="big-field" style="text-align:left; flex:1 1 260px; min-width:220px">
+          <label for="imuRollFilter">Filtro de suavizado (<span id="imuRollFilterVal">—</span>%)</label>
+          <input type="range" id="imuRollFilter" min="0" max="100" step="1">
+          <div class="help">Más alto = lectura más suave pero más lenta para reaccionar</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Avanzado</h3>
+      <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+        Si desconectaste o cambiaste el sensor IMU, reiniciá para que PilotX espere un dato
+        nuevo en vez de seguir usando el último que tenía.
+      </p>
+      <button type="button" class="btn" id="btnImuReset">Reiniciar IMU</button>
+    </div>
+  </main>
+  <div id="imuToast" role="status" aria-live="polite"></div>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/calibracion-imu.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

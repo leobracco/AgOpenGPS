@@ -1,0 +1,60 @@
+<h2>¿Cómo se relaciona un motor con los surcos?</h2>
+<p class="subtitle">Hoy QuantiX asume 2 motores fijos por nodo, cada motor empuja todo su ancho. Para "N motores que dosifican y cortan surco por surco con dosis independiente" necesito saber el modelo físico de tu sembradora. Elegí el que mejor describe el fierro.</p>
+
+<style>
+  .surco-row { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .surco { width:38px; height:54px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#101612; }
+  .m1 { background:#4ABA3E; } .m2 { background:#7F6BE0; } .m3 { background:#E0A33E; } .m4 { background:#3E9BE0; }
+  .legend { display:flex; gap:14px; margin-top:10px; font-size:12px; color:#535E54; flex-wrap:wrap; }
+  .chip { display:inline-flex; align-items:center; gap:6px; }
+  .dot { width:12px; height:12px; border-radius:3px; }
+  .mech { font-size:12px; color:#535E54; margin-top:8px; }
+</style>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>1 motor = 1 surco</h3>
+      <p>Cada motor eléctrico empuja exactamente UN surco. N motores = N surcos. La dosis y el corte son por surco directo.</p>
+      <div class="surco-row">
+        <div class="surco m1">1</div><div class="surco m2">2</div><div class="surco m3">3</div><div class="surco m4">4</div>
+        <div class="surco m1">5</div><div class="surco m2">6</div><div class="surco m3">7</div><div class="surco m4">8</div>
+      </div>
+      <div class="mech">Cada color = un motor distinto, uno por surco. 8 surcos = 8 motores.</div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>1 motor = grupo de surcos</h3>
+      <p>Un motor alimenta un BLOQUE de surcos contiguos (ej. medio cuerpo). La dosis es por motor (por bloque); el corte surco por surco lo hace otro actuador.</p>
+      <div class="surco-row">
+        <div class="surco m1">1</div><div class="surco m1">2</div><div class="surco m1">3</div><div class="surco m1">4</div>
+        <div class="surco m2">5</div><div class="surco m2">6</div><div class="surco m2">7</div><div class="surco m2">8</div>
+      </div>
+      <div class="mech">Motor verde dosifica surcos 1-4, motor violeta dosifica 5-8. El corte por surco es independiente del motor.</div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Configurable (motor → 1..N surcos)</h3>
+      <p>El operario asigna a cada motor qué surcos maneja: puede ser 1, o varios. Mezcla de A y B según la máquina. Más flexible, UI más compleja.</p>
+      <div class="surco-row">
+        <div class="surco m1">1</div><div class="surco m2">2</div><div class="surco m2">3</div><div class="surco m3">4</div>
+        <div class="surco m3">5</div><div class="surco m3">6</div><div class="surco m4">7</div><div class="surco m4">8</div>
+      </div>
+      <div class="mech">Motor verde: 1 surco; violeta: 2; naranja: 3; azul: 2. Asignación libre.</div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="chip"><span class="dot m1"></span>Motor 1</span>
+  <span class="chip"><span class="dot m2"></span>Motor 2</span>
+  <span class="chip"><span class="dot m3"></span>Motor 3</span>
+  <span class="chip"><span class="dot m4"></span>Motor 4</span>
+</div>

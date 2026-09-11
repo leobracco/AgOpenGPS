@@ -485,3 +485,55 @@ $RECYCLE.BIN/
 *.swp
 
 .claude/settings.local.json
+Build/
+
+# Artefactos de release PilotX (los empaqueta build.ps1 en root).
+# Nunca van al repo: se suben al panel OrbitX /firmwares o se copian a USB.
+PilotX-*.zip
+PilotX-*.zip.sha256
+PilotX_*.zip
+PilotX_*.zip.sha256
+
+# Capturas sueltas de UI/diagnóstico que quedan en root (no son del repo).
+corex_*.png
+pilotx_*.png
+.playwright-mcp/
+
+
+# Backups generados por el simulador de nodos QuantiX (tools/)
+tools/quantiX_motores.backup-*.json
+
+# --- ruido de sesión (screenshots + backups de Tools) — no versionar ---
+/*.png
+/Tools/*.backup-*.json
+/.agents/
+/.codex/
+
+# Artefactos de deploy (no son codigo)
+RustDesk-AgroParallel.zip
+PilotX-Taller-*.zip
+PilotX_v*.zip
+SourceCode/PilotX.Cockpit.Bars/Assets/_handoff/
+
+# Excepciones: drivers USB-serial bundleados para el flasheo por USB.
+# El .gitignore excluye x64//x86/ (dirs de build); estos son insumos, no build.
+!Tools/usb-drivers/cp210x/x64/
+!Tools/usb-drivers/cp210x/x86/
+!Tools/usb-drivers/cp210x/arm/
+!Tools/usb-drivers/cp210x/arm64/
+!Tools/usb-drivers/**/*.sys
+
+# APK de Android generado por build-android.ps1 (se sube a OrbitX, no al repo)
+PilotX_android_v*.apk
+PilotX_android_v*.apk.sha256
+
+# RustDesk empaquetado: el nombre del .exe lleva el server y la clave publica
+# del relay propio. Este repo es PUBLICO, asi que el binario NO se versiona.
+# Vive en Tools\RustDesk\ y build.ps1 lo copia al paquete. Si se pierde, se
+# recupera de cualquier PilotX_v*.zip anterior (carpeta Desktop/RustDesk/).
+Tools/RustDesk/
+
+# Restos del incidente de la 1.0.47/1.0.48 (DLL sueltas armadas a mano para
+# recuperar una pantalla). Son binarios de una version puntual, no fuente.
+parche-flowx-1.0.47/
+restaurar-1.0.47/

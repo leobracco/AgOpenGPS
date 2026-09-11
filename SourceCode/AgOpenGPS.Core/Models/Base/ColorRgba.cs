@@ -6,7 +6,7 @@ namespace AgOpenGPS.Core.Models
     {
         public ColorRgba(byte red, byte green, byte blue, byte alpha = 255)
         {
-            ByteArray = new byte[4] { red, green, blue, alpha };
+            _byteArray = new byte[4] { red, green, blue, alpha };
         }
 
         public ColorRgba(float red, float green, float blue, float alpha = 1.0f)
@@ -15,11 +15,16 @@ namespace AgOpenGPS.Core.Models
             if (green < 0.0f || 1.0f < green) throw new ArgumentOutOfRangeException(nameof(green), "Argument out of range");
             if (blue < 0.0f || 1.0f < blue) throw new ArgumentOutOfRangeException(nameof(blue), "Argument out of range");
             if (alpha < 0.0f || 1.0f < alpha) throw new ArgumentOutOfRangeException(nameof(alpha), "Argument out of range");
-            ByteArray = new byte[4] { FloatToByte(red), FloatToByte(green), FloatToByte(blue), FloatToByte(alpha) };
+            _byteArray = new byte[4] { FloatToByte(red), FloatToByte(green), FloatToByte(blue), FloatToByte(alpha) };
         }
 
         // For better performance in GLW.SetColor()
-        public byte[] ByteArray { get; private set; }
+        private byte[] _byteArray;
+        public byte[] ByteArray
+        {
+            get { return _byteArray ?? (_byteArray = new byte[4] { 0, 0, 0, 255 }); }
+            private set { _byteArray = value; }
+        }
 
         public byte Red
         {

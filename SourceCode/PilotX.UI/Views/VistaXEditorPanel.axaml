@@ -1,0 +1,164 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.VistaXEditorPanel">
+    <!--
+        VistaXEditorPanel — EDITOR nativo de VistaX (cierra el hueco WebView).
+
+        Antes: el boton "Configurar" del VistaXPanel hacia
+        NavigateTo("pages/vistax.html") y eso despertaba Chromium entero para
+        elegir el insumo o mapear un sensor. Ahora las pantallas de
+        configuracion (Insumo & calibracion, Implemento, Config) son nativas y
+        el WebView no se instancia por VistaX.
+
+        El tab "Nodos" de la pagina NO se replica: la misma grilla de nodos ya
+        esta en el VistaXPanel (monitor), y en el editor alcanza con el
+        desplegable de UID que dice online/offline.
+
+        La pagina pages/vistax.html NO se toca ni se borra: la sigue usando la
+        PWA del celular (regla del repo).
+
+        Card clara flotante sobre el mapa VIVO — el mapa nunca se apaga.
+        El overlay de calibracion va con Border + IsVisible (sobre el mapa GL
+        los Flyout/MenuFlyout no se dibujan y no logean error).
+    -->
+    <Panel>
+        <!-- Name="Card": ModoEmbebido() (adentro de la Configuración) le
+             suelta el marco/tamaño; la instancia flotante no cambia. -->
+        <Border Name="Card"
+                Background="#FAFBFA"
+                BorderBrush="#C5CFC5"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="14"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="980" MaxHeight="660"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,0">
+            <DockPanel>
+
+                <!-- ============ Header ============ -->
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto"
+                      Margin="4,0,0,8">
+                    <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Text="VistaX — Configuración"
+                                   Foreground="#101612"
+                                   FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Name="SubtituloText"
+                                   Text="Monitoreo de siembra"
+                                   Foreground="#535E54"
+                                   FontSize="11"/>
+                    </StackPanel>
+
+                    <Button Grid.Column="2" Name="BtnMonitor" Content="‹ Monitor"
+                            Click="OnMonitorClick"
+                            Background="#FFFFFF" Foreground="#101612"
+                            BorderBrush="#C5CFC5" BorderThickness="1"
+                            CornerRadius="8" MinHeight="42" Padding="14,8"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"/>
+
+                    <Button Grid.Column="3" Name="BtnCerrar" Content="✕"
+                            Click="OnCerrarClick"
+                            Background="#FFFFFF" Foreground="#101612"
+                            BorderBrush="#C5CFC5" BorderThickness="1"
+                            CornerRadius="8" Width="44" Height="42"
+                            FontSize="15"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ============ Tabs (a mano, no TabControl) ============ -->
+                <ScrollViewer DockPanel.Dock="Top"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              Margin="0,0,0,10">
+                    <StackPanel Name="TabStrip" Orientation="Horizontal" Spacing="4"/>
+                </ScrollViewer>
+
+                <!-- ============ Contenido de la pantalla activa ============ -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Name="TabHost" Spacing="10" Margin="0,0,6,0"/>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ============ Overlay de calibracion ============
+             No cierra por backdrop a proposito: la ventana de 5 s se corta con
+             Cancelar/Descartar, que ademas avisa al backend. -->
+        <Border Name="CalibOverlay" IsVisible="False" ZIndex="30"
+                Background="#77101612"
+                PointerPressed="OnCalibBackdropPressed">
+            <Border Background="#FAFBFA" BorderBrush="#C5CFC5" BorderThickness="1"
+                    CornerRadius="12" Padding="18" MinWidth="380" MaxWidth="520"
+                    BoxShadow="0 8 26 0 #55101612"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="10">
+                    <TextBlock Name="CalibTitulo" Text="Detectando densidad…"
+                               Foreground="#101612" FontSize="16" FontWeight="Bold"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Name="CalibInsumo" Text=""
+                               Foreground="#535E54" FontSize="12" TextWrapping="Wrap"/>
+
+                    <StackPanel Spacing="4" Margin="0,8,0,4" HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                    HorizontalAlignment="Center" VerticalAlignment="Bottom">
+                            <TextBlock Name="CalibLive" Text="—"
+                                       Foreground="#101612" FontSize="52" FontWeight="Bold"
+                                       FontFamily="Consolas, Courier New, monospace"/>
+                            <TextBlock Text="sem/m" Foreground="#535E54" FontSize="18"
+                                       VerticalAlignment="Bottom" Margin="0,0,0,8"/>
+                        </StackPanel>
+                        <TextBlock Name="CalibSub" Text=""
+                                   Foreground="#535E54" FontSize="12"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Border Name="CalibSatPill" IsVisible="False"
+                            Background="#FFFFFF" BorderBrush="#B98A2E" BorderThickness="1"
+                            CornerRadius="999" Padding="10,4,10,4"
+                            HorizontalAlignment="Center">
+                        <TextBlock Text="Sensor saturado — modo flujo"
+                                   Foreground="#B98A2E" FontSize="11"/>
+                    </Border>
+
+                    <Border Name="CalibResultBox" IsVisible="False"
+                            Background="#F5F7F4" BorderBrush="#E2E7E2" BorderThickness="1"
+                            CornerRadius="8" Padding="10">
+                        <StackPanel Spacing="6">
+                            <TextBlock Name="CalibResultLabel" Text=""
+                                       Foreground="#535E54" FontSize="12" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBox Name="CalibOverride" Text="" Width="140" MinHeight="42"
+                                         FontSize="13" Background="#FFFFFF" Foreground="#101612"
+                                         BorderBrush="#C5CFC5" BorderThickness="1"
+                                         CornerRadius="8" Padding="9,6"
+                                         VerticalContentAlignment="Center"/>
+                                <TextBlock Text="sem/m" Foreground="#535E54" FontSize="12"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="Editá el valor si querés forzar un número distinto al promedio."
+                                       Foreground="#7A857B" FontSize="11" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8"
+                                HorizontalAlignment="Right">
+                        <Button Name="CalibCancel" Content="Cancelar"
+                                Click="OnCalibCancelClick"
+                                Background="#FFFFFF" Foreground="#101612"
+                                BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="8" MinHeight="42" Padding="16,8"/>
+                        <Button Name="CalibApply" Content="Guardar" IsVisible="False"
+                                Click="OnCalibApplyClick"
+                                Background="#4ABA3E" Foreground="White"
+                                BorderBrush="#4ABA3E" BorderThickness="1"
+                                CornerRadius="8" MinHeight="42" Padding="16,8"
+                                FontWeight="SemiBold"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Panel>
+</UserControl>

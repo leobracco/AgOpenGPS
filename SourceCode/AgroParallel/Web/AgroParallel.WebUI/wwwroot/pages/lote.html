@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lote · PilotX</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ===== Clon HTML de FormJob (AgOpenGPS 6.8.5) — menú de lote/campo.
+       Grid 2 columnas de botones-imagen (Cerrar/Entrar/Abrir/Continuar a la
+       derecha; ISO-XML/KML/Existente/Nuevo a la izquierda) + campo previo.
+       Sub-pantallas: Abrir (lista de lotes) y Nuevo (nombre). Ventana chica.
+       Estilo tokens --agp-* (tema claro Agro Parallel). ===== */
+    html, body { margin: 0; padding: 0; height: 100%; background: var(--agp-bg); color: var(--agp-text); }
+    body { font-family: var(--agp-font-sans); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+
+    #ltWin { background: var(--agp-surface); border: 1px solid var(--agp-border-strong);
+      border-radius: var(--agp-radius-md, 10px); box-shadow: 0 6px 24px rgba(16,22,18,.14);
+      display: flex; flex-direction: column; overflow: hidden;
+      width: 640px; height: 560px; }
+
+    .lt-title { flex: 0 0 auto; padding: 7px 12px; font-weight: var(--agp-fw-bold); font-size: 14px;
+      background: var(--agp-surface-2, #EEF2EE); border-bottom: 1px solid var(--agp-border); }
+
+    .lt-stage { flex: 1 1 auto; min-height: 0; position: relative; }
+    .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
+    .screen.active { display: flex; }
+
+    /* ---- pantalla principal: grid 2 columnas de botones grandes ---- */
+    #scMain { padding: 10px; }
+    .lt-grid { flex: 1 1 auto; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr;
+      gap: 8px; min-height: 0; }
+    .lt-btn { display: flex; align-items: center; gap: 12px; padding: 6px 14px;
+      background: var(--agp-surface); border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      cursor: pointer; touch-action: manipulation; text-align: left; }
+    .lt-btn:hover { background: var(--agp-bg-soft, #EEF2EE); border-color: var(--agp-border-strong); }
+    .lt-btn:active { transform: translateY(1px); }
+    .lt-btn:disabled { opacity: .4; pointer-events: none; }
+    .lt-btn img { width: 44px; height: 44px; object-fit: contain; flex: 0 0 auto; }
+    .lt-btn span { font-size: 15px; font-weight: var(--agp-fw-med, 600); color: var(--agp-text); }
+    .lt-btn.close span { color: var(--agp-state-bad, #C0504A); }
+    .lt-btn.primary { border-color: var(--agp-accent); }
+    .lt-btn.primary span { color: var(--agp-accent); font-weight: 700; }
+
+    .lt-foot { flex: 0 0 auto; padding: 8px 4px 2px; font-size: 12px; color: var(--agp-text-muted);
+      border-top: 1px solid var(--agp-border); margin-top: 8px; }
+
+    /* ---- sub-pantalla: lista de lotes (Abrir) ---- */
+    .lt-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+      padding: 10px; }
+    .lt-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; min-height: 48px;
+      background: var(--agp-surface); border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      cursor: pointer; }
+    .lt-item:hover { background: var(--agp-bg-soft, #EEF2EE); border-color: var(--agp-accent); }
+    .lt-item .nm { flex: 1 1 auto; font-size: 15px; }
+    .lt-item .meta { font-size: 12px; color: var(--agp-text-muted); }
+    .lt-sub-head { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      border-bottom: 1px solid var(--agp-border); }
+    .lt-back { background: var(--agp-surface); border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      padding: 6px 12px; font-size: 14px; cursor: pointer; }
+    .lt-sub-title { font-weight: var(--agp-fw-bold); font-size: 13px; }
+
+    /* ---- sub-pantalla: nombre (Nuevo) ---- */
+    .lt-name-pane { flex: 1 1 auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; justify-content: center; }
+    .lt-name-pane input { min-height: 44px; font-size: 16px; background: #E0FFFF; border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); padding: 0 10px; color: var(--agp-text); }
+    .lt-name-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .lt-name-actions .lt-back.primary { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+  </style>
+</head>
+<body>
+  <div id="ltWin">
+    <div class="lt-title">Lote</div>
+    <div class="lt-stage">
+
+      <!-- ============ pantalla principal (FormJob) ============ -->
+      <div class="screen active" id="scMain" data-screen="main">
+        <div class="lt-grid">
+          <!-- fila 1 -->
+          <button class="lt-btn" id="btnFromISOXML"><img src="../img/lote/ISOXML.png"><span>ISO-XML</span></button>
+          <button class="lt-btn close" id="btnClose"><img src="../img/lote/FileClose.png"><span>Cerrar lote</span></button>
+          <!-- fila 2 -->
+          <button class="lt-btn" id="btnFromKML"><img src="../img/lote/BoundaryLoadFromGE.png"><span>Desde KML</span></button>
+          <button class="lt-btn" id="btnDriveIn"><img src="../img/lote/AutoManualIsAuto.png"><span>Entrar al lote</span></button>
+          <!-- fila 3 -->
+          <button class="lt-btn" id="btnFromExisting"><img src="../img/lote/FileExisting.png"><span>Desde existente</span></button>
+          <button class="lt-btn" id="btnOpen"><img src="../img/lote/FileOpen.png"><span>Abrir</span></button>
+          <!-- fila 4 -->
+          <button class="lt-btn" id="btnNew"><img src="../img/lote/FileNew.png"><span>Nuevo lote</span></button>
+          <button class="lt-btn primary" id="btnResume"><img src="../img/lote/FilePrevious.png"><span>Continuar</span></button>
+        </div>
+        <div class="lt-foot" id="lblResume">Sin lote previo</div>
+      </div>
+
+      <!-- ============ Abrir: lista de lotes ============ -->
+      <div class="screen" id="scOpen" data-screen="open">
+        <div class="lt-sub-head">
+          <button class="lt-back" data-goto="main">‹ Volver</button>
+          <span class="lt-sub-title">Abrir lote</span>
+        </div>
+        <div class="lt-list" id="loteList"></div>
+      </div>
+
+      <!-- ============ Nuevo: nombre ============ -->
+      <div class="screen" id="scNew" data-screen="new">
+        <div class="lt-sub-head">
+          <button class="lt-back" data-goto="main">‹ Volver</button>
+          <span class="lt-sub-title">Nuevo lote</span>
+        </div>
+        <div class="lt-name-pane">
+          <label style="font-size:13px;color:var(--agp-text-muted);">Nombre del lote</label>
+          <input id="inpNewName" type="text" maxlength="80" placeholder="Ej: Lote 12 — Maíz">
+          <div class="lt-name-actions">
+            <button class="lt-back" data-goto="main">Cancelar</button>
+            <button class="lt-back primary" id="btnCreate">Crear</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/lote.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

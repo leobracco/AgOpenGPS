@@ -2,18 +2,38 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
+    <!-- Multi-target (bloque 5 matriz Android): net48 completo con render GL;
+         netstandard2.0 solo la parte portable (sin DrawLib/Visuals/Drawing).
+         Todos los consumidores actuales son net48 y toman ese target. -->
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net48;netstandard2.0</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- ISOXML por el export ISO11783 (Protocols/, traspaso portabilidad 2026-07-17) -->
+    <PackageReference Include="Dev4Agriculture.ISO11783.ISOXML" Version="0.23.1.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="OpenTK" Version="3.3.3" />
     <PackageReference Include="System.Memory" Version="4.6.0" />
+    <!-- RegistrySettings/Settings (traspaso portabilidad 2026-07-17) -->
+    <PackageReference Include="System.Text.Json" Version="9.0.0" />
     <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
+    <!-- AtomicJson (AgroParallel.Common) para RegistrySettings (2026-07-17) -->
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Models\AgroParallel.Models.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="PresentationCore" />
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="OpenTK" Version="3.3.3" />
     <Reference Include="System.Net.Http" />
+    <!-- Color/Point/Size de Settings + Texture2D/BingMap (Fase 2 Android:
+         reemplazar por ColorRgba/SkiaSharp y eliminar esta referencia) -->
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <!-- La capa de render GL es net48-only hasta el port a GL ES/Skia (bloque 6) -->
+    <Compile Remove="DrawLib\**;Visuals\**;Drawing\**" />
+    <!-- Color/Point/Size portables para Settings/CTool/ColorExtensions -->
+    <PackageReference Include="System.Drawing.Primitives" Version="4.3.0" />
   </ItemGroup>
 
   <ItemGroup>

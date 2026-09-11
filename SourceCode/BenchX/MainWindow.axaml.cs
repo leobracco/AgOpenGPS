@@ -1,0 +1,52 @@
+using System;
+using System.Diagnostics;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
+
+namespace BenchX;
+
+public partial class MainWindow : Window
+{
+    private readonly MainViewModel _vm;
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        _vm = new MainViewModel();
+        DataContext = _vm;
+        _vm.ReinicioPedido += Reiniciar;
+        Closing += (_, _) => _vm.Cerrar();
+
+        // Modo demo (Expo): PilotX va a pantalla completa encima; BenchX
+        // arranca minimizado y trabaja atras. Se puede restaurar desde la
+        // barra de tareas si hace falta tocar algo.
+        if (_vm.DemoActivo)
+        {
+            WindowState = WindowState.Minimized;
+            ShowActivated = false;
+        }
+    }
+
+    private void CeroVelocidad_Click(object? s, RoutedEventArgs e) => _vm.CeroVelocidad();
+    private void CeroAngulo_Click(object? s, RoutedEventArgs e) => _vm.CeroAngulo();
+    private void CeroRoll_Click(object? s, RoutedEventArgs e) => _vm.CeroRoll();
+
+    // Doble tap/click sobre el slider: volver a cero (además del tap en el valor).
+    private void SliderVelocidad_DoubleTapped(object? s, TappedEventArgs e) => _vm.CeroVelocidad();
+    private void SliderAngulo_DoubleTapped(object? s, TappedEventArgs e) => _vm.CeroAngulo();
+    private void SliderRoll_DoubleTapped(object? s, TappedEventArgs e) => _vm.CeroRoll();
+    private void GuardarPosicion_Click(object? s, RoutedEventArgs e) => _vm.GuardarPosicion();
+    private void BotonDireccion_Click(object? s, RoutedEventArgs e) => _vm.BotonDireccionRemoto();
+
+    // PGN 201: la config ya quedó guardada; relanzar el proceso con la subred nueva.
+    private void Reiniciar(string mensaje)
+    {
+        Console.WriteLine(mensaje); // queda en la consola del proceso viejo; el reinicio es inmediato
+        _vm.Cerrar();
+        if (Environment.ProcessPath is { } exe)
+            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
+        Close();
+    }
+}

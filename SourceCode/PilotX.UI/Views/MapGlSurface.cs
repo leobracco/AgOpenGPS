@@ -1,0 +1,3536 @@
+﻿// MapGlSurface.cs
+//
+// Stage 1 de la migracion OpenGL del mapa de guiado. Reemplaza el render
+// Skia 2D de MapSkiaSurface por un pipeline GL real basado en Avalonia
+// OpenGlControlBase + bindings Silk.NET.OpenGL.
+//
+// Capas renderiadas en Stage 1:
+//   1. clear color (fondo cabina, #0E1410)
+//   2. world grid en coordenadas reales (NO una grilla decorativa
+//      hardcoded como tenia el Skia placeholder). El grid se escala
+//      con el zoom calculado del bbox del lote.
+//   3. boundary del lote (ring 0) en verde + islands (rings 1..n) en
+//      gris atenuado.
+//   4. sprite del tractor: triangulo orientado segun heading.
+//
+// Capas que NO entran en Stage 1 (van en stages 2..6):
+//   - sections (worked area triangulado)
+//   - guidance lines (AB / curves / contour)
+//   - tool + sections del implemento + tram lines
+//   - YouTurn paths + recorded paths
+//   - camera control (zoom/pan/rotate mouse)
+//
+// El surface consume el mismo HudSnapshot que MapSkiaSurface — no hay
+// nueva API HTTP en Stage 1. El cambio de zoom/pan se hace fit-to-bbox
+// con padding fijo, identico al Skia (para poder validar paridad en
+// cabina lado a lado con --gl=on/off).
+//
+// MVP simple: ortho (no perspective), zoom = fit-to-bbox, pan = bbox
+// centrado. Las stages siguientes introducen un camera matrix con
+// rotate/translate/zoom controlado por mouse.
+
+using System;
+using System.Collections.Generic;
+using Avalonia.OpenGL;
+using Avalonia.OpenGL.Controls;
+using Avalonia.Threading;
+using PilotX.Desktop.Services;
+using Silk.NET.OpenGL;
+
+namespace PilotX.Desktop.Views;
+
+/// <summary>
+/// Surface GL del mapa (Stage 1). Hosteada por <see cref="MapPanel"/>
+/// cuando <c>App.UseGl</c> es true.
+/// </summary>
+public sealed class MapGlSurface : OpenGlControlBase
+{
+    // ---- estado del snapshot (UI thread) -------------------------------
+    private HudSnapshot? _snap;
+    private double _minE, _maxE, _minN, _maxN;
+    private bool _hasBbox;
+    private double _cacheKeyE, _cacheKeyN;
+    private int _cacheKeyCount;
+
+    // ---- cámara controlada por usuario (Stage 6) -----------------------
+    // Zoom y pan aplicados ENCIMA del encuadre base (fit-to-bbox o tractor).
+    // Doble-click resetea al encuadre automático.
+    private double _userZoom = 1.0;          // multiplicador de escala (rueda)
+    private double _userPanX, _userPanY;      // offset en metros mundo (arrastre)
+    private double _lastEffectiveScale = 1.0; // px físicos por metro (para convertir el pan)
+
+    // ---- estado GL (creado en OnOpenGlInit, render thread) -------------
+    private GL? _gl;
+    private bool _initFailed;
+    private uint _program;
+    private int _uMvp;
+    private int _uColor;
+    private uint _vao;
+    private uint _vbo;
+    private int _vboCapacityFloats;
+
+    // ---- sprite del vehículo (reemplaza al triángulo) -------------------
+    // El triángulo es el fallback: si no hay sprite elegido, no se pudo bajar
+    // o falla la subida a GPU, se sigue dibujando el triángulo. Nunca se queda
+    // el mapa sin marcador de posición.
+    private uint _texProgram;
+    private int _uTexMvp;
+    private int _uTexTint;
+    private uint _texVbo;
+    private uint _vehicleTex;
+    private bool _vehicleTexReady;
+    private double _vehicleAspect = 1.0;   // alto/ancho de la imagen
+    // Pixeles pendientes de subir a GPU (se cargan desde el hilo de UI y se
+    // suben en el próximo frame, que es donde hay contexto GL válido).
+    private readonly float[] _mvpCache = new float[16];
+    private byte[]? _pendingTexRgba;
+    private int _pendingTexW, _pendingTexH;
+
+    private uint _wheelTex;
+    private bool _wheelTexReady;
+    private byte[]? _pendingWheelRgba;
+    private int _pendingWheelW, _pendingWheelH;
+
+    private uint _implementoTex;
+    private bool _implementoTexReady;
+    private double _implementoAspect = 1.0;
+    private byte[]? _pendingImplRgba;
+    private int _pendingImplW, _pendingImplH;
+
+    // ---- piso del mapa (fondo texturado) --------------------------------
+    // El z_Floor del legacy (o Branding suelo.png del wwwroot) tileado en
+    // coordenadas de mundo: al moverse el tractor la textura queda fija al
+    // suelo, como en AOG. Sin textura, el fondo sigue siendo el liso de
+    // siempre — la capa es opcional de punta a punta.
+    private uint _floorTex;
+    private bool _floorTexReady;
+    private byte[]? _pendingFloorRgba;
+    private int _pendingFloorW, _pendingFloorH;
+    // Un tile cada 50 m: con el z_Floor de 1024px queda ~5 cm/px, parecido a
+    // la escala visual del legacy. Si el branding trae otra textura, se ajusta
+    // acá y listo.
+    private const double FloorTileM = 50.0;
+
+    // Buffer CPU reutilizable. Se vuelca a _vbo en cada render que vea
+    // un snapshot nuevo. No se aloca por frame.
+    private float[] _scratch = new float[1024];
+
+    // ---- coverage (worked area, Stage 2) -------------------------------
+    // El servidor entrega N sections × M strips cada una. Para no pagar
+    // un draw call por triangulo, concatenamos TODOS los strips en un
+    // unico VBO y guardamos (offsetVerts, vertexCount) por strip; en
+    // render emitimos un GL_TRIANGLE_STRIP por entrada.
+    private uint _coverageVbo;
+    private int _coverageVboCapacityFloats;
+    // Lista (start, count) en vertices, donde start es el indice del
+    // primer vertice del strip dentro del VBO (no en floats).
+    private readonly List<(int Start, int Count)> _coverageRanges = new();
+    private float _coverageR = 0.294f, _coverageG = 0.651f, _coverageB = 0.247f, _coverageA = 0.549f;
+    private long _coverageRevisionUploaded = -1;
+    private CoverageSnapshot? _pendingCoverage; // recibido desde UI thread, aplicado en render thread
+
+    // ---- tram lines (Stage 4b) -----------------------------------------
+    // Tramlines (wheel tracks) + outer/inner boundary tracks. Cambia rara
+    // vez (regenerar passes/ancho/displayMode) — VBO STATIC_DRAW con
+    // revision-cache. Layout en _tramVbo (todo concatenado):
+    //   [lineas internas...] [outer boundary] [inner boundary]
+    // Cada line tiene su (Start, Count) en vertices; outer/inner igual.
+    // DisplayMode controla que se rendera:
+    //   None             -> nada
+    //   All              -> lines + outer + inner
+    //   FillTracks       -> solo lines
+    //   BoundaryTracks   -> solo outer + inner
+    private uint _tramVbo;
+    private int _tramVboCapacityFloats;
+    private readonly List<(int Start, int Count)> _tramLineRanges = new();
+    private int _tramOuterStart, _tramOuterCount;
+    private int _tramInnerStart, _tramInnerCount;
+    private long _tramRevisionUploaded = -1;
+    private string _tramDisplayMode = "None";
+    private TramGeometrySnapshot? _pendingTram;
+
+    // ---- paths: youturn + recorded (Stage 5) ---------------------------
+    // Dos polilineas simples ("caminos"): el giro de cabecera (youturn) y el
+    // camino grabado (recorded). Cambian rara vez (nuevo giro / grabacion) —
+    // VBO STATIC_DRAW con revision-cache. Layout en _pathsVbo (concatenado):
+    //   [youturn...] [recorded...]
+    // Cada uno con su (Start, Count) en vertices. Se rendean como
+    // GL_LINE_STRIP con colores distintos.
+    private uint _pathsVbo;
+    private int _pathsVboCapacityFloats;
+    private int _pathsYouTurnStart, _pathsYouTurnCount;
+    private int _pathsRecordedStart, _pathsRecordedCount;
+    private long _pathsRevisionUploaded = -1;
+    private PathsGeometrySnapshot? _pendingPaths;
+
+    // ---- banderas ---------------------------------------------------------
+    // Lista chica (pocas docenas como mucho): sin VBO propio, se arma el
+    // quad/triángulo por bandera con el scratch y se sube por frame — igual
+    // que el marcador del tractor y el indicador de XTE.
+    private List<FlagPoint> _flags = new();
+
+    // ---- marcas de "Marcar giro" ---------------------------------------
+    // 0..2 marcas: cada una se dibuja como UNA línea perpendicular al rumbo
+    // de la guía, centrada en (e,n). Igual que las banderas: lista chica,
+    // se arma con el scratch y se sube por frame.
+    private IReadOnlyList<(double e, double n, double heading)> _turnMarks =
+        Array.Empty<(double, double, double)>();
+
+    // ---- tool / sections (Stage 4a) ------------------------------------
+    // Cada seccion = un segmento Left↔Right en coords mundo. Coloreamos
+    // segun estado: gris (off), verde (auto + mapping), rojo (auto + NO
+    // mapping = sectionOnRequest negado por boundary/headland), amarillo
+    // (manual ON). El tractor + boundary se renderean encima.
+    // Sin revision-cache porque los puntos cambian cada frame; el batch
+    // es chico (max ~16 secciones × 2 puntos × 2 floats = 64 floats).
+    // (Sin VBO propio: las secciones se arman como quads en el scratch por
+    // frame. Son ~16 y el batch es de 8 floats cada una.)
+    private ToolGeometrySnapshot? _pendingTool;
+    private ToolGeometrySnapshot? _toolSnap;
+
+    // ---- guidance line (Stage 3) ---------------------------------------
+    // Polyline de la linea/curva activa (AB/Curve/Contour). Se renderiza
+    // como GL_LINE_STRIP con un unico draw call (el set es chico: 2 pts
+    // para AB extendida, ~unos cientos para curves). VBO dedicado con
+    // revision tracking — el GuidanceGeometryPoller corre a 1 Hz pero la
+    // geometria casi nunca cambia, asi que en steady-state esto es solo
+    // un DrawArrays por frame.
+    private uint _guidanceVbo;
+    private int _guidanceVboCapacityFloats;
+    private int _guidanceVertexCount;
+    private long _guidanceRevisionUploaded = -1;
+    private string _guidanceMode = "Off";
+    private GuidanceGeometrySnapshot? _pendingGuidance; // UI thread → render thread
+    // Copia CPU de los puntos de la línea activa: la necesitamos para calcular
+    // las guías paralelas vecinas (offset perpendicular por ancho de herramienta),
+    // como hace AgOpenGPS al llenar el lote de líneas de pasada.
+    private readonly List<GuidancePoint> _guidancePts = new List<GuidancePoint>();
+
+    // ---- guías paralelas: VBO cacheado ---------------------------------
+    // Las paralelas son función de (puntos de la línea, ancho de herramienta,
+    // extensión del lote). Nada de eso cambia por frame: la geometría llega a
+    // 1 Hz y el ancho solo al reconfigurar el implemento. Antes se recalculaban
+    // enteras en CPU y se resubían a GPU en CADA frame — en modo curva son hasta
+    // 81 offsets × N puntos con una raíz por punto y 81 BufferSubData, 60 veces
+    // por segundo. Ahora se construyen una vez en este VBO y el frame solo emite
+    // los draws. _parDirty se marca cuando cambia alguna de las tres entradas.
+    private uint _parVbo;
+    private int _parVboCapacityFloats;
+    private readonly List<(int Start, int Count)> _parRanges = new();
+    private bool _parIsLines;       // AB -> un unico GL_LINES; curva -> N LINE_STRIP
+    private bool _parDirty = true;
+    private double _parWidthUsed = -1;
+    private double _parSpanUsed = -1;
+
+    // Modo seguimiento heading-up: mapa centrado en el tractor y rotado por el
+    // rumbo (tractor siempre apuntando arriba). Default on (lo que pidió el
+    // operario). North-up = false.
+    private bool _headingUp = true;
+
+    // Pitch de cámara (grados, 0..-70): 0 = 2D top-down (comportamiento
+    // original), negativo = vista "3D" inclinada. Equivalente a
+    // camera.PitchInDegrees del legacy (btn2D/btn3D/btnTiltUp/btnTiltDn).
+    // Se aplica como un squish del eje "adelante" (v, tras rotar por
+    // heading) + un corrimiento hacia abajo en clip-space — NO es
+    // perspectiva real con punto de fuga (el pipeline es ortográfico puro,
+    // ver cabecera del archivo), pero es un efecto visual genuino: el mundo
+    // se ve achatado/inclinado y el tractor se corre hacia abajo, dejando
+    // ver más "adelante" en la parte superior, como una cámara chase-cam.
+    private double _pitchDeg;
+
+    // Grilla visible (botón "Grilla" del menú Navegación). Default on
+    // (comportamiento actual, sin regresión).
+    private bool _gridOn = true;
+
+    // Día/Noche: paleta alternativa de fondo+grilla del mapa. Default false
+    // (la paleta oscura actual, pensada para cabina de noche). Acota el
+    // efecto al MAPA nada más — el chrome de las barras (PilotXTheme) no
+    // cambia, eso queda fuera de alcance de este ciclo.
+    private bool _isDay;
+
+    // Cross-track error (m) para el lightbar. NaN = sin guía activa (no dibuja).
+    private double _xte = double.NaN;
+
+    // El cluster del piloto (overlay Avalonia arriba-centro) muestra el XTE en
+    // número y tapa justo la franja del lightbar: cuando está visible, el
+    // lightbar GL se apaga para no asomar por los bordes contando lo mismo.
+    private volatile bool _lightbarOn = true;
+    public void SetLightbarVisible(bool visible) => _lightbarOn = visible;
+
+    // ---- U-turn (réplica 6.8.5) -----------------------------------------
+    // Camino del giro en cabecera, actualizado en cada poll de guidance.
+    // Colores del DrawYouTurn original: verde armado, rojo salmón fuera de
+    // límites, violeta girando.
+    private float[]? _ytPts;
+    private bool _ytTriggered, _ytOutOfBounds, _ytArmed;
+    private static readonly float[] ColYtArmed     = { 0.395f, 0.925f, 0.300f, 0.95f };
+    private static readonly float[] ColYtOut       = { 0.9495f, 0.395f, 0.325f, 0.95f };
+    private static readonly float[] ColYtTriggered = { 0.95f, 0.50f, 0.95f, 0.95f };
+    private static readonly float[] ColYtBuilding  = { 0.97f, 0.635f, 0.40f, 0.85f };   // en construcción (naranja 6.8.5 del botón)
+
+    // Creación de AB en el mapa (toco A, manejo, toco B): mientras _abCreating,
+    // se dibuja el marcador del punto A y una línea pendiente A→tractor, para
+    // que el operario vea la guía formándose de A hasta B.
+    private bool _abCreating;
+    private bool _abHasA;
+    private double _abAe, _abAn;
+
+    // Colores cockpit (RGBA 0..1). Identicos al Skia para paridad.
+    private static readonly float[] ColBg            = { 0f, 0f, 0f, 1f };            // negro puro
+    // Grilla apenas perceptible (gris muy oscuro, alpha bajo) para no confundirse
+    // con las guías cian; el fondo queda esencialmente negro.
+    private static readonly float[] ColGrid          = { 0.11f, 0.12f, 0.11f, 0.09f };
+    // Paleta "Día" (dia_noche): fondo gris claro + grilla oscura, para uso
+    // diurno con sol directo sobre la pantalla (mismo criterio que el
+    // isDay del legacy, acá acotado al fondo/grilla del mapa GL).
+    private static readonly float[] ColBgDay         = { 0.72f, 0.75f, 0.71f, 1f };
+    private static readonly float[] ColGridDay       = { 0.35f, 0.38f, 0.35f, 0.30f };
+    private static readonly float[] ColBoundary      = { 0.357f, 0.784f, 0.314f, 1f }; // #5BC850
+    // Cabecera (hdLine): ámbar — distinta del lindero verde y de las guías
+    // cian; mismo criterio de color que el DrawHeadland del legacy.
+    private static readonly float[] ColHeadland      = { 0.960f, 0.820f, 0.290f, 0.95f }; // #F5D14A
+    // Lindero que se está grabando: ámbar, NO el verde del lindero confirmado.
+    // El operario tiene que poder distinguir de un vistazo lo que ya está de lo
+    // que todavía está tomando, porque sobre eso decide si sigue dando la vuelta.
+    private static readonly float[] ColLinderoRec    = { 1.000f, 0.760f, 0.294f, 1f }; // #FFC24B ámbar
+    private static readonly float[] ColLinderoRecPto = { 1.000f, 1.000f, 1.000f, 1f }; // blanco: el punto pinchado
+    private static readonly float[] ColIslandStroke  = { 0.561f, 0.627f, 0.573f, 1f }; // #8FA092
+    private static readonly float[] ColTractor       = { 0.290f, 0.729f, 0.243f, 1f }; // #4ABA3E
+    private static readonly float[] ColTractorEdge   = { 0.063f, 0.086f, 0.071f, 1f }; // #101612
+    // Puntos de guiado (6.8.5 original): goal point naranja, antena celeste.
+    private static readonly float[] ColGoalPoint     = { 1.000f, 0.600f, 0.100f, 1f }; // #FF991A
+    private static readonly float[] ColAntena        = { 0.300f, 0.800f, 1.000f, 1f }; // #4DCCFF
+    private static readonly float[] ColPuntoBorde    = { 0.063f, 0.086f, 0.071f, 0.9f };
+    // Banderas (marca del operario: piedra, pozo, alambrado caído...). Mismo
+    // código de color que banderas.html: 0 rojo, 1 verde, 2 amarillo.
+    private static readonly float[] ColBanderaRoja     = { 0.831f, 0.180f, 0.180f, 1f }; // #D42E2E
+    private static readonly float[] ColBanderaVerde    = { 0.204f, 0.702f, 0.235f, 1f }; // #34B33C
+    private static readonly float[] ColBanderaAmarilla = { 0.949f, 0.784f, 0.196f, 1f }; // #F2C832
+    private static readonly float[] ColBanderaAsta     = { 0.063f, 0.086f, 0.071f, 1f }; // #101612 (idem borde tractor)
+    // Guidance line: cian brillante para contrastar con boundary (#5BC850
+    // verde) y coverage (verde semitransp). #4DD8FF — visible sobre fondo
+    // oscuro y sobre la capa pintada.
+    private static readonly float[] ColGuidance      = { 0.302f, 0.847f, 1.000f, 1f }; // #4DD8FF
+    // Guías paralelas vecinas: mismo cian pero tenue (alpha bajo) para que la
+    // línea activa resalte por encima. Se dibujan por debajo de la activa.
+    private static readonly float[] ColGuidancePar   = { 0.302f, 0.847f, 1.000f, 0.33f };
+    // Tool / sections (Stage 4a). Las secciones se pintan como segmentos
+    // gruesos (LineWidth lo controla el driver — algunos drivers lo
+    // capean en 1.0, pero la barra es solo indicativa, no cubre area).
+    // Sección cortada (apagada por el operario). Antes era #8FA092, un verde
+    // grisáceo desaturado: sobre el fondo oscuro y al lado del verde de
+    // "aplicando" no se leía como apagada — el operario lo describía como
+    // "verde/marrón clarito". Cortada tiene que gritar, y el color de cortar es
+    // el rojo.
+    private static readonly float[] ColToolOff       = { 0.929f, 0.282f, 0.282f, 1f }; // #ED4848 rojo (cortada)
+    private static readonly float[] ColToolAutoOn    = { 0.290f, 0.729f, 0.243f, 1f }; // #4ABA3E verde (auto + mapping)
+    // Auto pero denegada (lindero/cabecera). Pasa a naranja porque el rojo se lo
+    // quedó "cortada por el operario": si las dos fueran rojas, el operario no
+    // podría distinguir lo que apagó él de lo que le apagó el sistema, que es
+    // justo lo que necesita saber cuando algo no siembra y no entiende por qué.
+    private static readonly float[] ColToolAutoOff   = { 0.910f, 0.447f, 0.110f, 1f }; // #E8721C naranja (auto + NO mapping)
+    private static readonly float[] ColToolManual    = { 0.973f, 0.808f, 0.247f, 1f }; // #F8CE3F amarillo (manual on)
+    // Tram lines (Stage 4b). Tono claro semitransparente para no competir
+    // con guidance cian ni con boundary verde. Coincide con el render
+    // legacy (light pink/cream sobre fondo oscuro).
+    private static readonly float[] ColTram          = { 0.930f, 0.720f, 0.735f, 0.65f }; // #EDB8BC alpha 0.65
+    // Paths (Stage 5). Dos colores fuertes y distinguibles entre si y del
+    // resto de las capas: youturn naranja (#FF9E1B), recorded violeta/lila
+    // (#B478FF).
+    private static readonly float[] ColPathsYouTurn  = { 1.000f, 0.620f, 0.106f, 1f }; // #FF9E1B naranja
+    private static readonly float[] ColPathsRecorded = { 0.706f, 0.470f, 1.000f, 1f }; // #B478FF violeta
+    // Marcas de "Marcar giro": misma familia naranja que el path del U-turn
+    // (las marcas dicen DÓNDE dobla, el path dice CÓMO dobla).
+    private static readonly float[] ColTurnMark      = { 1.000f, 0.620f, 0.106f, 0.9f }; // #FF9E1B alpha 0.9
+
+    // Shaders: el MISMO cuerpo sirve para desktop GL 3.30 core y GL ES 3.00;
+    // solo cambia el preludio (#version + precision). Avalonia en Windows
+    // suele negociar un contexto GL ES (ANGLE), donde "#version 330 core"
+    // NO compila -> el programa quedaba inválido y el mapa se veía NEGRO.
+    // Elegimos el preludio según GlVersion.Type en OnOpenGlInit.
+    private static string BuildVertSrc(bool es) =>
+        (es ? "#version 300 es\n" : "#version 330 core\n") +
+        "layout (location = 0) in vec2 aPos;\n" +
+        "uniform mat4 uMvp;\n" +
+        "void main(){ gl_Position = uMvp * vec4(aPos, 0.0, 1.0); }\n";
+
+    private static string BuildFragSrc(bool es) =>
+        (es ? "#version 300 es\nprecision mediump float;\n" : "#version 330 core\n") +
+        "uniform vec4 uColor;\n" +
+        "out vec4 FragColor;\n" +
+        "void main(){ FragColor = uColor; }\n";
+
+    // Shader con textura, para el sprite del vehículo. Va aparte del de color
+    // plano: mezclarlos obligaría a un branch por fragmento en TODO lo que se
+    // dibuja (cobertura, guías, lindero), que es la parte cara del frame.
+    private static string BuildTexVertSrc(bool es) =>
+        (es ? "#version 300 es\n" : "#version 330 core\n") +
+        "layout (location = 0) in vec2 aPos;\n" +
+        "layout (location = 1) in vec2 aUv;\n" +
+        "uniform mat4 uMvp;\n" +
+        "out vec2 vUv;\n" +
+        "void main(){ vUv = aUv; gl_Position = uMvp * vec4(aPos, 0.0, 1.0); }\n";
+
+    private static string BuildTexFragSrc(bool es) =>
+        (es ? "#version 300 es\nprecision mediump float;\n" : "#version 330 core\n") +
+        "in vec2 vUv;\n" +
+        "uniform sampler2D uTex;\n" +
+        // Tinte multiplicativo: blanco = textura tal cual (sprites); el piso
+        // lo usa para oscurecerse de noche sin duplicar la textura.
+        "uniform vec4 uTint;\n" +
+        "out vec4 FragColor;\n" +
+        "void main(){ vec4 c = texture(uTex, vUv) * uTint; if (c.a < 0.02) discard; FragColor = c; }\n";
+
+    /// <summary>
+    /// Carga el sprite del vehículo (RGBA sin premultiplicar). Se llama desde
+    /// el hilo de UI; la subida real a GPU ocurre en el próximo frame, que es
+    /// donde hay contexto GL. Pasar null vuelve al triángulo.
+    /// </summary>
+    public void SetVehicleSprite(byte[]? rgba, int width, int height)
+    {
+        if (rgba == null || width <= 0 || height <= 0)
+        {
+            _pendingTexRgba = null;
+            _vehicleTexReady = false;
+        }
+        else
+        {
+            _pendingTexRgba = rgba;
+            _pendingTexW = width;
+            _pendingTexH = height;
+            _vehicleAspect = (double)height / width;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Textura del piso (fondo del mapa, tileada en mundo). Pasar null la saca
+    /// y el fondo vuelve al color liso.
+    /// </summary>
+    public void SetFloorTexture(byte[]? rgba, int width, int height)
+    {
+        if (rgba == null || width <= 0 || height <= 0)
+        {
+            _pendingFloorRgba = null;
+            _floorTexReady = false;
+        }
+        else
+        {
+            _pendingFloorRgba = rgba;
+            _pendingFloorW = width;
+            _pendingFloorH = height;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Textura de la rueda delantera. Se dibuja DOS veces (una por lado), cada
+    /// una girada por su ángulo de Ackermann: por eso el arte del tractor no
+    /// trae ruedas delanteras dibujadas.
+    /// </summary>
+    /// <summary>
+    /// Sprite del implemento (sembradora, pulverizadora…). Se dibuja en la
+    /// posición y rumbo de la HERRAMIENTA —que no es la del tractor: el
+    /// implemento va rezagado y en curva apunta distinto— y a lo ancho real del
+    /// implemento configurado.
+    /// </summary>
+    public void SetImplementSprite(byte[]? rgba, int width, int height)
+    {
+        if (rgba == null || width <= 0 || height <= 0)
+        {
+            _pendingImplRgba = null;
+            _implementoTexReady = false;
+        }
+        else
+        {
+            _pendingImplRgba = rgba;
+            _pendingImplW = width;
+            _pendingImplH = height;
+            _implementoAspect = (double)height / width;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    public void SetWheelSprite(byte[]? rgba, int width, int height)
+    {
+        if (rgba == null || width <= 0 || height <= 0)
+        {
+            _pendingWheelRgba = null;
+            _wheelTexReady = false;
+        }
+        else
+        {
+            _pendingWheelRgba = rgba;
+            _pendingWheelW = width;
+            _pendingWheelH = height;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Push de snapshot desde UI thread (HudPoller). Marca dirty y pide
+    /// un frame nuevo; el render real ocurre en thread GL.
+    /// </summary>
+    public void OnSnapshot(HudSnapshot snap)
+    {
+        if (_apagada) return;
+        _snap = snap;
+        _desdeFix.Restart();          // reloj para interpolar entre fixes
+        InvalidateBboxIfChanged(snap);
+        AjustarTickSuavizado(snap);
+        // Con el mapa tapado por una pantalla, el HUD sigue llegando (lo consume
+        // la barra de arriba) pero no hay nada que redibujar acá.
+        if (_pausado) return;
+        // RequestNextFrameRendering: API de OpenGlControlBase para
+        // forzar un repaint sin tick continuo. No quemamos GPU en
+        // idle: render solo cuando hay snapshot nuevo.
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    // ---- suavizado del movimiento --------------------------------------
+    // El GPS entrega ~10 fixes/s. Si el mapa dibuja SOLO cuando llega un fix,
+    // se ve a 10 fps: entrecortado, sobre todo en modo heading-up donde gira
+    // el mundo entero. Entre fix y fix se avanza el tractor por estima
+    // (velocidad × tiempo sobre el rumbo actual) y se pide frame a ~60 Hz.
+    //
+    // El tick SOLO corre con el tractor en movimiento: parado no hay nada que
+    // interpolar y no tiene sentido quemar GPU en la cabina.
+    private readonly System.Diagnostics.Stopwatch _desdeFix = System.Diagnostics.Stopwatch.StartNew();
+    private DispatcherTimer? _tickSuave;
+
+    /// <summary>Tope de extrapolación: más allá de esto se prefiere quedarse
+    /// quieto antes que inventar posición. Si el GPS se corta, el tractor se
+    /// frena en pantalla en vez de seguir viajando solo.</summary>
+    private const double MaxExtrapolacionSeg = 0.30;
+
+    // Pausa del render. Cuando una pantalla (Configuración, Hub, cualquier
+    // producto X-*) tapa el mapa, seguir pidiendo frames a 30 Hz de un control
+    // invisible es trabajo tirado — y es justo el momento en que WebView2 está
+    // levantando su árbol de procesos Chromium y necesita la CPU.
+    private bool _pausado;
+
+    /// <summary>
+    /// Pide un frame desde afuera. RequestNextFrameRendering es protected en
+    /// OpenGlControlBase, y el watchdog de MapPanel necesita poder pedirlo al
+    /// intentar despertar al compositor sin destruir el contexto.
+    /// </summary>
+    public void PedirFrame()
+    {
+        if (_apagada) return;
+        RequestNextFrameRendering();
+    }
+
+    /// <summary>Frena el tick de suavizado. Idempotente.</summary>
+    public void Pausar()
+    {
+        _pausado = true;
+        if (_tickSuave != null && _tickSuave.IsEnabled) _tickSuave.Stop();
+    }
+
+    /// <summary>Reanuda el render. El tick vuelve solo con el próximo snapshot
+    /// si el tractor está en movimiento.</summary>
+    public void Reanudar()
+    {
+        if (!_pausado) return;
+        _pausado = false;
+        // Redibujar YA: al volver del menú el mapa tiene que estar al día, no
+        // esperar al próximo fix.
+        _renderPosInit = false;   // sin esto el filtro "viaja" desde la posición vieja
+        RequestNextFrameRendering();
+    }
+
+    private void AjustarTickSuavizado(HudSnapshot snap)
+    {
+        if (_apagada)
+        {
+            if (_tickSuave != null && _tickSuave.IsEnabled) _tickSuave.Stop();
+            return;
+        }
+        if (_pausado)
+        {
+            if (_tickSuave != null && _tickSuave.IsEnabled) _tickSuave.Stop();
+            return;
+        }
+        bool enMovimiento = snap != null && snap.AvgSpeed > 0.2;
+        if (enMovimiento)
+        {
+            if (_tickSuave == null)
+            {
+                // 30 fps, NO 60. A velocidad de trabajo el tractor avanza ~6 cm
+                // por frame a 30 fps: pedir 60 no aporta nada visible y duplica
+                // el trabajo de render, que en la Intel UHD de la cabina es
+                // headroom que se necesita para otra cosa.
+                //
+                // 30 y no 25: la pantalla es de 60 Hz. 60/30 = 2 exacto, así que
+                // cada frame vive exactamente 2 refrescos y la cadencia queda
+                // pareja. A 25 fps la división da 2,4 y los frames alternan
+                // 2-2-3-2-2-3 refrescos — ese patrón irregular se ve peor que la
+                // diferencia de 5 fps. Lo que molesta al ojo es la varianza, no
+                // el promedio.
+                //
+                // El suavizado de posición (TauSuavizadoSeg) es independiente del
+                // framerate, así que bajar la cadencia no lo afecta.
+                _tickSuave = new DispatcherTimer(DispatcherPriority.Render)
+                {
+                    Interval = TimeSpan.FromMilliseconds(33)   // ~30 fps
+                };
+                _tickSuave.Tick += (_, _) => RequestNextFrameRendering();
+            }
+            if (!_tickSuave.IsEnabled) _tickSuave.Start();
+        }
+        else if (_tickSuave != null && _tickSuave.IsEnabled)
+        {
+            _tickSuave.Stop();
+        }
+    }
+
+    /// <summary>
+    /// Posición OBJETIVO del tractor: el último fix llevado al instante actual por
+    /// estima. Devuelve el fix tal cual si está parado o si pasó demasiado desde el
+    /// último dato.
+    /// </summary>
+    private (double e, double n) PosicionObjetivo(HudSnapshot snap)
+    {
+        double e = snap.PivotEasting, n = snap.PivotNorthing;
+        double vms = snap.AvgSpeed / 3.6;                 // km/h → m/s
+        if (vms <= 0.05) return (e, n);
+
+        double dt = _desdeFix.Elapsed.TotalSeconds;
+        if (dt <= 0 || dt > MaxExtrapolacionSeg) return (e, n);
+
+        // Mismo criterio de ejes que el resto del mapa: rumbo 0 = Norte.
+        double d = vms * dt;
+        return (e + Math.Sin(snap.Heading) * d, n + Math.Cos(snap.Heading) * d);
+    }
+
+    // ---- posición de render suavizada ----------------------------------
+    // La estima sola producía el efecto "goma": entre fixes el tractor avanzaba
+    // extrapolado, y al llegar el fix siguiente la posición SALTABA al valor real
+    // (adelante o atrás según cuánto se pasó la estima). Con un fix cada ~100 ms
+    // eso es un escalón 10 veces por segundo, y en heading-up el escalón lo da el
+    // mundo entero, que es donde más se nota.
+    //
+    // Ahora la posición dibujada persigue al objetivo con un filtro exponencial:
+    // el escalón se reparte en unas decenas de ms en vez de aplicarse de golpe.
+    private double _renderE, _renderN;
+    private double _renderToolE, _renderToolN;
+    private bool _renderPosInit;
+    private readonly System.Diagnostics.Stopwatch _relojFrame = System.Diagnostics.Stopwatch.StartNew();
+
+    /// <summary>Constante de tiempo del suavizado. Corta a propósito: alcanza para
+    /// tapar el escalón del fix sin que el tractor se sienta "arrastrado".</summary>
+    private const double TauSuavizadoSeg = 0.08;
+
+    /// <summary>Salto que NO se interpola (cambio de lote, GPS recuperado,
+    /// teleport del simulador): ahí conviene ir directo y no viajar por el mapa.</summary>
+    private const double SaltoDirectoM = 25.0;
+
+    /// <summary>
+    /// Avanza la posición suavizada hacia el objetivo. Se llama UNA vez por frame
+    /// (la cámara y el tractor leen el mismo resultado; llamarla dos veces haría
+    /// avanzar el filtro doble y el suavizado quedaría dependiente del framerate).
+    /// </summary>
+    private void ActualizarPosicionRender(HudSnapshot snap)
+    {
+        var (te, tn) = PosicionObjetivo(snap);
+
+        // Herramienta: mismo tratamiento, con su propia posición y rumbo. Si el
+        // tractor va suave y el implemento a saltos, se ve como si se
+        // desenganchara y volviera.
+        double toE = snap.ToolEasting, toN = snap.ToolNorthing;
+        double vms = snap.AvgSpeed / 3.6;
+        double dtFix = _desdeFix.Elapsed.TotalSeconds;
+        if (vms > 0.05 && dtFix > 0 && dtFix <= MaxExtrapolacionSeg)
+        {
+            double d = vms * dtFix;
+            toE += Math.Sin(snap.ToolHeading) * d;
+            toN += Math.Cos(snap.ToolHeading) * d;
+        }
+
+        double dtFrame = _relojFrame.Elapsed.TotalSeconds;
+        _relojFrame.Restart();
+
+        if (!_renderPosInit)
+        {
+            _renderE = te; _renderN = tn;
+            _renderToolE = toE; _renderToolN = toN;
+            _renderPosInit = true;
+            return;
+        }
+
+        double dx = te - _renderE, dy = tn - _renderN;
+        if (dx * dx + dy * dy > SaltoDirectoM * SaltoDirectoM)
+        {
+            _renderE = te; _renderN = tn;
+            _renderToolE = toE; _renderToolN = toN;
+            return;
+        }
+
+        // Exponencial independiente del framerate: con dt chico el paso es chico,
+        // con dt grande el paso es grande, y el resultado no cambia si el mapa
+        // corre a 30 o a 60 fps.
+        double a = 1.0 - Math.Exp(-Math.Max(dtFrame, 0.0) / TauSuavizadoSeg);
+        _renderE += dx * a;
+        _renderN += dy * a;
+        _renderToolE += (toE - _renderToolE) * a;
+        _renderToolN += (toN - _renderToolN) * a;
+    }
+
+    /// <summary>
+    /// Push de coverage snapshot desde UI thread (CoveragePoller). Solo
+    /// se aplica si la revision cambio respecto a la ya cargada en VBO.
+    /// </summary>
+    public void OnCoverage(CoverageSnapshot snap)
+    {
+        // Diagnóstico --diag-sin-geometria: el encuadre al lote ocurre normal
+        // pero NINGUNA geometría pesada sube al GL (cobertura, tram, paths,
+        // guías, shape, boundary). Contraparte de --diag-sin-encuadre: entre
+        // los dos parten en mitades lo que pasa al abrir un lote.
+        if (App.DiagSinGeometria) return;
+        if (snap == null) return;
+        if (snap.Revision == _coverageRevisionUploaded) return;
+        _pendingCoverage = snap;
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Push de geometria del implemento (Stage 4a, ToolGeometryPoller).
+    /// Sin filtrado por revision — los puntos cambian cada frame que el
+    /// tractor se mueve.
+    /// </summary>
+    public void OnTool(ToolGeometrySnapshot snap)
+    {
+        if (snap == null) return;
+        _pendingTool = snap;
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Push de geometria de tram desde UI thread (TramGeometryPoller).
+    /// El poller ya filtra por revision; aca solo guardamos pendiente y
+    /// disparamos un frame nuevo.
+    /// </summary>
+    public void OnTram(TramGeometrySnapshot snap)
+    {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
+        if (snap == null) return;
+        if (snap.Revision == _tramRevisionUploaded) return;
+        _pendingTram = snap;
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Push de geometria de caminos (Stage 5, PathsGeometryPoller): youturn
+    /// (giro de cabecera) + recorded path. El poller ya filtra por revision;
+    /// aca solo guardamos pendiente y disparamos un frame nuevo.
+    /// </summary>
+    public void OnPaths(PathsGeometrySnapshot snap)
+    {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
+        if (snap == null) return;
+        if (snap.Revision == _pathsRevisionUploaded) return;
+        _pendingPaths = snap;
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Push de banderas desde UI thread (FlagsPoller). El poller ya filtra
+    /// por hash — acá solo se guarda la lista (se redibuja entera cada frame,
+    /// son pocas) y se pide un frame nuevo.
+    /// </summary>
+    public void OnFlags(List<FlagPoint> flags)
+    {
+        _flags = flags ?? new List<FlagPoint>();
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Push de las marcas de "Marcar giro" desde UI thread (MapPanel las saca
+    /// del mismo HudSnapshot del poller). Mismo patrón que OnFlags: guardar
+    /// la lista y pedir frame por el dispatcher — nunca cross-thread.
+    /// </summary>
+    public void SetTurnMarks(IReadOnlyList<(double e, double n, double heading)> marks)
+    {
+        if (_apagada) return;
+        _turnMarks = marks ?? Array.Empty<(double, double, double)>();
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Push de geometria de guidance desde UI thread (GuidanceGeometryPoller).
+    /// El poller ya filtra por revision; aca solo guardamos pendiente y
+    /// disparamos un frame nuevo. Si el modo viene "Off" igual aplicamos
+    /// el snapshot — limpia la linea anterior.
+    /// </summary>
+    public void OnGuidance(GuidanceGeometrySnapshot snap)
+    {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
+        if (App.DiagSinGuias) return;       // corte quirúrgico solo-guidance
+        if (snap == null) return;
+        // El XTE cambia en cada poll aunque la geometría (revision) no —
+        // se guarda siempre para que el lightbar refleje el desvío en vivo.
+        _xte = snap.XteMeters;
+
+        // Camino del U-turn (réplica 6.8.5): también vive fuera del corte por
+        // revision — se re-arma con el tractor andando. Copia a float[] acá
+        // (hilo UI) para que el hilo GL solo lo suba.
+        var yt = snap.YouTurn;
+        if (yt?.Points != null && yt.Points.Count > 2)
+        {
+            var pts = new float[yt.Points.Count * 2];
+            for (int i = 0; i < yt.Points.Count; i++)
+            {
+                pts[i * 2] = (float)yt.Points[i].E;
+                pts[i * 2 + 1] = (float)yt.Points[i].N;
+            }
+            _ytPts = pts;
+            _ytTriggered = yt.Triggered;
+            _ytOutOfBounds = yt.OutOfBounds;
+            _ytArmed = yt.Phase == 10;
+        }
+        else
+        {
+            _ytPts = null;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+
+        if (snap.Revision == _guidanceRevisionUploaded) return;
+        _pendingGuidance = snap;
+    }
+
+    private void InvalidateBboxIfChanged(HudSnapshot snap)
+    {
+        // Diagnóstico: con --diag-sin-encuadre la cámara NO refita al lote —
+        // se queda siguiendo al tractor a escala fija — pero la geometría sube
+        // y se dibuja normal. Si el congelamiento desaparece con esto, el
+        // disparador es el cambio de encuadre; si persiste, es la geometría.
+        if (App.DiagSinEncuadre) { _hasBbox = false; return; }
+        var b = (snap.Boundaries != null && snap.Boundaries.Count > 0) ? snap.Boundaries[0] : null;
+        if (b == null || b.Count < 3) { _hasBbox = false; return; }
+        var first = b[0];
+        if (_hasBbox && _cacheKeyE == first.E && _cacheKeyN == first.N && _cacheKeyCount == b.Count)
+            return;
+        _minE = double.MaxValue; _maxE = double.MinValue;
+        _minN = double.MaxValue; _maxN = double.MinValue;
+        foreach (var p in b)
+        {
+            if (p.E < _minE) _minE = p.E;
+            if (p.E > _maxE) _maxE = p.E;
+            if (p.N < _minN) _minN = p.N;
+            if (p.N > _maxN) _maxN = p.N;
+        }
+        _cacheKeyE = first.E; _cacheKeyN = first.N; _cacheKeyCount = b.Count;
+        _hasBbox = true;
+    }
+
+    // ---- ciclo GL ------------------------------------------------------
+
+    protected override void OnOpenGlInit(GlInterface glInterface)
+    {
+        // Silk.NET.OpenGL: bindings via los procAddress que expone
+        // Avalonia. Le pasamos un delegado que se resuelve por
+        // ImportedFunctionDelegate; el binding lazy-resuelve cada GL
+        // call la primera vez que se usa.
+        _gl = GL.GetApi(name => glInterface.GetProcAddress(name));
+
+        // Contexto ES (ANGLE en Windows, GLES nativo en Android) vs desktop
+        // GL -> preludio de shader distinto. Sin esto, en un contexto ES el
+        // shader 330 core no compila y el mapa queda negro.
+        bool es = GlVersion.Type == Avalonia.OpenGL.GlProfileType.OpenGLES;
+        // Console.Error (no Debug.WriteLine): en Android sin listener de
+        // Trace registrado, Debug.WriteLine no llega a ningún lado incluso
+        // en builds Debug — Console SÍ se redirige a logcat.
+        Console.Error.WriteLine("[MapGlSurface] GL context: "
+            + (es ? "OpenGL ES" : "desktop GL") + " " + GlVersion.Major + "." + GlVersion.Minor);
+        try
+        {
+            _program = CompileProgram(_gl, BuildVertSrc(es), BuildFragSrc(es));
+        }
+        catch (Exception ex)
+        {
+            // Sin esto: _gl ya quedó no-null (asignado arriba) pero _program
+            // queda en 0 -> OnOpenGlRender seguía intentando dibujar con un
+            // programa inválido, sin excepción visible, mapa negro para
+            // siempre. _initFailed hace que OnOpenGlRender corte apenas esto
+            // pase, y el error queda en logcat (adb logcat, tag ".NET"/stderr).
+            Console.Error.WriteLine("[MapGlSurface] FALLÓ compilar/linkear shaders: " + ex);
+            _initFailed = true;
+            return;
+        }
+        _uMvp   = _gl.GetUniformLocation(_program, "uMvp");
+        _uColor = _gl.GetUniformLocation(_program, "uColor");
+
+        // Programa con textura para el sprite del vehículo. Si falla, NO se
+        // aborta el init: el mapa sigue andando con el triángulo de siempre.
+        try
+        {
+            _texProgram = CompileProgram(_gl, BuildTexVertSrc(es), BuildTexFragSrc(es));
+            _uTexMvp = _gl.GetUniformLocation(_texProgram, "uMvp");
+            _uTexTint = _gl.GetUniformLocation(_texProgram, "uTint");
+            _texVbo = _gl.GenBuffer();
+            // Tint neutro de arranque: sin esto los sprites saldrían negros
+            // hasta el primer DrawFloor (uniform sin inicializar = 0).
+            _gl.UseProgram(_texProgram);
+            _gl.Uniform4(_uTexTint, 1f, 1f, 1f, 1f);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapGlSurface] sin sprite de vehículo (shader): " + ex.Message);
+            _texProgram = 0;
+        }
+
+        _vao = _gl.GenVertexArray();
+        _vbo = _gl.GenBuffer();
+        _gl.BindVertexArray(_vao);
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+        _gl.EnableVertexAttribArray(0);
+
+        // VBO separado para coverage. Cambia rara vez (~1 Hz max), por
+        // eso STATIC_DRAW; reasignamos con BufferData cuando llega un
+        // snapshot con Revision distinta. El layout de atributos del
+        // VAO sirve para ambos VBOs porque hacemos BindBuffer antes de
+        // cada draw.
+        _coverageVbo = _gl.GenBuffer();
+        _coverageVboCapacityFloats = 0;
+
+        // VBO de guidance (Stage 3). Mismo patron que coverage: STATIC_DRAW
+        // porque cambia rara vez (revision del poller); el VAO comparte el
+        // layout de atributos via BindBuffer pre-draw.
+        _guidanceVbo = _gl.GenBuffer();
+        _guidanceVboCapacityFloats = 0;
+
+        // VBO de guías paralelas. STATIC_DRAW: se reconstruye solo cuando
+        // cambia la línea, el ancho de herramienta o la extensión del lote.
+        _parVbo = _gl.GenBuffer();
+        _parVboCapacityFloats = 0;
+        _parDirty = true;
+
+        // (Las secciones ya no tienen VBO propio: DrawTool arma los quads en el
+        // scratch por frame, que es lo que permite darles grosor real.)
+
+        // VBO de tram (Stage 4b). STATIC_DRAW: solo cambia al regenerar
+        // tram (cambio passes/ancho/displayMode). Concatena lineas + outer
+        // + inner; cada uno con su rango en vertices.
+        _tramVbo = _gl.GenBuffer();
+        _tramVboCapacityFloats = 0;
+
+        // VBO de paths (Stage 5). STATIC_DRAW: solo cambia al generar un giro
+        // o grabar/cargar un camino. Concatena youturn + recorded; cada uno
+        // con su rango en vertices.
+        _pathsVbo = _gl.GenBuffer();
+        _pathsVboCapacityFloats = 0;
+
+        // Timer queries para medir el tiempo REAL de GPU por frame (ver el
+        // bloque de medición más abajo). Si el driver no las soporta se sigue
+        // sin medir: es diagnóstico, nunca puede impedir que el mapa dibuje.
+        // OJO: no alcanza con crear las queries y mirar glGetError. Este
+        // contexto es OpenGL ES 3.0, donde glQueryCounter/GL_TIMESTAMP NO
+        // EXISTEN (son de GL desktop 3.3+ o de la extensión
+        // EXT_disjoint_timer_query). GenQuery pasa sin error igual, y recién al
+        // usar QueryCounter Silk.NET tira SymbolLoadingException — que en el
+        // hilo de render es excepción no atendida y se lleva puesta la app.
+        // Por eso se PRUEBA el símbolo de verdad, una vez, acá.
+        try
+        {
+            _qIni = new uint[RingQueries];
+            _qFin = new uint[RingQueries];
+            _qEnVuelo = new bool[RingQueries];
+            for (int i = 0; i < RingQueries; i++)
+            {
+                _qIni[i] = _gl.GenQuery();
+                _qFin[i] = _gl.GenQuery();
+            }
+            _gl.QueryCounter(_qIni[0], GLEnum.Timestamp);   // ← la prueba real
+            _gpuTimerOk = _gl.GetError() == GLEnum.NoError;
+            Console.Error.WriteLine("[MapGlSurface] medicion de GPU por frame: "
+                + (_gpuTimerOk ? "ACTIVA" : "no disponible (driver la rechaza)"));
+        }
+        catch (Exception ex)
+        {
+            _gpuTimerOk = false;
+            Console.Error.WriteLine("[MapGlSurface] sin medicion de GPU en este contexto ("
+                + ex.GetType().Name + "): " + ex.Message);
+        }
+
+        var glErr = _gl.GetError();
+        Console.Error.WriteLine("[MapGlSurface] GL init OK (glGetError=" + glErr + ")");
+
+        Dispatcher.UIThread.Post(ArrancarLatido, DispatcherPriority.Background);
+    }
+
+    protected override void OnOpenGlDeinit(GlInterface glInterface)
+    {
+        // Este método era MUDO. Deja _gl en null, y a partir de ahí
+        // OnOpenGlRender se va en la primera línea sin decir nada: mapa negro,
+        // cero rastro. Si Avalonia lo llama sin volver a llamar OnOpenGlInit,
+        // esa es la explicación del negro permanente — hay que poder verlo.
+        Console.Error.WriteLine("[MapGlSurface] OnOpenGlDeinit: se sueltan los recursos GL"
+            + (_gl == null ? " (ya estaba sin contexto)" : ""));
+        if (_gl == null) return;
+        try
+        {
+            _gl.DeleteBuffer(_vbo);
+            _gl.DeleteBuffer(_coverageVbo);
+            _gl.DeleteBuffer(_guidanceVbo);
+            _gl.DeleteBuffer(_parVbo);
+            _gl.DeleteBuffer(_tramVbo);
+            _gl.DeleteBuffer(_pathsVbo);
+            _gl.DeleteVertexArray(_vao);
+            _gl.DeleteProgram(_program);
+
+            // Faltaban: el programa y el VBO de texturas, y las cuatro texturas
+            // de sprites. Se borraban los 6 buffers + VAO + programa y nada
+            // más, así que cada jubilación de surface dejaba 1 programa,
+            // 1 buffer y 4 texturas en el contexto. Con el watchdog reintentando
+            // sin tope (ver MapPanel) y una noche entera de corrida, eso se
+            // acumula sin techo — y el contexto GL es COMPARTIDO por el
+            // compositor, así que no se limpia solo al morir el control.
+            _gl.DeleteProgram(_texProgram);
+            _gl.DeleteBuffer(_texVbo);
+            if (_vehicleTex != 0) _gl.DeleteTexture(_vehicleTex);
+            if (_wheelTex != 0) _gl.DeleteTexture(_wheelTex);
+            if (_implementoTex != 0) _gl.DeleteTexture(_implementoTex);
+            if (_floorTex != 0) _gl.DeleteTexture(_floorTex);
+            _texProgram = 0; _texVbo = 0;
+            _vehicleTex = 0; _wheelTex = 0; _implementoTex = 0; _floorTex = 0;
+            _vehicleTexReady = false; _wheelTexReady = false;
+            _implementoTexReady = false; _floorTexReady = false;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapGlSurface] deinit: " + ex.Message);
+        }
+        _gl = null;
+    }
+
+    private bool _loggedFirstRender;
+
+    protected override void OnOpenGlRender(GlInterface glInterface, int fb)
+    {
+        // El contador va ANTES de las salidas tempranas a propósito. Hasta acá
+        // el latido medía fps con _framesDesdeLatido, que se incrementa recién
+        // después del Clear: con eso "fps=0" tapaba dos casos MUY distintos —
+        // que Avalonia dejara de llamar este método, o que lo llamara y
+        // nosotros nos fuéramos en la primera línea. Diagnosticar el mapa negro
+        // sin poder separarlos es adivinar.
+        _entradasRender++;
+        if (_gl == null) { _salidasSinGl++; return; }
+        if (_initFailed) { _salidasInitFailed++; return; }
+
+        IniciarMedicionGpu();
+        (_swFrame ??= new System.Diagnostics.Stopwatch()).Restart();
+
+        var sz = Bounds.Size;
+        int wPx = (int)Math.Max(1, sz.Width);
+        int hPx = (int)Math.Max(1, sz.Height);
+
+        _gl.Viewport(0, 0, (uint)wPx, (uint)hPx);
+        float[] bg = _isDay ? ColBgDay : ColBg;
+        _gl.ClearColor(bg[0], bg[1], bg[2], bg[3]);
+        _gl.Clear((uint)ClearBufferMask.ColorBufferBit);
+
+        _framesDesdeLatido++;
+        FramesRenderizados++;
+        bool diag = _diagFrames < 3;
+        if (diag) LogPixel("post-clear", wPx / 2, hPx / 2);
+
+        _gl.UseProgram(_program);
+        _gl.BindVertexArray(_vao);
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+
+        if (!_loggedFirstRender)
+        {
+            _loggedFirstRender = true;
+            Console.Error.WriteLine("[MapGlSurface] primer render: bounds=" + wPx + "x" + hPx
+                + " program=" + _program + " glGetError=" + _gl.GetError());
+        }
+
+        // MVP: ortho 2D mapeando el bbox del lote (o un default centrado)
+        // al rect del control con padding. Y-up para que North apunte
+        // arriba (a diferencia del DrawingContext Skia que es Y-down).
+        ComputeProjection(wPx, hPx, out double cxBbox, out double cyBbox, out double scale);
+
+        // Modo heading-up (seguimiento): el mapa se centra en el tractor y rota
+        // por su rumbo, así el tractor SIEMPRE apunta hacia arriba de la pantalla
+        // (aunque doble), como los monitores de guiado. El triángulo del tractor
+        // se dibuja con su rumbo real y la rotación del mundo lo deja apuntando
+        // arriba (no hay que tocar DrawTractor). North-up (rotación 0) queda si
+        // se apaga el modo o si todavía no hay posición.
+        double alpha = 0.0;
+        var followSnap = _snap;
+        // Una sola actualización del filtro por frame, antes de cualquier uso.
+        if (followSnap != null) ActualizarPosicionRender(followSnap);
+        if (_headingUp && followSnap != null &&
+            (followSnap.PivotEasting != 0 || followSnap.PivotNorthing != 0))
+        {
+            // Posición suavizada, no la del último fix: si la cámara salta de
+            // fix en fix, TODO el mundo salta con ella y es lo que más se nota.
+            cxBbox = _renderE;
+            cyBbox = _renderN;
+            alpha = followSnap.Heading;   // rad; rotar el mundo por el rumbo
+        }
+
+        // Matriz column-major 4x4. La rotación se aplica en espacio-pantalla
+        // uniforme (sx/sy sólo corrigen aspecto), así un círculo del mundo se ve
+        // como círculo en pantalla, sólo rotado. Con alpha=0 queda igual que antes.
+        //   clip.x = sx[cosα(x-cx) - sinα(y-cy)]
+        //   clip.y = sy[sinα(x-cx) + cosα(y-cy)] · cosT + yShift   (T = pitch)
+        // Pitch (vista 3D): "squish" del eje v (adelante, tras rotar por
+        // heading) por cos(T) + corrimiento hacia abajo en clip-space por
+        // sin(T) — ver comentario de _pitchDeg. Con T=0 (2D) se cancela y
+        // queda EXACTAMENTE la fórmula ortográfica original.
+        _ultCamX = cxBbox; _ultCamY = cyBbox; _ultEscala = scale;
+
+        float sx = (float)(scale * 2.0 / wPx);
+        float sy = (float)(scale * 2.0 / hPx);
+        float ca = (float)Math.Cos(alpha);
+        float sa = (float)Math.Sin(alpha);
+        double tiltRad = Math.Abs(_pitchDeg) * Math.PI / 180.0;
+        float cosT = (float)Math.Cos(tiltRad);
+        float sinT = (float)Math.Sin(tiltRad);
+        float m00 = sx * ca,          m10 = sy * sa * cosT;      // columna 0 (x)
+        float m01 = -sx * sa,         m11 = sy * ca * cosT;      // columna 1 (y)
+        float tx = (float)(-(sx * (ca * cxBbox - sa * cyBbox)));
+        float ty = (float)(-(sy * (sa * cxBbox + ca * cyBbox)) * cosT - sinT * 0.5f);
+        Span<float> mvp = stackalloc float[16]
+        {
+            m00, m10, 0, 0,
+            m01, m11, 0, 0,
+            0,   0,   1, 0,
+            tx,  ty,  0, 1
+        };
+        unsafe
+        {
+            fixed (float* p = mvp)
+                _gl.UniformMatrix4(_uMvp, 1, false, p);
+        }
+        // Copia para el shader del sprite del vehículo, que usa su propio
+        // programa y necesita la MISMA transformación.
+        for (int i = 0; i < 16; i++) _mvpCache[i] = mvp[i];
+
+        // --- Capa 0: piso texturado (fondo del mapa) -------------------
+        // El z_Floor tileado en mundo, como el legacy: la textura queda
+        // fija al suelo y el tractor pasa por encima. Va antes que TODO
+        // (coverage, guías, lindero pintan arriba). Si no hay textura, el
+        // clear color de siempre hace de fondo.
+        if (_floorTexReady)
+            DrawFloor(cxBbox, cyBbox, wPx, hPx, scale);
+
+        // --- Capa 1: world grid — DESACTIVADA (2026-07-28, pedido usuario) --
+        // El cuadriculado de fondo no le decía nada al operario: no marca
+        // referencias del lote ni distancias que se usen manejando, y se
+        // redibujaba entero en CADA frame (a 60 fps con el tractor en
+        // movimiento son cientos de líneas por segundo para nada).
+        // El método DrawGrid + _gridOn quedan (no se borra el toggle) por si
+        // hace falta volver a colgarlo — ver MenuIzquierda: el botón "Grilla"
+        // se sacó del menú porque hoy no tiene ningún efecto.
+        //if (_gridOn)
+        //    DrawGrid(cxBbox, cyBbox, wPx, hPx, scale, _isDay ? ColGridDay : ColGrid);
+
+        // --- Presupuesto de subidas: UNA por frame ---------------------
+        //
+        // Al abrir un lote llegan coverage, tram, guidance y paths casi
+        // juntos, y hasta hoy se subían TODOS en el mismo frame. Esa ráfaga
+        // es el disparador del congelamiento del compositor, aislado con las
+        // corridas A/B/WGL del 2026-08-04 (20 ciclos de abrir/cerrar lote):
+        //
+        //   con ráfaga:               12 congelamientos (ANGLE) / 36 (WGL)
+        //   sin geometría:             0
+        //
+        // El backend no importa (WGL sin ANGLE congela MÁS): lo que rompe es
+        // el pico. Así que se sube de a UNA categoría por frame — el orden de
+        // los if da la prioridad — y si quedó algo pendiente se pide otro
+        // frame. A 30 fps las cuatro capas tardan ~130 ms en completarse, y
+        // el draw de cada capa sigue usando lo ya subido mientras tanto: no
+        // hay hueco visual, solo la capa nueva llegando un par de frames más
+        // tarde. (La idea del presupuesto por frame viene del fix de cobertura
+        // de AgOpenWeb, commit a4954836, adaptada de celdas a categorías.)
+        bool subioAlgo = false;
+
+        // --- Capa 2: coverage (worked area) ----------------------------
+        // Si hay snapshot pendiente con revision nueva, reuploadeamos el
+        // VBO de coverage. El draw siempre va, aunque sea con los rangos
+        // ya cargados de la pasada anterior — eso mantiene la capa
+        // visible entre polls.
+        if (_pendingCoverage != null && !subioAlgo)
+        {
+            UploadCoverage(_pendingCoverage);
+            _pendingCoverage = null;
+            subioAlgo = true;
+        }
+        if (_coverageRanges.Count > 0)
+            DrawCoverage();
+
+        // --- Capa 2b: tram lines (wheel tracks + outer/inner boundary) -
+        // Va entre coverage y guidance: marcas de navegacion que deben
+        // quedar visibles sobre lo pintado pero por debajo de la linea
+        // activa de guidance (que es la referencia primaria del operario).
+        if (_pendingTram != null && !subioAlgo)
+        {
+            UploadTram(_pendingTram);
+            _pendingTram = null;
+            subioAlgo = true;
+        }
+        if (_tramDisplayMode != "None" &&
+            (_tramLineRanges.Count > 0 || _tramOuterCount > 0 || _tramInnerCount > 0))
+            DrawTram();
+
+        // --- Capa 3a: guidance line (AB/Curve/Contour) -----------------
+        // Va despues de coverage y antes del boundary: queda visible sobre
+        // el area pintada pero por debajo del contorno del lote (que es
+        // referencia geometrica primaria). El boundary mantiene su color
+        // fuerte para no perderse contra la linea cian.
+        if (_pendingGuidance != null && !subioAlgo)
+        {
+            UploadGuidance(_pendingGuidance);
+            _pendingGuidance = null;
+            subioAlgo = true;
+        }
+        if (_guidanceVertexCount >= 2 && _guidanceMode != "Off")
+        {
+            DrawGuidanceParallel();  // vecinas tenues, por debajo
+            DrawGuidance();          // línea activa brillante, por encima
+        }
+
+        // --- Capa 3b: paths (youturn + recorded) -----------------------
+        // Va despues de guidance: el giro de cabecera y el camino grabado
+        // son marcas de navegacion que deben quedar visibles sobre la linea
+        // activa. Colores fuertes distinguibles (youturn naranja, recorded
+        // violeta). Revision-cache igual que tram.
+        if (_pendingPaths != null && !subioAlgo)
+        {
+            UploadPaths(_pendingPaths);
+            _pendingPaths = null;
+            subioAlgo = true;
+        }
+        if (_pathsYouTurnCount > 0 || _pathsRecordedCount > 0)
+            DrawPaths();
+
+        // U-turn en vivo (250 ms, con estado): réplica del DrawYouTurn 6.8.5.
+        if (_ytPts != null)
+            DrawYouTurnPath();
+
+        // --- Capa 3b: tool / sections (Stage 4a) -----------------------
+        // Va despues de guidance y antes del boundary: las secciones son
+        // referencia del operario (donde aplica producto AHORA) y deben
+        // quedar visibles sobre coverage/guidance. El boundary sigue por
+        // arriba para que el contorno del lote no se pierda.
+        if (_pendingTool != null)
+        {
+            _toolSnap = _pendingTool;
+            _pendingTool = null;
+            // Ya no se sube a un VBO propio: DrawTool arma los quads por frame
+            // con el scratch. Son ~16 secciones, nada.
+        }
+        // La barra de secciones va SIEMPRE. Antes se ocultaba cuando había sprite
+        // de implemento cargado (`!_implementoTexReady`); como el sprite quedó
+        // desactivado (ver Capa 4), esa condición dejaría el mapa sin barra y sin
+        // máquina.
+        if (_toolSnap != null && _toolSnap.IsValid && _toolSnap.Sections != null && _toolSnap.Sections.Count > 0)
+            DrawTool(_toolSnap, scale);
+
+        // --- Capa 2c: prescripción (.shp) ------------------------------
+        // Va DEBAJO de los linderos y de la barra de secciones: es el fondo
+        // sobre el que se decide la dosis, no un adorno. El alpha viene en el
+        // color de cada zona (por dosis si hay campo elegido).
+        DrawShape();
+
+        var snap = _snap;
+        if (snap != null)
+        {
+            // --- Capa 3: boundaries ------------------------------------
+            // (el corte de --diag-sin-geometria incluye el lindero: son los
+            // DrawRing con más vértices del frame)
+            if (snap.Boundaries != null && !App.DiagSinGeometria && !App.DiagSinLindero)
+            {
+                for (int i = 0; i < snap.Boundaries.Count; i++)
+                {
+                    var ring = snap.Boundaries[i];
+                    if (ring == null || ring.Count < 2) continue;
+                    var col = (i == 0) ? ColBoundary : ColIslandStroke;
+                    DrawRing(ring, col);
+                }
+            }
+
+            // --- Capa 3a2: CABECERA (hdLine) ----------------------------
+            // Ámbar, entre el lindero y las guías: la franja entre esta línea
+            // y el lindero es donde se dobla — con "secciones controladas en
+            // cabecera" las secciones se apagan al pisarla. El motor ya la
+            // servía en el state; el mapa no la dibujaba y la cabecera
+            // construida "no se veía en el lote".
+            if (snap.Headlands != null && !App.DiagSinLindero)
+            {
+                for (int i = 0; i < snap.Headlands.Count; i++)
+                {
+                    var ring = snap.Headlands[i];
+                    if (ring == null || ring.Count < 2) continue;
+                    DrawRing(ring, ColHeadland);
+                }
+            }
+
+            // --- Capa 3b: lindero que se está grabando manejando ----------
+            // Va DESPUÉS de los linderos confirmados: mientras se graba es lo
+            // más importante de la pantalla y no lo puede tapar un lindero
+            // viejo que pase por al lado.
+            if (snap.BoundaryBeingMade != null && snap.BoundaryBeingMade.Count > 0)
+                DrawLinderoEnCurso(snap.BoundaryBeingMade, scale);
+
+            // --- Capa 3b2: marcas de "Marcar giro" -----------------------
+            // Cada marca es UNA línea de ±500 m PERPENDICULAR al rumbo de la
+            // guía, centrada en el punto marcado: ahí dobla el U-turn aunque
+            // el lote no tenga lindero. heading AOG: 0 = norte, crece horario
+            // → adelante = (sin h, cos h), perpendicular = (cos h, -sin h).
+            if (_turnMarks.Count > 0 && !App.DiagSinGeometria)
+                DrawTurnMarks();
+
+            // --- Capa 3c: banderas del operario -----------------------------
+            // Van después del lindero y antes del tractor: son referencias
+            // fijas del lote (piedra, pozo...) que el tractor puede tapar al
+            // pasar por encima, pero nunca al revés.
+            if (_flags.Count > 0)
+                DrawFlags(scale);
+
+            // --- Capa 4: implemento y tractor ---------------------------
+            // El implemento va PRIMERO: el tractor lo tapa parcialmente en la
+            // zona del enganche, que es lo correcto visualmente.
+            SubirSpritePendiente();
+            // --- sprite del implemento — DESACTIVADO (2026-07-28, pedido usuario) ---
+            // Dibujado al ancho real (4,16 m) quedaba feo porque el tractor tenía
+            // piso de píxeles y el implemento no: al alejar el zoom el tractor se
+            // plantaba en su tamaño mínimo mientras la sembradora se seguía
+            // achicando, y los dos quedaban descalzados.
+            //
+            // Esa causa YA NO EXISTE: el tractor pasó a escala real (2026-07-30,
+            // ver DrawTractorSprite), así que ahora los dos se achicarían juntos.
+            // Sigue apagado porque además se pidió la barra de secciones, que dice
+            // más (estado por sección) que el dibujo de la máquina. Recolgarlo hoy
+            // es descomentar la línea de abajo.
+            //DrawImplementoSprite();
+            DrawTractor(_renderE, _renderN, snap.Heading, scale);
+            // Reversa: flecha roja hacia atrás del tractor mientras el motor
+            // marque marcha atrás (igual que AgOpenGPS). El reset es el botón
+            // rojo de arriba del mapa (ReversaAviso en MainWindow).
+            if (snap.IsReverse) DrawFlechaReversa(_renderE, _renderN, snap.Heading, scale);
+
+            // Los dos puntos del 6.8.5 original (pedido 2026-08-06): el GOAL
+            // POINT del guiado ("a dónde mira" el pure pursuit, naranja) y el
+            // punto de la ANTENA GPS (celeste). Van DESPUÉS del tractor para
+            // que se vean encima del sprite.
+            DrawPuntosGuiado(snap, scale);
+        }
+
+        // --- Capa 4b: creación de AB (marcador A + línea pendiente A→tractor) ---
+        // Usa la posición suavizada, la misma con la que se dibujó el tractor: con
+        // el fix crudo la línea pendiente no terminaba donde se ve la máquina.
+        if (_abCreating && _abHasA && snap != null)
+            DrawAbCreation(_renderE, _renderN, scale);
+
+        // --- Capa 5: lightbar (XTE) en espacio-pantalla, sobre todo ----
+        DrawLightbar();
+
+        if (diag)
+        {
+            LogPixel("post-draw", wPx / 2, hPx / 2);
+            Console.Error.WriteLine("[MapGlSurface] diag frame " + _diagFrames + ": hasBbox=" + _hasBbox
+                + " snap=" + (_snap != null) + " pivotE=" + (_snap?.PivotEasting ?? 0)
+                + " pivotN=" + (_snap?.PivotNorthing ?? 0) + " headingUp=" + _headingUp
+                + " guidanceVerts=" + _guidanceVertexCount);
+            _diagFrames++;
+        }
+
+        _gl.BindVertexArray(0);
+        _gl.UseProgram(0);
+
+        AnotarCajaNegra(wPx, hPx, scale);
+
+        // Si el presupuesto dejó subidas pendientes, pedir otro frame para
+        // drenarlas. Post al dispatcher (no directo): estamos DENTRO del
+        // render y el pedido es para el próximo ciclo del compositor.
+        if (_pendingCoverage != null || _pendingTram != null
+            || _pendingGuidance != null || _pendingPaths != null)
+        {
+            Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+        }
+
+        // Tiempo de CPU dentro del render = lo que cuesta ENCOLAR. Se guarda el
+        // pico para contrastarlo con el de glFinish: si encolar es barato y
+        // glFinish caro, el cuello está en la GPU y no en nuestro código.
+        if (_swFrame != null)
+        {
+            _swFrame.Stop();
+            double cpu = _swFrame.Elapsed.TotalMilliseconds;
+            if (cpu > _cpuMax) _cpuMax = cpu;
+        }
+
+        CerrarMedicionGpu();   // timer queries (apagado en GLES 3.0)
+        MedirConFinish();      // plan B por muestreo
+    }
+
+    // ---- Medición de tiempo de GPU por frame ---------------------------
+    //
+    // POR QUÉ: esta máquina lleva 41 resets del driver de video (TDR, Event ID
+    // 4101), y Windows dispara el reset cuando una operación de GPU pasa de
+    // TdrDelay — 2 segundos por defecto, que es el valor acá. La pregunta que
+    // hay que contestar con números, no opinando, es si los frames del mapa se
+    // acercan a ese techo. Si un frame tarda segundos, PilotX está EMPUJANDO
+    // los TDR; si tarda milisegundos, es el driver/hardware y no nosotros.
+    //
+    // CÓMO, y acá está lo importante: se usan timer queries de GL
+    // (GL_TIMESTAMP, que devuelve NANOsegundos), NO un Stopwatch. Cronometrar
+    // alrededor de las llamadas de dibujo mide cuánto tarda en ENCOLAR, no en
+    // ejecutar: OpenGL es asíncrono y las llamadas vuelven enseguida.
+    //
+    // Y el resultado se lee SIEMPRE de un frame viejo, nunca del actual.
+    // Preguntar por el resultado del frame en curso obliga a la CPU a esperar a
+    // la GPU (pipeline stall): serializa el render, mete el hitch que estamos
+    // tratando de medir y, en el peor caso, ayuda a causar el TDR. Por eso hay
+    // un anillo de pares de queries y se cosecha solo lo que ya está listo
+    // (QueryResultAvailable), sin bloquear jamás.
+    private const int RingQueries = 4;
+    private uint[]? _qIni, _qFin;
+    private bool[]? _qEnVuelo;
+    private int _qSlot;
+    private bool _gpuTimerOk;
+    private double _msMin = double.MaxValue, _msMax, _msAcum;
+    private long _msMuestras;
+    private DateTime _ultimoResumenGpu = DateTime.UtcNow;
+    private static readonly TimeSpan ResumenCada = TimeSpan.FromSeconds(30);
+
+    // Los dos envoltorios van con try/catch y APAGAN la medición ante cualquier
+    // falla. Es diagnóstico: jamás puede tumbar el render. (Aprendido a la mala:
+    // sin esto, un símbolo GL ausente tiraba la app entera en el primer frame.)
+    private void IniciarMedicionGpu()
+    {
+        if (!_gpuTimerOk || _gl == null) return;
+        try
+        {
+            // Si el slot todavía está en vuelo, se cosecha antes de reusarlo.
+            if (_qEnVuelo![_qSlot]) CosecharSlot(_qSlot, forzar: false);
+            if (_qEnVuelo[_qSlot]) return;   // sigue sin estar listo: se saltea
+            _gl.QueryCounter(_qIni![_qSlot], GLEnum.Timestamp);
+        }
+        catch (Exception ex) { ApagarMedicionGpu(ex); }
+    }
+
+    private void CerrarMedicionGpu()
+    {
+        if (!_gpuTimerOk || _gl == null) return;
+        try
+        {
+            _gl.QueryCounter(_qFin![_qSlot], GLEnum.Timestamp);
+            _qEnVuelo![_qSlot] = true;
+            _qSlot = (_qSlot + 1) % RingQueries;
+
+            // Cosechar los que ya terminaron, sin esperar a ninguno.
+            for (int i = 0; i < RingQueries; i++)
+                if (_qEnVuelo[i]) CosecharSlot(i, forzar: false);
+
+            PublicarResumenGpu();
+        }
+        catch (Exception ex) { ApagarMedicionGpu(ex); }
+    }
+
+    private void ApagarMedicionGpu(Exception ex)
+    {
+        _gpuTimerOk = false;
+        _qIni = null; _qFin = null; _qEnVuelo = null; _qSlot = 0;
+        Console.Error.WriteLine("[MapGlSurface] medicion de GPU DESACTIVADA ("
+            + ex.GetType().Name + "): " + ex.Message);
+    }
+
+    // ---- Plan B: muestreo con glFinish ---------------------------------
+    //
+    // Este contexto es GLES 3.0 y no tiene timer queries, así que el camino de
+    // arriba queda apagado. Igual se puede medir el tiempo REAL de GPU:
+    // glFinish() no vuelve hasta que la GPU terminó todo lo encolado, así que
+    // cronometrar hasta ahí da el costo de verdad — no el de encolar.
+    //
+    // El precio es que glFinish SERIALIZA CPU y GPU: hacerlo en cada frame
+    // arruinaría el rendimiento que estamos tratando de medir (y en una UHD 630
+    // podría empeorar los TDR). Por eso se muestrea 1 de cada 30 frames: el
+    // costo se diluye y alcanza de sobra para saber si algún frame se acerca a
+    // los 2 s del TdrDelay.
+    //
+    // Se mide aparte el tiempo de CPU dentro del render (encolar) — si ese
+    // número es chico y el de glFinish es grande, el cuello está en la GPU.
+    private const int MuestrearCada = 30;
+    private long _framesParaMuestra;
+    private double _finMin = double.MaxValue, _finMax, _finAcum;
+    private long _finMuestras;
+    private double _cpuMax;
+    private System.Diagnostics.Stopwatch? _swFrame;
+
+    private void MedirConFinish()
+    {
+        if (_gl == null) return;
+        _framesParaMuestra++;
+        if (_framesParaMuestra % MuestrearCada != 0) return;
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try { _gl.Finish(); }
+        catch { return; }   // si falla, no se mide y listo
+        sw.Stop();
+
+        double ms = sw.Elapsed.TotalMilliseconds;
+        if (ms < _finMin) _finMin = ms;
+        if (ms > _finMax) _finMax = ms;
+        _finAcum += ms;
+        _finMuestras++;
+
+        if (ms >= 2000)
+            Console.Error.WriteLine($"[MapGlSurface] GPU {ms:N0} ms — SUPERA EL TdrDelay (2000 ms): esto dispara el reset del driver");
+        else if (ms >= 500)
+            Console.Error.WriteLine($"[MapGlSurface] GPU lenta: {ms:N0} ms en un frame");
+
+        if (_finMuestras > 0 && (DateTime.UtcNow - _ultimoResumenGpu) >= ResumenCada)
+        {
+            _ultimoResumenGpu = DateTime.UtcNow;
+            Console.Error.WriteLine(
+                $"[MapGlSurface] GPU real (glFinish, 1 de cada {MuestrearCada} frames) "
+                + $"ultimos {(int)ResumenCada.TotalSeconds}s: min {_finMin:N1} · prom "
+                + $"{(_finAcum / _finMuestras):N1} · MAX {_finMax:N1} ms  |  CPU en render MAX "
+                + $"{_cpuMax:N1} ms  |  TdrDelay = 2000 ms");
+            _finMin = double.MaxValue; _finMax = 0; _finAcum = 0; _finMuestras = 0; _cpuMax = 0;
+        }
+    }
+
+    private void CosecharSlot(int i, bool forzar)
+    {
+        if (_gl == null || !_qEnVuelo![i]) return;
+        if (!forzar)
+        {
+            _gl.GetQueryObject(_qFin![i], QueryObjectParameterName.QueryResultAvailable, out uint listo);
+            if (listo == 0) return;      // todavía trabajando: NO bloquear
+        }
+        _gl.GetQueryObject(_qIni![i], QueryObjectParameterName.QueryResult, out ulong t0);
+        _gl.GetQueryObject(_qFin![i], QueryObjectParameterName.QueryResult, out ulong t1);
+        _qEnVuelo[i] = false;
+        if (t1 <= t0) return;
+
+        double ms = (t1 - t0) / 1_000_000.0;   // GL_TIMESTAMP viene en ns
+        if (ms < _msMin) _msMin = ms;
+        if (ms > _msMax) _msMax = ms;
+        _msAcum += ms;
+        _msMuestras++;
+
+        // Umbrales atados al TdrDelay real de esta máquina (2 s). El aviso sale
+        // por consola y no por el log de errores a propósito: si un frame lento
+        // se repite, no queremos otra tormenta como la de las excepciones.
+        if (ms >= 2000)
+            Console.Error.WriteLine($"[MapGlSurface] FRAME SUPERA EL TdrDelay: {ms:N0} ms — esto DISPARA el reset del driver");
+        else if (ms >= 500)
+            Console.Error.WriteLine($"[MapGlSurface] frame lento: {ms:N0} ms");
+    }
+
+    private void PublicarResumenGpu()
+    {
+        if (_msMuestras == 0) return;
+        var ahora = DateTime.UtcNow;
+        if ((ahora - _ultimoResumenGpu) < ResumenCada) return;
+        _ultimoResumenGpu = ahora;
+        Console.Error.WriteLine(
+            $"[MapGlSurface] GPU/frame ultimos {(int)ResumenCada.TotalSeconds}s: "
+            + $"min {_msMin:N2} ms · prom {(_msAcum / _msMuestras):N2} ms · MAX {_msMax:N2} ms "
+            + $"({_msMuestras} frames medidos; TdrDelay = 2000 ms)");
+        _msMin = double.MaxValue; _msMax = 0; _msAcum = 0; _msMuestras = 0;
+    }
+
+    private int _diagFrames;
+
+    // ---- latido de diagnóstico -----------------------------------------
+    // El mapa se congeló dos veces (2026-07-29) sin dejar rastro: el log de
+    // arranque se corta a los 3 frames y despues no se sabe mas nada, asi que
+    // cuando pasa no hay con que distinguir "dejo de renderizar" de "renderiza
+    // pero con datos viejos" ni de "se trabo el hilo de UI".
+    //
+    // Esto emite una linea cada 5 s con lo minimo para separar esos casos. Si
+    // las lineas DEJAN de salir, el que se trabo es el hilo de UI (el timer
+    // corre ahi). Si salen con fps=0, se dejo de pedir frames. Si salen con
+    // fps>0 pero el fix no envejece, el que murio es el poller del HUD.
+    /// <summary>
+    /// Frames dibujados desde que existe este control. Monotónico. Lo usa el
+    /// watchdog de MapPanel para detectar que el contexto GL se murió: si esto
+    /// no avanza mientras el mapa está a la vista y llegan datos, no hay render.
+    /// </summary>
+    public int FramesRenderizados { get; private set; }
+
+    /// <summary>
+    /// Rastro forense: qué subió al GL cada categoría y en qué frame, para
+    /// que el watchdog pueda decir QUÉ pasó justo antes de una muerte del
+    /// render. El time-slicing demostró que repartir las subidas no cura
+    /// (30 resurrecciones vs 12 del control): la hipótesis vigente es que
+    /// alguna subida concreta es la que mata, y esto la señala.
+    /// </summary>
+    private readonly System.Collections.Generic.Dictionary<string, int> _ultimaSubidaPorCategoria
+        = new System.Collections.Generic.Dictionary<string, int>();
+
+    /// <summary>Resumen "categoria@frame, …" de la última subida de cada
+    /// categoría, para el log del watchdog al morir el render.</summary>
+    public string UltimaSubida
+    {
+        get
+        {
+            if (_ultimaSubidaPorCategoria.Count == 0) return "(ninguna)";
+            var sb = new System.Text.StringBuilder();
+            foreach (var kv in _ultimaSubidaPorCategoria)
+            {
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append(kv.Key).Append("@f").Append(kv.Value);
+            }
+            return sb.ToString();
+        }
+    }
+
+    private void MarcarSubida(string que)
+        => _ultimaSubidaPorCategoria[que] = FramesRenderizados;
+
+    // ---- caja negra: los últimos 8 frames antes de una muerte ------------
+    //
+    // El rastro de subidas no alcanzó: hay muertes con la última subida 900
+    // frames atrás. Lo que falta ver es qué DIBUJÓ cada frame del final —
+    // conteos por capa, bounds, escala y el glGetError del cierre. Si el
+    // último frame de cada muerte comparte algo (un conteo que salta, un
+    // error GL, un bounds raro), ahí está el patrón que 8 corridas de
+    // eliminación no encontraron.
+    private readonly string[] _cajaNegra = new string[8];
+    private int _cajaNegraIdx;
+
+    private void AnotarCajaNegra(int wPx, int hPx, double escala)
+    {
+        var err = _gl != null ? _gl.GetError() : GLEnum.NoError;
+        _cajaNegra[_cajaNegraIdx] =
+            "f" + FramesRenderizados
+            + " " + wPx + "x" + hPx
+            + " esc=" + escala.ToString("F2")
+            + " cov=" + _coverageRanges.Count
+            + " gui=" + _guidanceVertexCount
+            + " yt=" + (_ytPts?.Length ?? 0) / 2
+            + " tram=" + _tramLineRanges.Count
+            + " paths=" + (_pathsYouTurnCount + _pathsRecordedCount)
+            + " shape=" + (_shapeSnap?.Polygons.Count ?? 0)
+            + " bordes=" + (_snap?.Boundaries?.Count ?? 0)
+            + " err=" + err;
+        _cajaNegraIdx = (_cajaNegraIdx + 1) % _cajaNegra.Length;
+    }
+
+    /// <summary>Vuelca la caja negra en orden cronológico (viejo → nuevo).</summary>
+    public string VolcarCajaNegra()
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < _cajaNegra.Length; i++)
+        {
+            var s = _cajaNegra[(_cajaNegraIdx + i) % _cajaNegra.Length];
+            if (s == null) continue;
+            sb.Append("\n    ").Append(s);
+        }
+        return sb.Length > 0 ? sb.ToString() : " (vacia)";
+    }
+
+    // Última cámara efectiva, para el latido: si el tractor "desaparece" hay que
+    // poder distinguir "no se dibuja" de "se dibuja fuera de la vista".
+    private double _ultCamX, _ultCamY, _ultEscala;
+
+    private int _framesDesdeLatido;
+    private DispatcherTimer? _latido;
+    private readonly System.Diagnostics.Stopwatch _relojLatido = System.Diagnostics.Stopwatch.StartNew();
+
+    private void ArrancarLatido()
+    {
+        // ArrancarLatido llega por Dispatcher.Post desde OnOpenGlInit: puede
+        // aterrizar DESPUÉS de que a esta surface la hayan jubilado.
+        if (_apagada) return;
+        if (_latido != null) return;
+        _latido = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(5)
+        };
+        _latido.Tick += (_, _) =>
+        {
+            double seg = _relojLatido.Elapsed.TotalSeconds;
+            if (seg <= 0) return;
+            double fps = _framesDesdeLatido / seg;
+            _framesDesdeLatido = 0;
+            _relojLatido.Restart();
+
+            var s = _snap;
+            Console.Error.WriteLine(string.Format(
+                "[MapGlSurface] latido fps={0:F1} pausado={1} tick={2} edadFix={3:F1}s vel={4:F1} " +
+                "| tractor=({5:F1},{6:F1}) camara=({7:F1},{8:F1}) esc={9:F2} zoom={10:F2} pan=({11:F1},{12:F1}) " +
+                "hdgUp={13} sprite={14} bbox={15} " +
+                "| render: entradas={16} sinGl={17} initFailed={18}",
+                fps,
+                _pausado,
+                _tickSuave != null && _tickSuave.IsEnabled,
+                _desdeFix.Elapsed.TotalSeconds,
+                s != null ? s.AvgSpeed : -1,
+                _renderE, _renderN,
+                _ultCamX, _ultCamY, _ultEscala,
+                _userZoom, _userPanX, _userPanY,
+                _headingUp, _vehicleTexReady, _hasBbox,
+                _entradasRender, _salidasSinGl, _salidasInitFailed));
+
+            // Se resetean por ventana igual que _framesDesdeLatido: lo que
+            // interesa es el ritmo de ESTOS 5 s, no un acumulado que crece.
+            _entradasRender = 0; _salidasSinGl = 0; _salidasInitFailed = 0;
+
+            // Prescripción: cuántas zonas llegaron y cuántos vértices de fill
+            // tienen. Si "tris" da 0 con zonas > 0, el fondo de color no puede
+            // dibujarse por más que el contorno sí — que es exactamente el
+            // síntoma que se reportó desde cabina y sin este número era a ciegas.
+            var sh = _shapeSnap;
+            if (sh != null)
+            {
+                int tris = 0;
+                foreach (var p in sh.Polygons) tris += p.TriVerts.Length / 2;
+                Console.Error.WriteLine(
+                    $"[MapGlSurface] shape: zonas={sh.Polygons.Count} verticesFill={tris} campo={sh.StyleField}");
+            }
+        };
+        _latido.Start();
+    }
+
+    // ---- borde con Avalonia: entradas al render y árbol visual ----------
+    //
+    // Contadores del latido. La pregunta que tienen que contestar es una sola:
+    // cuando el mapa se congela, ¿Avalonia dejó de llamar OnOpenGlRender, o lo
+    // sigue llamando y salimos nosotros? Son dos bugs distintos en dos capas
+    // distintas y hasta ahora el log no los distinguía.
+    private long _entradasRender, _salidasSinGl, _salidasInitFailed;
+
+    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Console.Error.WriteLine("[MapGlSurface] enganchada al arbol visual");
+    }
+
+    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        // Avalonia dispara OnOpenGlDeinit cuando el control se va del árbol. Si
+        // el mapa se desprende solo (por un cambio de layout, una pantalla que
+        // lo tapa, un re-parent), el contexto se suelta y nadie lo vuelve a
+        // pedir. Ver esto en el log al mismo tiempo que el fps se cae es la
+        // diferencia entre saber y suponer.
+        Console.Error.WriteLine("[MapGlSurface] DESENGANCHADA del arbol visual");
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    // ---- jubilación de la surface --------------------------------------
+    //
+    // Cuando el watchdog de MapPanel da el contexto por muerto, saca este
+    // control del árbol y monta uno nuevo. Sacarlo del árbol NO alcanza: los
+    // dos DispatcherTimer siguen agendados en el dispatcher, que los mantiene
+    // vivos a ellos y al control entero. Medido con el latido (2026-08-04): la
+    // surface jubilada seguía imprimiendo "fps=0.0 ... tick=True" con edadFix
+    // creciendo (4,7 → 9,7 → 14,7 → 19,7 s) mientras la nueva iba a 29 fps.
+    //
+    // El caro NO es el latido de 5 s: es _tickSuave, que a 30 Hz sigue
+    // llamando RequestNextFrameRendering sobre un control que ya no está en el
+    // árbol. Cada resurrección deja otro para siempre, y en la tablet de
+    // cabina (4 GB, UHD 600) eso se acumula.
+    private bool _apagada;
+
+    /// <summary>
+    /// Jubila esta surface: frena sus timers y suelta lo grande. Idempotente.
+    /// Los recursos GL no se tocan acá — de eso se encarga OnOpenGlDeinit, que
+    /// Avalonia dispara al sacar el control del árbol y es el único lugar con
+    /// contexto GL válido para borrarlos.
+    /// </summary>
+    public void Apagar()
+    {
+        if (_apagada) return;
+        _apagada = true;
+
+        if (_tickSuave != null) { _tickSuave.Stop(); _tickSuave = null; }
+        if (_latido != null) { _latido.Stop(); _latido = null; }
+
+        // Sin esto la surface jubilada retiene la cobertura, las guías y los
+        // cuatro sprites en RGBA hasta que el GC la levante.
+        _snap = null;
+        _shapeSnap = null;
+        _ultimoTexRgba = null; _ultimoWheelRgba = null;
+        _ultimoImplRgba = null; _ultimoFloorRgba = null;
+        _pendingTexRgba = null; _pendingWheelRgba = null;
+        _pendingImplRgba = null; _pendingFloorRgba = null;
+
+        Console.Error.WriteLine("[MapGlSurface] surface jubilada: timers frenados");
+    }
+
+    private unsafe void LogPixel(string tag, int px, int py)
+    {
+        if (_gl == null) return;
+        var buf = stackalloc byte[4];
+        _gl.ReadPixels(px, py, 1, 1, GLEnum.Rgba, GLEnum.UnsignedByte, buf);
+        Console.Error.WriteLine("[MapGlSurface] pixel(" + tag + ") @(" + px + "," + py + ") = "
+            + buf[0] + "," + buf[1] + "," + buf[2] + "," + buf[3]);
+    }
+
+    // ---- Creación de AB en el mapa (API pública, la llama MainWindow) ----
+    public void BeginAbCreation() { _abCreating = true; _abHasA = false; RequestNextFrameRendering(); }
+    public void SetAbPointA(double e, double n) { _abAe = e; _abAn = n; _abHasA = true; RequestNextFrameRendering(); }
+    public void EndAbCreation() { _abCreating = false; _abHasA = false; RequestNextFrameRendering(); }
+
+    // Dibuja el marcador del punto A (rombo verde) + la línea pendiente A→tractor.
+    private void DrawAbCreation(double pe, double pn, double scale)
+    {
+        if (_gl == null) return;
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
+
+        // Línea pendiente A → tractor (amarilla brillante) — la guía "en
+        // construcción". Se ve crecer desde A a medida que el tractor avanza.
+        float[] colPend = { 1.0f, 0.92f, 0.20f, 1f }; // amarillo brillante
+        EnsureScratch(4);
+        _scratch[0] = (float)_abAe; _scratch[1] = (float)_abAn;
+        _scratch[2] = (float)pe;    _scratch[3] = (float)pn;
+        UploadAndDraw(PrimitiveType.Lines, 2, colPend);
+
+        // Marcador A: rombo MAGENTA grande (distinto del tractor verde) en el
+        // punto A, para que se vea claro dónde arrancó la guía.
+        double r = 16.0 / scale; // ~16px en mundo
+        float[] colA = { 1.0f, 0.15f, 0.75f, 1f }; // magenta
+        EnsureScratch(8);
+        _scratch[0] = (float)_abAe;       _scratch[1] = (float)(_abAn + r);
+        _scratch[2] = (float)(_abAe - r); _scratch[3] = (float)_abAn;
+        _scratch[4] = (float)(_abAe + r); _scratch[5] = (float)_abAn;
+        _scratch[6] = (float)_abAe;       _scratch[7] = (float)(_abAn - r);
+        UploadAndDraw(PrimitiveType.TriangleStrip, 4, colA);
+    }
+
+    // Lightbar: barra de desvío arriba-centro del mapa. Un indicador que se
+    // mueve al lado OPUESTO al error (te dice hacia dónde corregir): si estás a
+    // la derecha de la línea, el marcador va a la izquierda. Verde centrado,
+    // amarillo y rojo según crece el desvío. Se dibuja en NDC (MVP identidad),
+    // como overlay fijo (no rota con el mapa).
+    private void DrawLightbar()
+    {
+        if (_gl == null || double.IsNaN(_xte) || !_lightbarOn) return;
+
+        // MVP identidad → vértices en NDC [-1,1].
+        Span<float> idm = stackalloc float[16] { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+        unsafe { fixed (float* p = idm) _gl.UniformMatrix4(_uMvp, 1, false, p); }
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+        const double yc = 0.86;      // altura del lightbar (NDC)
+        const double halfW = 0.42;   // medio ancho de la pista
+        const double barH = 0.045;   // alto de las cajas
+        const double fullScale = 0.5; // XTE (m) que llega al borde
+
+        // Pista de fondo (línea tenue) + ticks cada 1/5.
+        float[] colTrack = { 0.561f, 0.627f, 0.573f, 0.35f };
+        EnsureScratch(4);
+        _scratch[0] = (float)-halfW; _scratch[1] = (float)yc;
+        _scratch[2] = (float) halfW; _scratch[3] = (float)yc;
+        UploadAndDraw(PrimitiveType.Lines, 2, colTrack);
+        for (int i = -5; i <= 5; i++)
+        {
+            double tx = i / 5.0 * halfW;
+            double th = (i == 0) ? barH * 1.4 : barH * 0.7; // el central más alto
+            EnsureScratch(4);
+            _scratch[0] = (float)tx; _scratch[1] = (float)(yc - th);
+            _scratch[2] = (float)tx; _scratch[3] = (float)(yc + th);
+            UploadAndDraw(PrimitiveType.Lines, 2, colTrack);
+        }
+
+        // Indicador: lado opuesto al error. Clamp a la pista.
+        double x = Math.Clamp(-_xte / fullScale, -1.0, 1.0) * halfW;
+        double a = Math.Abs(_xte);
+        float[] col = a < 0.05 ? new float[] { 0.290f, 0.729f, 0.243f, 0.95f }   // verde (centrado)
+                    : a < 0.20 ? new float[] { 0.973f, 0.808f, 0.247f, 0.95f }   // amarillo
+                               : new float[] { 0.929f, 0.282f, 0.282f, 0.95f };  // rojo
+        double bw = 0.028; // medio ancho del marcador
+        // Quad (TriangleStrip): (x-bw, yc-barH),(x-bw, yc+barH),(x+bw, yc-barH),(x+bw, yc+barH)
+        EnsureScratch(8);
+        _scratch[0] = (float)(x - bw); _scratch[1] = (float)(yc - barH);
+        _scratch[2] = (float)(x - bw); _scratch[3] = (float)(yc + barH);
+        _scratch[4] = (float)(x + bw); _scratch[5] = (float)(yc - barH);
+        _scratch[6] = (float)(x + bw); _scratch[7] = (float)(yc + barH);
+        UploadAndDraw(PrimitiveType.TriangleStrip, 4, col);
+
+        _gl.Disable(EnableCap.Blend);
+    }
+
+    // ---- cámara: API pública (la maneja MapPanel, que sí recibe el mouse;
+    //      OpenGlControlBase no es hit-testable de forma confiable) ---------
+
+    /// <summary>Zoom multiplicativo (rueda). factor>1 acerca.</summary>
+    public void ZoomBy(double factor)
+    {
+        _userZoom = Math.Clamp(_userZoom * factor, 0.05, 60.0);
+        RequestNextFrameRendering();
+    }
+
+    /// <summary>Pan por delta de píxeles lógicos del arrastre. renderScaling
+    /// convierte a físicos; scale es px físicos/metro. Pantalla Y-down vs
+    /// mundo Y-up -> +dyPx.</summary>
+    public void PanByPixels(double dxPx, double dyPx, double renderScaling)
+    {
+        double sc = _lastEffectiveScale > 1e-6 ? _lastEffectiveScale : 1.0;
+        _userPanX -= dxPx * renderScaling / sc;
+        _userPanY += dyPx * renderScaling / sc;
+        RequestNextFrameRendering();
+    }
+
+    /// <summary>Vuelve al encuadre automático (fit-to-bbox).</summary>
+    public void ResetCamera()
+    {
+        _userZoom = 1.0; _userPanX = 0; _userPanY = 0;
+        RequestNextFrameRendering();
+    }
+
+    // ---- cámara: vista (menú Navegación — 2D/3D/Norte 2D/tilt/grilla/día-noche) --
+
+    /// <summary>Heading-up (mapa rota con el rumbo) vs north-up (norte fijo arriba).</summary>
+    public void SetHeadingUp(bool v)
+    {
+        _headingUp = v;
+        RequestNextFrameRendering();
+    }
+
+    /// <summary>Pitch de cámara en grados, clamp 0 (2D)..-70 (máx. inclinación).</summary>
+    public void SetPitchDeg(double deg)
+    {
+        _pitchDeg = Math.Clamp(deg, -70.0, 0.0);
+        RequestNextFrameRendering();
+    }
+
+    /// <summary>Ajusta el pitch actual +delta (tilt_up/tilt_dn del menú).</summary>
+    public void TiltBy(double deltaDeg) => SetPitchDeg(_pitchDeg + deltaDeg);
+
+    public void SetGridOn(bool v)
+    {
+        _gridOn = v;
+        RequestNextFrameRendering();
+    }
+
+    public void ToggleGrid() => SetGridOn(!_gridOn);
+
+    public void SetDayMode(bool day)
+    {
+        _isDay = day;
+        RequestNextFrameRendering();
+    }
+
+    public void ToggleDayNight() => SetDayMode(!_isDay);
+
+    // ---- helpers de render --------------------------------------------
+
+    // Proyección final = encuadre base (fit-to-bbox o tractor) + cámara de
+    // usuario (zoom multiplicativo + pan aditivo, Stage 6).
+    private void ComputeProjection(int wPx, int hPx, out double cx, out double cy, out double scale)
+    {
+        ComputeBaseProjection(wPx, hPx, out double bcx, out double bcy, out double bscale);
+        scale = bscale * _userZoom;
+        cx = bcx + _userPanX;
+        cy = bcy + _userPanY;
+        _lastEffectiveScale = scale;
+    }
+
+    /// <summary>Píxeles por metro cuando el lote no tiene lindero del que sacar
+    /// encuadre. Subir = más cerca.</summary>
+    private const double EscalaSinLoteM = 20.0;
+
+    private void ComputeBaseProjection(int wPx, int hPx, out double cx, out double cy, out double scale)
+    {
+        // Padding fijo (40px) idem MapSkiaSurface para que el toggle
+        // GL on/off no cambie composicion visual.
+        const double pad = 40.0;
+        if (_hasBbox)
+        {
+            double bboxW = Math.Max(_maxE - _minE, 0.001);
+            double bboxH = Math.Max(_maxN - _minN, 0.001);
+            double w = Math.Max(wPx - 2 * pad, 1);
+            double h = Math.Max(hPx - 2 * pad, 1);
+            scale = Math.Min(w / bboxW, h / bboxH);
+            cx = (_minE + _maxE) * 0.5;
+            cy = (_minN + _maxN) * 0.5;
+            return;
+        }
+        // Sin bbox: si hay snapshot con posicion, centramos en el
+        // tractor con una escala generica (1 px = 0.1m).
+        // Sin lindero: centrado en el tractor. 8 px/m mostraba 240 m de ancho en
+        // una pantalla de 1920 — un lote vacío a esa escala es una pantalla
+        // negra con una mancha en el medio. 20 px/m deja ~96 m de ancho, que es
+        // lo que sirve para manejar.
+        var s = _snap;
+        if (s != null && (s.PivotEasting != 0 || s.PivotNorthing != 0))
+        {
+            cx = s.PivotEasting;
+            cy = s.PivotNorthing;
+            scale = EscalaSinLoteM;
+            return;
+        }
+        cx = 0; cy = 0; scale = EscalaSinLoteM;
+    }
+
+    private void DrawGrid(double cx, double cy, int wPx, int hPx, double scale, float[] color)
+    {
+        if (_gl == null) return;
+        // Step adaptivo: que las lineas queden razonablemente espaciadas
+        // (apuntamos a ~80px en pantalla). Asi al alejar la camara el
+        // grid se vuelve mas grueso (sin perder densidad visual).
+        double targetPxStep = 80.0;
+        double worldStep = targetPxStep / scale;
+        // Redondear a 1, 2, 5, 10, 20, 50, 100... idem AOG/FormGPS.
+        double pow10 = Math.Pow(10, Math.Floor(Math.Log10(Math.Max(worldStep, 0.001))));
+        double n = worldStep / pow10;
+        double step = (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * pow10;
+
+        // Calcular extents en coords mundo segun viewport.
+        double halfW = wPx * 0.5 / scale;
+        double halfH = hPx * 0.5 / scale;
+        double x0 = Math.Floor((cx - halfW) / step) * step;
+        double x1 = Math.Ceiling((cx + halfW) / step) * step;
+        double y0 = Math.Floor((cy - halfH) / step) * step;
+        double y1 = Math.Ceiling((cy + halfH) / step) * step;
+
+        // Generar vertex array: dos vertices por linea, lineas verticales
+        // primero, despues horizontales.
+        int needFloats = 0;
+        for (double x = x0; x <= x1; x += step) needFloats += 4;
+        for (double y = y0; y <= y1; y += step) needFloats += 4;
+        EnsureScratch(needFloats);
+        int idx = 0;
+        for (double x = x0; x <= x1; x += step)
+        {
+            _scratch[idx++] = (float)x; _scratch[idx++] = (float)y0;
+            _scratch[idx++] = (float)x; _scratch[idx++] = (float)y1;
+        }
+        for (double y = y0; y <= y1; y += step)
+        {
+            _scratch[idx++] = (float)x0; _scratch[idx++] = (float)y;
+            _scratch[idx++] = (float)x1; _scratch[idx++] = (float)y;
+        }
+
+        UploadAndDraw(PrimitiveType.Lines, idx / 2, color);
+    }
+
+    private void UploadCoverage(CoverageSnapshot snap)
+    {
+        if (_gl == null) return;
+        MarcarSubida("coverage");
+        _coverageRanges.Clear();
+        // Color del snapshot a 0..1.
+        _coverageR = snap.R / 255f;
+        _coverageG = snap.G / 255f;
+        _coverageB = snap.B / 255f;
+        _coverageA = snap.A / 255f;
+
+        // Primera pasada: total de vertices.
+        int totalVerts = 0;
+        if (snap.Sections != null)
+        {
+            foreach (var sec in snap.Sections)
+            {
+                if (sec?.Strips == null) continue;
+                foreach (var st in sec.Strips)
+                {
+                    if (st?.Vertices == null || st.Vertices.Count < 3) continue;
+                    totalVerts += st.Vertices.Count;
+                }
+            }
+        }
+        if (totalVerts == 0)
+        {
+            _coverageRevisionUploaded = snap.Revision;
+            return;
+        }
+
+        int needFloats = totalVerts * 2;
+        if (_scratch.Length < needFloats)
+        {
+            int cap = _scratch.Length;
+            while (cap < needFloats) cap *= 2;
+            _scratch = new float[cap];
+        }
+
+        // Segunda pasada: empaquetar floats + registrar rangos.
+        int writeIdx = 0;
+        int vertexCursor = 0;
+        if (snap.Sections != null)
+        {
+            foreach (var sec in snap.Sections)
+            {
+                if (sec?.Strips == null) continue;
+                foreach (var st in sec.Strips)
+                {
+                    if (st?.Vertices == null || st.Vertices.Count < 3) continue;
+                    int n = st.Vertices.Count;
+                    for (int i = 0; i < n; i++)
+                    {
+                        _scratch[writeIdx++] = (float)st.Vertices[i].E;
+                        _scratch[writeIdx++] = (float)st.Vertices[i].N;
+                    }
+                    _coverageRanges.Add((vertexCursor, n));
+                    vertexCursor += n;
+                }
+            }
+        }
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _coverageVbo);
+        // BufferData (no BufferSubData) porque la revision implica
+        // reemplazo completo del contenido. STATIC_DRAW: el driver
+        // puede ubicar la memoria con menos overhead que DYNAMIC.
+        unsafe
+        {
+            fixed (float* p = _scratch)
+            {
+                _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                    (nuint)(needFloats * sizeof(float)),
+                    p,
+                    BufferUsageARB.StaticDraw);
+            }
+        }
+        _coverageVboCapacityFloats = needFloats;
+        _coverageRevisionUploaded = snap.Revision;
+
+        // Restaurar VBO dinamico como activo (el resto del render lo usa).
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+    }
+
+    private void DrawCoverage()
+    {
+        if (_gl == null || _coverageRanges.Count == 0) return;
+
+        // Alpha blending para que la capa de coverage sea semitransparente
+        // sobre el grid del fondo. Se desactiva despues para que las
+        // siguientes capas (boundary, tractor) queden con su alpha=1.
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _coverageVbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+        _gl.Uniform4(_uColor, _coverageR, _coverageG, _coverageB, _coverageA);
+
+        // Un draw call por strip. Con el VBO ya cargado, el overhead por
+        // strip es solo el call de DrawArrays — aceptable hasta ~10k
+        // strips. Si en cabina vemos cuellos, agregamos MultiDrawArrays
+        // o un index buffer con primitive restart (GL 3.1+).
+        for (int i = 0; i < _coverageRanges.Count; i++)
+        {
+            var r = _coverageRanges[i];
+            _gl.DrawArrays(PrimitiveType.TriangleStrip, r.Start, (uint)r.Count);
+        }
+
+        _gl.Disable(EnableCap.Blend);
+        // Volver al VBO dinamico para que el resto del render siga.
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+    }
+
+    private void UploadGuidance(GuidanceGeometrySnapshot snap)
+    {
+        if (_gl == null) return;
+        MarcarSubida("guidance");
+        _guidanceMode = snap.Mode ?? "Off";
+        var pts = snap.Points;
+        int n = (pts != null) ? pts.Count : 0;
+        _guidanceVertexCount = n;
+        _guidanceRevisionUploaded = snap.Revision;
+
+        // Copia CPU para las paralelas. Cambió la línea -> hay que reconstruir
+        // el VBO de paralelas (que si no se reusa tal cual entre frames).
+        _guidancePts.Clear();
+        if (pts != null) _guidancePts.AddRange(pts);
+        _parDirty = true;
+
+        if (n < 2 || _guidanceMode == "Off")
+        {
+            // Nada que rendear — dejamos _guidanceVertexCount en 0 para
+            // que el DrawGuidance no se llame este frame.
+            return;
+        }
+
+        int needFloats = n * 2;
+        EnsureScratch(needFloats);
+        for (int i = 0; i < n; i++)
+        {
+            _scratch[i * 2]     = (float)pts![i].E;
+            _scratch[i * 2 + 1] = (float)pts[i].N;
+        }
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _guidanceVbo);
+        // Grow + upload completo. Como cambia rara vez, BufferData esta bien.
+        if (_guidanceVboCapacityFloats < needFloats)
+        {
+            int cap = Math.Max(_guidanceVboCapacityFloats, 64);
+            while (cap < needFloats) cap *= 2;
+            _guidanceVboCapacityFloats = cap;
+            unsafe
+            {
+                _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                    (nuint)(cap * sizeof(float)),
+                    (void*)0,
+                    BufferUsageARB.StaticDraw);
+            }
+        }
+        unsafe
+        {
+            fixed (float* p = _scratch)
+            {
+                _gl.BufferSubData(BufferTargetARB.ArrayBuffer,
+                    0,
+                    (nuint)(needFloats * sizeof(float)),
+                    p);
+            }
+        }
+        // Restaurar VBO dinamico (los draws siguientes lo asumen).
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+    }
+
+    private void DrawGuidance()
+    {
+        if (_gl == null) return;
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _guidanceVbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+        _gl.Uniform4(_uColor, ColGuidance[0], ColGuidance[1], ColGuidance[2], ColGuidance[3]);
+        // AB son dos puntos -> LINE_STRIP de 2 = una linea. Curve/Contour
+        // mantienen el mismo primitive (open polyline). Si en el futuro
+        // queremos cerrar el contour visualmente, cambiamos a LineLoop solo
+        // para ese modo.
+        _gl.DrawArrays(PrimitiveType.LineStrip, 0, (uint)_guidanceVertexCount);
+
+        // Volver al VBO dinamico para las capas siguientes.
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+    }
+
+    // Guías paralelas vecinas: replican la línea activa desplazada ±k·ancho
+    // perpendicular, llenando el lote como hace AgOpenGPS. Se calculan en CPU
+    // desde _guidancePts + ToolWidth y se dibujan tenues por debajo de la activa.
+    // AB (2 puntos) → offset rígido perpendicular. Curva (polilínea) → cada
+    // vértice se desplaza por su normal local.
+    /// <summary>
+    /// Reconstruye el VBO de guías paralelas. Solo corre cuando cambió la línea,
+    /// el ancho de herramienta o la extensión del lote — NO por frame.
+    /// </summary>
+    private void RebuildGuidanceParallel(double width, double span)
+    {
+        if (_gl == null) return;
+        _parRanges.Clear();
+        _parIsLines = false;
+
+        int n = _guidancePts.Count;
+        // Cap defensivo (evita miles de líneas si el ancho es chico).
+        int half = (int)Math.Ceiling(span / width) + 1;
+        half = Math.Clamp(half, 1, 40);
+
+        bool isAb = (_guidanceMode == "AB") || n == 2;
+        int writeIdx = 0;
+        int vertexCursor = 0;
+
+        if (isAb)
+        {
+            var a = _guidancePts[0];
+            var b = _guidancePts[n - 1];
+            double dx = b.E - a.E, dy = b.N - a.N;
+            double len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-6) return;
+            double px = -dy / len, py = dx / len;   // perpendicular unitaria
+
+            // Todas las paralelas (menos k=0, la activa) en un solo GL_LINES:
+            // 2 vértices por línea.
+            EnsureScratch(2 * half * 4);
+            for (int k = -half; k <= half; k++)
+            {
+                if (k == 0) continue;
+                double ox = px * width * k, oy = py * width * k;
+                _scratch[writeIdx++] = (float)(a.E + ox); _scratch[writeIdx++] = (float)(a.N + oy);
+                _scratch[writeIdx++] = (float)(b.E + ox); _scratch[writeIdx++] = (float)(b.N + oy);
+            }
+            _parIsLines = true;
+            _parRanges.Add((0, writeIdx / 2));
+        }
+        else
+        {
+            // Curva: normal local por vértice (perpendicular a la tangente).
+            // Todas las paralelas van concatenadas; cada una con su rango.
+            EnsureScratch(2 * half * n * 2);
+            for (int k = -half; k <= half; k++)
+            {
+                if (k == 0) continue;
+                for (int i = 0; i < n; i++)
+                {
+                    var p0 = _guidancePts[Math.Max(0, i - 1)];
+                    var p1 = _guidancePts[Math.Min(n - 1, i + 1)];
+                    double dx = p1.E - p0.E, dy = p1.N - p0.N;
+                    double len = Math.Sqrt(dx * dx + dy * dy);
+                    if (len < 1e-6) { dx = 1; dy = 0; len = 1; }
+                    double px = -dy / len, py = dx / len;
+                    var pi = _guidancePts[i];
+                    _scratch[writeIdx++] = (float)(pi.E + px * width * k);
+                    _scratch[writeIdx++] = (float)(pi.N + py * width * k);
+                }
+                _parRanges.Add((vertexCursor, n));
+                vertexCursor += n;
+            }
+        }
+
+        if (writeIdx == 0) return;
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _parVbo);
+        unsafe
+        {
+            fixed (float* p = _scratch)
+            {
+                _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                    (nuint)(writeIdx * sizeof(float)), p, BufferUsageARB.StaticDraw);
+            }
+        }
+        _parVboCapacityFloats = writeIdx;
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+    }
+
+    private void DrawGuidanceParallel()
+    {
+        if (_gl == null) return;
+        // Se dibuja cuando hay guía activa (lo garantiza el caller: mode!=Off y
+        // >=2 puntos). La cantidad de paralelas cubre el lote si hay lindero, o
+        // un rango razonable alrededor del tractor si el lote es nuevo/sin
+        // lindero — así las paralelas aparecen apenas se crea la guía.
+        var snap = _snap;
+        double width = snap != null ? snap.ToolWidth : 0;
+        if (width < 0.05) return;                     // sin ancho no hay paso
+        if (_guidancePts.Count < 2) return;
+
+        // Extensión: el lote si hay lindero, si no ~300 m alrededor.
+        double span = _hasBbox ? Math.Max(_maxE - _minE, _maxN - _minN) : 300.0;
+
+        // Reconstruir SOLO si cambió alguna entrada. En steady-state esto no
+        // corre nunca y el frame se va en los DrawArrays de abajo.
+        if (_parDirty || width != _parWidthUsed || span != _parSpanUsed)
+        {
+            RebuildGuidanceParallel(width, span);
+            _parWidthUsed = width;
+            _parSpanUsed = span;
+            _parDirty = false;
+        }
+        if (_parRanges.Count == 0) return;
+
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _parVbo);
+        unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
+        _gl.Uniform4(_uColor, ColGuidancePar[0], ColGuidancePar[1], ColGuidancePar[2], ColGuidancePar[3]);
+
+        if (_parIsLines)
+        {
+            var r = _parRanges[0];
+            _gl.DrawArrays(PrimitiveType.Lines, r.Start, (uint)r.Count);
+        }
+        else
+        {
+            for (int i = 0; i < _parRanges.Count; i++)
+            {
+                var r = _parRanges[i];
+                _gl.DrawArrays(PrimitiveType.LineStrip, r.Start, (uint)r.Count);
+            }
+        }
+
+        _gl.Disable(EnableCap.Blend);
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
+    }
+
+    /// <summary>
+    /// Grosor de la barra de secciones, en píxeles de pantalla. Va en píxeles y
+    /// no en metros a propósito: es un indicador de estado, no una medida del
+    /// terreno, así que tiene que verse igual de bien con el zoom cerca o lejos.
+    /// </summary>
+    private const double GrosorBarraSeccionesPx = 7.0;
+
+    private void DrawTool(ToolGeometrySnapshot snap, double scale)
+    {
+        if (_gl == null) return;
+
+        // Se dibuja con QUADS y no con GL_LINES. LineWidth lo capea el driver:
+        // en core profile y en GL ES —que es lo que Avalonia negocia en Windows,
+        // y lo que corre la placa de la cabina— el máximo suele ser 1.0, así que
+        // pedir 3 px daba una línea de 1 px igual y el grosor no se podía tocar.
+        // Con dos triángulos por sección el ancho es nuestro y se ve de verdad.
+        double grosorMundo = GrosorBarraSeccionesPx / Math.Max(scale, 1e-6);
+        double medio = grosorMundo * 0.5;
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+
+        // Un draw por sección: N max ~16, y así cada una conserva su color de
+        // estado sin tener que reordenar nada.
+        var sections = snap.Sections;
+        for (int i = 0; i < sections!.Count; i++)
+        {
+            var s = sections[i];
+
+            double dx = s.RightE - s.LeftE;
+            double dy = s.RightN - s.LeftN;
+            double len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-6) continue;      // sección de ancho cero
+
+            // Perpendicular unitaria × medio grosor: engrosa la barra hacia
+            // adelante y hacia atrás de la herramienta.
+            double px = -dy / len * medio;
+            double py = dx / len * medio;
+
+            EnsureScratch(8);
+            _scratch[0] = (float)(s.LeftE  + px); _scratch[1] = (float)(s.LeftN  + py);
+            _scratch[2] = (float)(s.LeftE  - px); _scratch[3] = (float)(s.LeftN  - py);
+            _scratch[4] = (float)(s.RightE + px); _scratch[5] = (float)(s.RightN + py);
+            _scratch[6] = (float)(s.RightE - px); _scratch[7] = (float)(s.RightN - py);
+
+            UploadAndDraw(PrimitiveType.TriangleStrip, 4, SectionColor(s));
+        }
+    }
+
+    private void UploadTram(TramGeometrySnapshot snap)
+    {
+        if (_gl == null) return;
+        MarcarSubida("tram");
+        _tramDisplayMode = snap.DisplayMode ?? "None";
+        _tramRevisionUploaded = snap.Revision;
+        _tramLineRanges.Clear();
+        _tramOuterStart = 0; _tramOuterCount = 0;
+        _tramInnerStart = 0; _tramInnerCount = 0;
+
+        if (_tramDisplayMode == "None")
+        {
+            return; // nada que renderear, dejamos VBO como estaba
+        }
+
+        // Contar vertices total para reservar de una vez.
+        int totalVerts = 0;
+        if (snap.Lines != null)
+        {
+            foreach (var l in snap.Lines)
+            {
+                if (l?.Points == null || l.Points.Count < 2) continue;
+                totalVerts += l.Points.Count;
+            }
+        }
+        int outerN = (snap.OuterBoundary != null && snap.OuterBoundary.Count >= 2) ? snap.OuterBoundary.Count : 0;
+        int innerN = (snap.InnerBoundary != null && snap.InnerBoundary.Count >= 2) ? snap.InnerBoundary.Count : 0;
+        totalVerts += outerN + innerN;
+        if (totalVerts == 0) return;
+
+        int needFloats = totalVerts * 2;
+        EnsureScratch(needFloats);
+
+        int writeIdx = 0;
+        int vertexCursor = 0;
+
+        // Lineas internas
+        if (snap.Lines != null)
+        {
+            foreach (var l in snap.Lines)
+            {
+                if (l?.Points == null || l.Points.Count < 2) continue;
+                int n = l.Points.Count;
+                for (int i = 0; i < n; i++)
+                {
+                    _scratch[writeIdx++] = (float)l.Points[i].E;
+                    _scratch[writeIdx++] = (float)l.Points[i].N;
+                }
+                _tramLineRanges.Add((vertexCursor, n));
+                vertexCursor += n;
+            }
+        }
+
+        // Outer boundary
+        if (outerN > 0)
+        {
+            _tramOuterStart = vertexCursor;
+            _tramOuterCount = outerN;
+            for (int i = 0; i < outerN; i++)
+            {
+                _scratch[writeIdx++] = (float)snap.OuterBoundary![i].E;
+                _scratch[writeIdx++] = (float)snap.OuterBoundary[i].N;
+            }
+            vertexCursor += outerN;
+        }
+
+        // Inner boundary
+        if (innerN > 0)
+        {
+            _tramInnerStart = vertexCursor;
+            _tramInnerCount = innerN;
+            for (int i = 0; i < innerN; i++)
+            {
+                _scratch[writeIdx++] = (float)snap.InnerBoundary![i].E;
+                _scratch[writeIdx++] = (float)snap.InnerBoundary[i].N;
+            }
+            vertexCursor += innerN;
+        }
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _tramVbo);
+        // BufferData (no SubData) porque la revision implica reemplazo
+        // completo. STATIC_DRAW: rara vez cambia.
+        unsafe
+        {
+            fixed (float* p = _scratch)
+            {
+                _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                    (nuint)(needFloats * sizeof(float)),
+                    p,
+                    BufferUsageARB.StaticDraw);
+            }
+        }
+        _tramVboCapacityFloats = needFloats;
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+    }
+
+    private void DrawTram()
+    {
+        if (_gl == null) return;
+
+        // Tono claro semitransparente -> alpha blending on, off al salir.
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _tramVbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+        _gl.Uniform4(_uColor, ColTram[0], ColTram[1], ColTram[2], ColTram[3]);
+        _gl.LineWidth(2.0f);
+
+        bool drawLines = (_tramDisplayMode == "All" || _tramDisplayMode == "FillTracks");
+        bool drawBnd   = (_tramDisplayMode == "All" || _tramDisplayMode == "BoundaryTracks");
+
+        if (drawLines)
+        {
+            for (int i = 0; i < _tramLineRanges.Count; i++)
+            {
+                var r = _tramLineRanges[i];
+                _gl.DrawArrays(PrimitiveType.LineStrip, r.Start, (uint)r.Count);
+            }
+        }
+
+        if (drawBnd)
+        {
+            if (_tramOuterCount > 0)
+                _gl.DrawArrays(PrimitiveType.LineLoop, _tramOuterStart, (uint)_tramOuterCount);
+            if (_tramInnerCount > 0)
+                _gl.DrawArrays(PrimitiveType.LineLoop, _tramInnerStart, (uint)_tramInnerCount);
+        }
+
+        _gl.LineWidth(1.0f);
+        _gl.Disable(EnableCap.Blend);
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+    }
+
+    private void UploadPaths(PathsGeometrySnapshot snap)
+    {
+        if (_gl == null) return;
+        MarcarSubida("paths");
+        _pathsRevisionUploaded = snap.Revision;
+        _pathsYouTurnStart = 0; _pathsYouTurnCount = 0;
+        _pathsRecordedStart = 0; _pathsRecordedCount = 0;
+
+        // El U-turn dejó de dibujarse desde esta capa (1 Hz + cache por
+        // revision): ahora viene VIVO en el snapshot de guidance (250 ms, con
+        // fase/estado) y lo dibuja DrawYouTurnPath con los colores del 6.8.5.
+        int ytN = 0;
+        int recN = (snap.Recorded != null && snap.Recorded.Count >= 2) ? snap.Recorded.Count : 0;
+        int totalVerts = ytN + recN;
+        if (totalVerts == 0) return; // nada que renderear, dejamos VBO como estaba
+
+        int needFloats = totalVerts * 2;
+        EnsureScratch(needFloats);
+
+        int writeIdx = 0;
+        int vertexCursor = 0;
+
+        // YouTurn
+        if (ytN > 0)
+        {
+            _pathsYouTurnStart = vertexCursor;
+            _pathsYouTurnCount = ytN;
+            for (int i = 0; i < ytN; i++)
+            {
+                _scratch[writeIdx++] = (float)snap.YouTurn![i].E;
+                _scratch[writeIdx++] = (float)snap.YouTurn[i].N;
+            }
+            vertexCursor += ytN;
+        }
+
+        // Recorded
+        if (recN > 0)
+        {
+            _pathsRecordedStart = vertexCursor;
+            _pathsRecordedCount = recN;
+            for (int i = 0; i < recN; i++)
+            {
+                _scratch[writeIdx++] = (float)snap.Recorded![i].E;
+                _scratch[writeIdx++] = (float)snap.Recorded[i].N;
+            }
+            vertexCursor += recN;
+        }
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _pathsVbo);
+        // BufferData (no SubData) porque la revision implica reemplazo
+        // completo. STATIC_DRAW: rara vez cambia.
+        unsafe
+        {
+            fixed (float* p = _scratch)
+            {
+                _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                    (nuint)(needFloats * sizeof(float)),
+                    p,
+                    BufferUsageARB.StaticDraw);
+            }
+        }
+        _pathsVboCapacityFloats = needFloats;
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+    }
+
+    /// <summary>
+    /// Camino del U-turn con la semántica de colores del 6.8.5 (DrawYouTurn,
+    /// GuidanceDrawExtensions.cs): violeta girando, rojo salmón si el camino
+    /// se sale del área de giro, verde armado y esperando, naranja mientras
+    /// se construye. Línea gruesa en vez del punteado del original — misma
+    /// información, mejor legibilidad sobre el piso texturado.
+    /// </summary>
+    private void DrawYouTurnPath()
+    {
+        var pts = _ytPts;
+        if (_gl == null || pts == null || pts.Length < 6) return;
+
+        float[] col = _ytTriggered ? ColYtTriggered
+                    : _ytOutOfBounds ? ColYtOut
+                    : _ytArmed ? ColYtArmed
+                    : ColYtBuilding;
+
+        int floats = pts.Length;
+        EnsureScratch(floats);
+        Array.Copy(pts, _scratch, floats);
+
+        // UploadAndDraw escribe en el VBO BINDEADO: volver al general (DrawPaths
+        // acaba de dejar el suyo) o el camino pisaría el buffer de paths.
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        _gl.LineWidth(4.0f);
+        UploadAndDraw(PrimitiveType.LineStrip, floats / 2, col);
+        _gl.LineWidth(1.0f);
+        _gl.Disable(EnableCap.Blend);
+    }
+
+    private void DrawPaths()
+    {
+        if (_gl == null) return;
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _pathsVbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+        _gl.LineWidth(2.0f);
+
+        // YouTurn (naranja)
+        if (_pathsYouTurnCount > 0)
+        {
+            _gl.Uniform4(_uColor, ColPathsYouTurn[0], ColPathsYouTurn[1], ColPathsYouTurn[2], ColPathsYouTurn[3]);
+            _gl.DrawArrays(PrimitiveType.LineStrip, _pathsYouTurnStart, (uint)_pathsYouTurnCount);
+        }
+
+        // Recorded (violeta)
+        if (_pathsRecordedCount > 0)
+        {
+            _gl.Uniform4(_uColor, ColPathsRecorded[0], ColPathsRecorded[1], ColPathsRecorded[2], ColPathsRecorded[3]);
+            _gl.DrawArrays(PrimitiveType.LineStrip, _pathsRecordedStart, (uint)_pathsRecordedCount);
+        }
+
+        _gl.LineWidth(1.0f);
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+    }
+
+    private static float[] SectionColor(ToolSectionGeometry s)
+    {
+        // Reglas (heredadas del render legacy FormGPS):
+        //   btn=Off (0)  → gris
+        //   btn=Manual (2) + isOn → amarillo
+        //   btn=Auto (1) + isMapping → verde (esta aplicando)
+        //   btn=Auto (1) + !isMapping → rojo (boundary/headland/anti-overlap denegada)
+        if (s.BtnState == 0) return ColToolOff;
+        if (s.BtnState == 2) return s.IsOn ? ColToolManual : ColToolOff;
+        // btn=Auto
+        return s.IsMapping ? ColToolAutoOn : ColToolAutoOff;
+    }
+
+    /// <summary>Diámetro en píxeles del punto grabado. Fijo en pantalla: los
+    /// puntos tienen que verse igual de lejos que de cerca, porque son la señal
+    /// de que el sistema está tomando datos.</summary>
+    private const double PuntoLinderoPx = 5.0;
+
+    /// <summary>
+    /// Lindero en grabación: tira ABIERTA + un punto por vértice.
+    ///
+    /// Abierta a propósito — cerrarla dibujaría un lado que el operario todavía
+    /// no recorrió, y eso es justo lo que está decidiendo mientras maneja.
+    ///
+    /// Los puntos van marcados uno por uno y no alcanza con la línea: una línea
+    /// sola no distingue "estoy grabando" de "esto ya estaba". El punto que
+    /// aparece cada ~1 m es la confirmación de que entró.
+    /// </summary>
+    private void DrawLinderoEnCurso(List<FieldPoint> pts, double scale)
+    {
+        if (_gl == null) return;
+        int n = pts.Count;
+        if (n == 0) return;
+
+        // 1) la tira recorrida
+        if (n >= 2)
+        {
+            EnsureScratch(n * 2);
+            for (int i = 0; i < n; i++)
+            {
+                _scratch[i * 2]     = (float)pts[i].E;
+                _scratch[i * 2 + 1] = (float)pts[i].N;
+            }
+            UploadAndDraw(PrimitiveType.LineStrip, n, ColLinderoRec);
+        }
+
+        // 2) los puntos. Un quad por vértice, TODOS en un solo draw call: con
+        //    500 puntos, una llamada por punto se comería el frame.
+        double medio = (PuntoLinderoPx / Math.Max(scale, 1e-6)) * 0.5;
+        EnsureScratch(n * 12);
+        int k = 0;
+        for (int i = 0; i < n; i++)
+        {
+            float izq = (float)(pts[i].E - medio), der = (float)(pts[i].E + medio);
+            float aba = (float)(pts[i].N - medio), arr = (float)(pts[i].N + medio);
+            _scratch[k++] = izq; _scratch[k++] = aba;
+            _scratch[k++] = der; _scratch[k++] = aba;
+            _scratch[k++] = der; _scratch[k++] = arr;
+            _scratch[k++] = izq; _scratch[k++] = aba;
+            _scratch[k++] = der; _scratch[k++] = arr;
+            _scratch[k++] = izq; _scratch[k++] = arr;
+        }
+        UploadAndDraw(PrimitiveType.Triangles, n * 6, ColLinderoRecPto);
+    }
+
+    /// <summary>
+    /// Marcas de "Marcar giro": un segmento por marca, extremos =
+    /// (e,n) ± 500 m en la perpendicular al heading de la guía. Mismo patrón
+    /// que DrawAbCreation: scratch + UploadAndDraw, sin glLineWidth (el ancho
+    /// default es el que usan lindero y AB — los drivers lo capean igual).
+    /// </summary>
+    private void DrawTurnMarks()
+    {
+        if (_gl == null) return;
+        const double half = 500.0; // media longitud de la línea (m)
+        foreach (var m in _turnMarks)
+        {
+            double px = Math.Cos(m.heading), py = -Math.Sin(m.heading);
+            EnsureScratch(4);
+            _scratch[0] = (float)(m.e - px * half); _scratch[1] = (float)(m.n - py * half);
+            _scratch[2] = (float)(m.e + px * half); _scratch[3] = (float)(m.n + py * half);
+            UploadAndDraw(PrimitiveType.Lines, 2, ColTurnMark);
+        }
+    }
+
+    // ---- prescripción (.shp) ----------------------------------------------
+
+    private volatile ShapeMapSnapshot? _shapeSnap;
+
+    /// <summary>Snapshot nuevo del poller (ya triangulado en su hilo).
+    /// null = se descargó el shape.</summary>
+    public void OnShape(ShapeMapSnapshot? snap)
+    {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
+        _shapeSnap = snap;
+        // Post al dispatcher como TODOS los demás OnX — este era el único que
+        // llamaba RequestNextFrameRendering directo. Si el que llama no está
+        // en el hilo UI, un pedido directo toca la maquinaria del compositor
+        // desde el hilo equivocado, y eso es corrupción silenciosa del estilo
+        // exacto que estamos cazando.
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Dibuja las zonas de la prescripción: fill triangulado por zona (color
+    /// por dosis) + contorno tenue. Los vértices ya vienen listos del poller;
+    /// acá solo se suben. Con blending: el shape es un fondo translúcido y lo
+    /// de arriba (cobertura, lindero, tractor) tiene que seguir leyéndose.
+    /// </summary>
+    private void DrawShape()
+    {
+        var shape = _shapeSnap;
+        if (_gl == null || shape == null || shape.Polygons.Count == 0) return;
+
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+        MarcarSubida("shape");   // sube TODOS los frames (scratch, no cachea)
+        for (int p = 0; p < shape.Polygons.Count; p++)
+        {
+            var poly = shape.Polygons[p];
+
+            if (poly.TriVerts.Length >= 6)
+            {
+                int n = poly.TriVerts.Length / 2;
+                EnsureScratch(poly.TriVerts.Length);
+                Array.Copy(poly.TriVerts, _scratch, poly.TriVerts.Length);
+                UploadAndDraw(PrimitiveType.Triangles, n, poly.Rgba);
+            }
+
+            // Contorno de cada anillo (incluye agujeros, que el fill ignora):
+            // mismo color que el fill pero opaco, para que el borde de zona se
+            // distinga cuando dos dosis parecidas quedan pegadas.
+            for (int r = 0; r < poly.Rings.Count; r++)
+            {
+                var ring = poly.Rings[r];
+                int n = ring.Length / 2;
+                if (n < 3) continue;
+                EnsureScratch(ring.Length);
+                Array.Copy(ring, _scratch, ring.Length);
+                UploadAndDraw(PrimitiveType.LineLoop, n,
+                    new[] { poly.Rgba[0], poly.Rgba[1], poly.Rgba[2], 0.9f });
+            }
+        }
+
+        _gl.Disable(EnableCap.Blend);
+
+        // Diagnostico temporal "no se ve el shape": pixel del centro y error GL
+        // justo despues de dibujar las zonas, una vez por ~4 s.
+        if (++_shapeDiagFrames >= 120)
+        {
+            _shapeDiagFrames = 0;
+            var err = _gl.GetError();
+            Console.Error.WriteLine("[MapGlSurface] shape-draw err=" + err);
+            LogPixel("post-shape", 960, 540);
+        }
+    }
+
+    private int _shapeDiagFrames;
+
+    private void DrawRing(List<FieldPoint> ring, float[] color)
+    {
+        if (_gl == null) return;
+        int n = ring.Count;
+        int needFloats = n * 2;
+        EnsureScratch(needFloats);
+        for (int i = 0; i < n; i++)
+        {
+            _scratch[i * 2]     = (float)ring[i].E;
+            _scratch[i * 2 + 1] = (float)ring[i].N;
+        }
+        UploadAndDraw(PrimitiveType.LineLoop, n, color);
+    }
+
+    /// <summary>Sube a GPU los sprites pendientes. Se llama desde el hilo GL.</summary>
+    private void SubirSpritePendiente()
+    {
+        if (_gl == null || _texProgram == 0) return;
+
+        if (_pendingTexRgba != null)
+        {
+            var px = _pendingTexRgba;
+            _pendingTexRgba = null;
+            _ultimoTexRgba = px;          // por si hay que rehacerlo tras perder el contexto
+            if (_vehicleTex == 0) _vehicleTex = _gl.GenTexture();
+            _vehicleTexReady = SubirTextura(_vehicleTex, px, _pendingTexW, _pendingTexH, "vehículo");
+        }
+
+        if (_pendingWheelRgba != null)
+        {
+            var px = _pendingWheelRgba;
+            _pendingWheelRgba = null;
+            _ultimoWheelRgba = px;
+            if (_wheelTex == 0) _wheelTex = _gl.GenTexture();
+            _wheelTexReady = SubirTextura(_wheelTex, px, _pendingWheelW, _pendingWheelH, "rueda");
+        }
+
+        if (_pendingImplRgba != null)
+        {
+            var px = _pendingImplRgba;
+            _pendingImplRgba = null;
+            _ultimoImplRgba = px;
+            if (_implementoTex == 0) _implementoTex = _gl.GenTexture();
+            _implementoTexReady = SubirTextura(_implementoTex, px, _pendingImplW, _pendingImplH, "implemento");
+        }
+
+        if (_pendingFloorRgba != null)
+        {
+            var px = _pendingFloorRgba;
+            _pendingFloorRgba = null;
+            _ultimoFloorRgba = px;
+            if (_floorTex == 0) _floorTex = _gl.GenTexture();
+            // REPEAT: el piso se tilea en mundo (los sprites van CLAMP).
+            _floorTexReady = SubirTextura(_floorTex, px, _pendingFloorW, _pendingFloorH, "piso", repeat: true);
+        }
+    }
+
+    // Última copia subida de cada textura. Se guarda SOLO para poder rehacerla
+    // si se pierde el contexto GL: los píxeles llegan una vez desde el hilo de
+    // UI y el pendiente se consume, así que sin esto un TDR dejaba el mapa sin
+    // tractor, sin implemento y sin piso hasta reiniciar la app. Es la misma
+    // referencia que ya vino de arriba, no una copia.
+    private byte[]? _ultimoTexRgba;
+    private byte[]? _ultimoWheelRgba;
+    private byte[]? _ultimoImplRgba;
+    private byte[]? _ultimoFloorRgba;
+
+    /// <summary>
+    /// El contexto GL se murió (típicamente un TDR: Windows colgó y reseteó el
+    /// driver de video — Visor de eventos, "El controlador de pantalla dejó de
+    /// responder y se recuperó correctamente").
+    ///
+    /// OJO, la diferencia con OnOpenGlDeinit: acá NO se puede llamar a GL. El
+    /// contexto ya no existe; DeleteBuffer/DeleteProgram sobre handles muertos
+    /// fallan. Lo único correcto es SOLTAR los handles a cero y olvidar todo lo
+    /// que creíamos subido, para que Avalonia llame OnOpenGlInit sobre el
+    /// contexto nuevo y se reconstruya solo.
+    ///
+    /// Sin este override el control se quedaba con los handles muertos, el
+    /// compositor no podía importar más la imagen de GPU y el mapa quedaba
+    /// NEGRO para siempre, escribiendo ~70 KB/s de excepciones a disco.
+    /// </summary>
+    protected override void OnOpenGlLost()
+    {
+        _gl = null;
+        _initFailed = false;   // el contexto nuevo merece que se intente de nuevo
+
+        _program = 0; _vao = 0; _vbo = 0; _vboCapacityFloats = 0;
+        _texProgram = 0; _texVbo = 0;
+        // Las queries del medidor también mueren con el contexto.
+        _gpuTimerOk = false; _qIni = null; _qFin = null; _qEnVuelo = null; _qSlot = 0;
+        _coverageVbo = 0; _guidanceVbo = 0; _parVbo = 0; _tramVbo = 0; _pathsVbo = 0;
+
+        // Las revisiones vuelven a -1 o la geometría no se re-sube: los VBO
+        // nuevos quedarían vacíos con el control creyendo que están al día.
+        _coverageRevisionUploaded = -1;
+        _tramRevisionUploaded = -1;
+        _pathsRevisionUploaded = -1;
+        _guidanceRevisionUploaded = -1;
+
+        // Texturas: soltar handles y re-encolar los píxeles guardados.
+        _vehicleTex = 0; _vehicleTexReady = false;
+        _wheelTex = 0; _wheelTexReady = false;
+        _implementoTex = 0; _implementoTexReady = false;
+        _floorTex = 0; _floorTexReady = false;
+        if (_ultimoTexRgba != null) _pendingTexRgba = _ultimoTexRgba;
+        if (_ultimoWheelRgba != null) _pendingWheelRgba = _ultimoWheelRgba;
+        if (_ultimoImplRgba != null) _pendingImplRgba = _ultimoImplRgba;
+        if (_ultimoFloorRgba != null) _pendingFloorRgba = _ultimoFloorRgba;
+
+        Console.Error.WriteLine("[MapGlSurface] contexto GL perdido: se sueltan "
+            + "los recursos y se reconstruye en el proximo init");
+
+        base.OnOpenGlLost();
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Dibuja el implemento en la posición/rumbo de la herramienta, a lo ancho
+    /// real configurado. Se ubica de modo que la BARRA (el borde trasero de la
+    /// imagen, donde van los cuerpos de siembra) quede sobre el punto de la
+    /// herramienta, y la lanza salga hacia adelante, buscando al tractor.
+    /// Devuelve false si no hay textura: entonces el mapa sigue con las barras
+    /// de sección de siempre.
+    /// </summary>
+    private bool DrawImplementoSprite()
+    {
+        if (_gl == null || _texProgram == 0 || !_implementoTexReady) return false;
+        var snap = _snap;
+        if (snap == null) return false;
+
+        double ancho = snap.ToolWidth;
+        if (ancho <= 0.2) return false;          // sin implemento configurado
+        double largo = ancho * _implementoAspect;
+
+        try
+        {
+            _gl.UseProgram(_texProgram);
+            unsafe
+            {
+                fixed (float* m = _mvpCache) _gl.UniformMatrix4(_uTexMvp, 1, false, m);
+            }
+            // Posición suavizada de la herramienta (la calcula
+            // ActualizarPosicionRender junto con la del tractor, con el mismo
+            // filtro): si el implemento avanza a saltos mientras el tractor va
+            // suave, se ve como si se desenganchara y volviera.
+            double te = _renderToolE, tn = _renderToolN;
+
+            // Centro medio largo adelante del punto de herramienta.
+            DrawQuadTex(_implementoTex, te, tn, snap.ToolHeading,
+                        0, largo * 0.5, ancho * 0.5, largo * 0.5, 0);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapGlSurface] fallo dibujando el implemento: " + ex.Message);
+            _implementoTexReady = false;
+            return false;
+        }
+    }
+
+    private bool SubirTextura(uint tex, byte[] px, int w, int h, string que, bool repeat = false)
+    {
+        try
+        {
+            _gl!.BindTexture(TextureTarget.Texture2D, tex);
+            unsafe
+            {
+                fixed (byte* p = px)
+                {
+                    _gl.TexImage2D(TextureTarget.Texture2D, 0, (int)InternalFormat.Rgba,
+                        (uint)w, (uint)h, 0, PixelFormat.Rgba, PixelType.UnsignedByte, p);
+                }
+            }
+            // Sprites van CLAMP: sin esto, el filtrado del borde repite el lado
+            // opuesto y aparece una franja del otro extremo. El PISO va REPEAT:
+            // se tilea en coordenadas de mundo.
+            int wrap = (int)(repeat ? GLEnum.Repeat : GLEnum.ClampToEdge);
+            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, wrap);
+            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, wrap);
+            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)GLEnum.Linear);
+            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)GLEnum.Linear);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapGlSurface] no se pudo subir el sprite de " + que + ": " + ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Ángulos de Ackermann: la rueda interna gira más que la externa. Copia
+    /// exacta de AckermannAngles (AgOpenGPS.Core/DrawLib), para que el vehículo
+    /// se vea igual que en el renderer nativo.
+    /// </summary>
+    private static void Ackermann(double anguloRueda, out double izq, out double der)
+    {
+        izq = anguloRueda;
+        der = anguloRueda;
+        if (anguloRueda > 0.0) izq *= 1.25;
+        else der *= 1.25;
+    }
+
+    /// <summary>
+    /// Dibuja un quad texturado en coords de vehículo (X = derecha, Y = avance),
+    /// rotado por rumbo y opcionalmente por un giro propio (ruedas).
+    /// cx/cy son el centro en coords locales; hx/hy las MEDIAS medidas — mismo
+    /// criterio que el centerToU1V1 del renderer nativo.
+    /// </summary>
+    private void DrawQuadTex(uint tex, double e, double n, double headingRad,
+                             double cx, double cy, double hx, double hy, double giroRad)
+    {
+        if (_gl == null) return;
+
+        double sg = Math.Sin(giroRad), cg = Math.Cos(giroRad);
+        double sh = Math.Sin(headingRad), ch = Math.Cos(headingRad);
+
+        // local -> (giro propio) -> (rumbo) -> mundo
+        (double X, double Y) A(double lx, double ly)
+        {
+            double rx = lx * cg - ly * sg;
+            double ry = lx * sg + ly * cg;
+            rx += cx; ry += cy;
+            return (e + (rx * ch + ry * sh), n + (rx * (-sh) + ry * ch));
+        }
+
+        var p0 = A(-hx, -hy);
+        var p1 = A( hx, -hy);
+        var p2 = A( hx,  hy);
+        var p3 = A(-hx,  hy);
+
+        float[] v =
+        {
+            (float)p0.X, (float)p0.Y, 0f, 1f,
+            (float)p1.X, (float)p1.Y, 1f, 1f,
+            (float)p2.X, (float)p2.Y, 1f, 0f,
+            (float)p0.X, (float)p0.Y, 0f, 1f,
+            (float)p2.X, (float)p2.Y, 1f, 0f,
+            (float)p3.X, (float)p3.Y, 0f, 0f,
+        };
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _texVbo);
+        unsafe
+        {
+            fixed (float* p = v)
+            {
+                _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                    (nuint)(v.Length * sizeof(float)), p, BufferUsageARB.StreamDraw);
+            }
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)0);
+            _gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)(sizeof(float) * 2));
+        }
+        _gl.EnableVertexAttribArray(0);
+        _gl.EnableVertexAttribArray(1);
+        _gl.ActiveTexture(TextureUnit.Texture0);
+        _gl.BindTexture(TextureTarget.Texture2D, tex);
+        _gl.DrawArrays(PrimitiveType.Triangles, 0, 6);
+    }
+
+    /// <summary>
+    /// Piso texturado: un quad axis-aligned en MUNDO que cubre lo visible con
+    /// margen (la vista puede estar rotada por heading-up), con UV = mundo /
+    /// FloorTileM para que la textura REPEAT quede clavada al suelo. De noche
+    /// se oscurece con uTint; el uniform vuelve a blanco al salir para que los
+    /// sprites no hereden el tinte.
+    /// </summary>
+    private void DrawFloor(double cx, double cy, int wPx, int hPx, double scale)
+    {
+        if (_gl == null || _texProgram == 0) return;
+
+        // Diagonal completa de la pantalla en metros: alcanza para cualquier
+        // rotación y para el pitch 3D, sin calcular el frustum exacto.
+        double half = Math.Sqrt((double)wPx * wPx + (double)hPx * hPx) / Math.Max(scale, 1e-6);
+
+        double x0 = cx - half, x1 = cx + half;
+        double y0 = cy - half, y1 = cy + half;
+        float u0 = (float)(x0 / FloorTileM), u1 = (float)(x1 / FloorTileM);
+        float v0 = (float)(y0 / FloorTileM), v1 = (float)(y1 / FloorTileM);
+
+        float[] v =
+        {
+            (float)x0, (float)y0, u0, v0,
+            (float)x1, (float)y0, u1, v0,
+            (float)x1, (float)y1, u1, v1,
+            (float)x0, (float)y0, u0, v0,
+            (float)x1, (float)y1, u1, v1,
+            (float)x0, (float)y1, u0, v1,
+        };
+
+        try
+        {
+            _gl.UseProgram(_texProgram);
+            unsafe
+            {
+                fixed (float* m = _mvpCache) _gl.UniformMatrix4(_uTexMvp, 1, false, m);
+                fixed (float* p = v)
+                {
+                    _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _texVbo);
+                    _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                        (nuint)(v.Length * sizeof(float)), p, BufferUsageARB.StreamDraw);
+                }
+                _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)0);
+                _gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)(sizeof(float) * 2));
+            }
+            _gl.EnableVertexAttribArray(0);
+            _gl.EnableVertexAttribArray(1);
+            _gl.ActiveTexture(TextureUnit.Texture0);
+            _gl.BindTexture(TextureTarget.Texture2D, _floorTex);
+
+            // De día la textura va tal cual; de noche atenuada para que las
+            // capas brillantes (guía cian, lindero verde) sigan mandando.
+            if (_isDay) _gl.Uniform4(_uTexTint, 1f, 1f, 1f, 1f);
+            else _gl.Uniform4(_uTexTint, 0.38f, 0.38f, 0.36f, 1f);
+
+            _gl.DrawArrays(PrimitiveType.Triangles, 0, 6);
+
+            // Restaurar: los sprites usan el mismo programa y esperan blanco.
+            _gl.Uniform4(_uTexTint, 1f, 1f, 1f, 1f);
+        }
+        catch (Exception ex)
+        {
+            // Un piso que falla no puede voltear el frame: se apaga la capa.
+            _floorTexReady = false;
+            Console.Error.WriteLine("[MapGlSurface] piso: " + ex.Message);
+        }
+        finally
+        {
+            // Dejar el estado como lo espera el RESTO del frame (mismo cierre
+            // que DrawTractorSprite): atributo 1 apagado y el programa de color
+            // plano de vuelta. El piso corre PRIMERO — sin esto, coverage,
+            // guías y tractor se dibujaban con el programa de texturas: el
+            // tractor invisible y la cobertura sampleando el piso.
+            _gl.DisableVertexAttribArray(1);
+            _gl.UseProgram(_program);
+            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+            unsafe
+            {
+                _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Dibuja el sprite del vehículo orientado por rumbo. Devuelve false si no
+    /// hay textura lista, para que el llamador caiga al triángulo.
+    /// </summary>
+    private bool DrawTractorSprite(double e, double n, double headingRad, double scale)
+    {
+        if (_gl == null || _texProgram == 0 || !_vehicleTexReady) return false;
+
+        // Geometría IDÉNTICA al renderer nativo (GuidanceDrawExtensions):
+        // el origen es el eje TRASERO (pivote), el cuerpo va centrado medio
+        // wheelbase adelante y las ruedas delanteras en el eje delantero.
+        // Las medidas son medias-medidas (centerToU1V1 del original).
+        var snap = _snap;
+        double wb = snap?.Wheelbase ?? 0;
+        double tw = snap?.TrackWidth ?? 0;
+        if (wb <= 0.1) wb = 3.3;    // perfil sin cargar: valores típicos
+        if (tw <= 0.1) tw = 1.9;
+
+        // ESCALA REAL: el tractor mide lo que mide, y nada más.
+        //
+        // Acá había un piso de 70 px que lo inflaba cuando quedaba chico. Con la
+        // escala por defecto (5,3 px/m) eso lo dibujaba 3,5 VECES más grande que
+        // su tamaño real, y todo lo demás del mapa sí va a escala: el ancho de
+        // labor, la barra de secciones, las guías, el lindero. El resultado era
+        // un tractor montado sobre una máquina que no era la suya — y sobre esa
+        // relación el operario juzga si va bien parado respecto de la guía.
+        //
+        // El piso existía por un motivo real: al alejar el zoom el vehículo se
+        // pierde ("se fue el tractor"). Pero la respuesta a eso no es mentir con
+        // el tamaño. La resuelve DrawTractor sumando un marcador de tamaño fijo
+        // cuando el vehículo queda muy chico: un símbolo, no la máquina.
+
+        try
+        {
+            _gl.UseProgram(_texProgram);
+            unsafe
+            {
+                fixed (float* m = _mvpCache) _gl.UniformMatrix4(_uTexMvp, 1, false, m);
+            }
+
+            // Cuerpo: centro (0, wb/2), medias medidas (tw, wb).
+            DrawQuadTex(_vehicleTex, e, n, headingRad, 0, wb * 0.5, tw, wb, 0);
+
+            // Ruedas delanteras: una por lado sobre el eje delantero (y = wb),
+            // cada una girada por SU ángulo de Ackermann. El ángulo va negado
+            // igual que en el nativo (ahí entra como -steerAngle).
+            if (_wheelTexReady)
+            {
+                Ackermann(-(snap?.SteerAngleDeg ?? 0), out double izqDeg, out double derDeg);
+                double izq = izqDeg * Math.PI / 180.0;
+                double der = derDeg * Math.PI / 180.0;
+                double whx = tw * 0.5, why = wb * 0.75;
+                DrawQuadTex(_wheelTex, e, n, headingRad,  tw * 0.5, wb, whx, why, der);
+                DrawQuadTex(_wheelTex, e, n, headingRad, -tw * 0.5, wb, whx, why, izq);
+            }
+
+            // Dejar el estado como lo espera el resto del frame: atributo 1
+            // apagado y el VBO/programa de color plano de vuelta.
+            _gl.DisableVertexAttribArray(1);
+            _gl.UseProgram(_program);
+            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+            unsafe
+            {
+                _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapGlSurface] fallo dibujando el sprite: " + ex.Message);
+            _vehicleTexReady = false;   // no reintentar cada frame
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Ancho del vehículo en píxeles por debajo del cual, además del vehículo a
+    /// escala, se dibuja el marcador de posición de tamaño fijo. 28 px es donde
+    /// un tractor deja de distinguirse de una mancha sobre fondo vacío.
+    /// </summary>
+    private const double UmbralMarcadorPx = 28.0;
+
+    /// <summary>
+    /// Los dos puntos que dibuja el 6.8.5 original sobre el guiado: el GOAL
+    /// POINT (adónde "mira" el pure pursuit, naranja) y la ANTENA GPS
+    /// (celeste, sobre el vehículo — distinta del pivote). Tamaño fijo en
+    /// píxeles, como las banderas: son símbolos, no geometría del lote.
+    /// 0/0 = sin dato (sin guía trabajando / sin fix) → no se dibuja.
+    /// </summary>
+    private void DrawPuntosGuiado(HudSnapshot snap, double scale)
+    {
+        if (_gl == null || snap == null) return;
+
+        // ANTI-VIBRACIÓN: el tractor se dibuja en la posición SUAVIZADA
+        // (_renderE/N, filtro + estima entre fixes) pero estos puntos vienen
+        // crudos a 10 Fix/s — dibujados tal cual tiemblan contra el mundo
+        // suave (reporte usuario 2026-08-06). Se dibujan como OFFSET respecto
+        // del pivote del MISMO snapshot, colgado de la posición suavizada:
+        // viajan rígidos con el tractor y el temblor desaparece.
+        double baseE = _renderPosInit ? _renderE : snap.PivotEasting;
+        double baseN = _renderPosInit ? _renderN : snap.PivotNorthing;
+
+        if (snap.GoalEasting != 0 || snap.GoalNorthing != 0)
+            DrawDisco(baseE + (snap.GoalEasting - snap.PivotEasting),
+                      baseN + (snap.GoalNorthing - snap.PivotNorthing), 5.5, scale, ColGoalPoint);
+
+        if (snap.AntennaEasting != 0 || snap.AntennaNorthing != 0)
+            DrawDisco(baseE + (snap.AntennaEasting - snap.PivotEasting),
+                      baseN + (snap.AntennaNorthing - snap.PivotNorthing), 4.0, scale, ColAntena);
+    }
+
+    /// <summary>Disco relleno de radio fijo en píxeles con borde oscuro.</summary>
+    private void DrawDisco(double e, double n, double radioPx, double scale, float[] color)
+    {
+        const int SEG = 14;
+        double r = radioPx / scale;
+
+        EnsureScratch((SEG + 2) * 2);
+        _scratch[0] = (float)e; _scratch[1] = (float)n;
+        for (int i = 0; i <= SEG; i++)
+        {
+            double a = i * (2.0 * Math.PI / SEG);
+            _scratch[(i + 1) * 2]     = (float)(e + Math.Cos(a) * r);
+            _scratch[(i + 1) * 2 + 1] = (float)(n + Math.Sin(a) * r);
+        }
+        UploadAndDraw(PrimitiveType.TriangleFan, SEG + 2, color);
+
+        // Borde: reusar el anillo (sin el centro) como line loop.
+        EnsureScratch(SEG * 2);
+        for (int i = 0; i < SEG; i++)
+        {
+            double a = i * (2.0 * Math.PI / SEG);
+            _scratch[i * 2]     = (float)(e + Math.Cos(a) * r);
+            _scratch[i * 2 + 1] = (float)(n + Math.Sin(a) * r);
+        }
+        UploadAndDraw(PrimitiveType.LineLoop, SEG, ColPuntoBorde);
+    }
+
+    private void DrawTractor(double e, double n, double headingRad, double scale)
+    {
+        if (_gl == null) return;
+
+        SubirSpritePendiente();
+
+        // Con sprite cargado se dibuja el vehículo a ESCALA REAL. Si a esa
+        // escala queda de pocos píxeles no se lo agranda —eso rompería la
+        // proporción contra el ancho de labor, las guías y el lote— pero
+        // TAMPOCO se le suma el marcador encima: mostrar sprite y triángulo
+        // juntos se ve como dos vehículos superpuestos, no como un símbolo.
+        // Por debajo del umbral el marcador REEMPLAZA al sprite (uno u otro,
+        // nunca los dos), así el vehículo se sigue viendo al alejar el zoom
+        // sin duplicarse.
+        double twReal = _snap?.TrackWidth ?? 0;
+        if (twReal <= 0.1) twReal = 1.9;
+        bool grandeParaSprite = (2 * twReal) * scale >= UmbralMarcadorPx;
+        if (grandeParaSprite && DrawTractorSprite(e, n, headingRad, scale)) return;
+
+        // Tamano del triangulo en pixeles -> convertir a coords mundo
+        // dividiendo por scale (px / (px/m) = m).
+        double sizePx = 12 * 1.8; // idem Skia (scaleFactor 1.8)
+        double sizeWorld = sizePx / scale;
+        // Heading: en AOG, heading 0 = North, sentido horario. En coords
+        // World Y-up: tip apunta a +N cuando heading=0 -> (0, +size).
+        // Rotacion CW por heading: x' = sin(h)*y0 + cos(h)*x0; pero el
+        // codigo Skia usaba x' = x*cos - y*sin con Y invertido. Aca,
+        // adaptado a Y-up: tip = (sin(h)*size, cos(h)*size).
+        double s = Math.Sin(headingRad), c = Math.Cos(headingRad);
+        double tipX = e + ( 0 * c +  sizeWorld * s);
+        double tipY = n + ( 0 * (-s) + sizeWorld * c);
+        double blX  = e + (-sizeWorld * 0.65 * c + (-sizeWorld * 0.55) * s);
+        double blY  = n + (-sizeWorld * 0.65 * (-s) + (-sizeWorld * 0.55) * c);
+        double brX  = e + ( sizeWorld * 0.65 * c + (-sizeWorld * 0.55) * s);
+        double brY  = n + ( sizeWorld * 0.65 * (-s) + (-sizeWorld * 0.55) * c);
+
+        // Triangulo relleno.
+        EnsureScratch(6);
+        _scratch[0] = (float)tipX; _scratch[1] = (float)tipY;
+        _scratch[2] = (float)blX;  _scratch[3] = (float)blY;
+        _scratch[4] = (float)brX;  _scratch[5] = (float)brY;
+        UploadAndDraw(PrimitiveType.Triangles, 3, ColTractor);
+
+        // Borde oscuro (line loop) por encima.
+        UploadAndDraw(PrimitiveType.LineLoop, 3, ColTractorEdge);
+    }
+
+    private static readonly float[] ColReversa = { 0.898f, 0.282f, 0.302f, 1f }; // #E5484D
+
+    /// <summary>
+    /// Flecha roja de REVERSA: sale del pivote hacia atrás del tractor, tamaño
+    /// fijo en píxeles (se ve igual con cualquier zoom). Un asta gruesa (dos
+    /// triángulos) y una punta. Se dibuja mientras el motor marque isReverse.
+    /// </summary>
+    private void DrawFlechaReversa(double e, double n, double headingRad, double scale)
+    {
+        if (_gl == null || scale <= 0) return;
+        double len = 46.0 / scale;          // 46 px
+        double ancho = 5.0 / scale;         // 5 px de asta
+        double punta = 16.0 / scale;        // 16 px de punta
+        // Atrás = dirección opuesta al heading (heading 0 = norte, horario).
+        double s = Math.Sin(headingRad), c = Math.Cos(headingRad);
+        double dx = -s, dy = -c;            // unitario hacia atrás
+        double px = -dy, py = dx;           // perpendicular
+
+        double ax = e, ay = n;                                  // pivote
+        double bx = e + dx * (len - punta), by = n + dy * (len - punta);
+        double tx = e + dx * len, ty = n + dy * len;            // punta
+
+        // Asta como rectángulo (2 triángulos).
+        EnsureScratch(12);
+        _scratch[0]  = (float)(ax + px * ancho); _scratch[1]  = (float)(ay + py * ancho);
+        _scratch[2]  = (float)(ax - px * ancho); _scratch[3]  = (float)(ay - py * ancho);
+        _scratch[4]  = (float)(bx - px * ancho); _scratch[5]  = (float)(by - py * ancho);
+        _scratch[6]  = (float)(ax + px * ancho); _scratch[7]  = (float)(ay + py * ancho);
+        _scratch[8]  = (float)(bx - px * ancho); _scratch[9]  = (float)(by - py * ancho);
+        _scratch[10] = (float)(bx + px * ancho); _scratch[11] = (float)(by + py * ancho);
+        UploadAndDraw(PrimitiveType.Triangles, 6, ColReversa);
+
+        // Punta.
+        EnsureScratch(6);
+        _scratch[0] = (float)tx; _scratch[1] = (float)ty;
+        _scratch[2] = (float)(bx + px * punta * 0.7); _scratch[3] = (float)(by + py * punta * 0.7);
+        _scratch[4] = (float)(bx - px * punta * 0.7); _scratch[5] = (float)(by - py * punta * 0.7);
+        UploadAndDraw(PrimitiveType.Triangles, 3, ColReversa);
+    }
+
+    /// <summary>
+    /// Dibuja las banderas del operario: asta vertical de tamaño fijo en
+    /// píxeles (no se achica con el zoom, si no a cierta distancia son un
+    /// punto invisible) + gallardete triangular en la punta, coloreado según
+    /// <c>FlagPoint.Color</c> (0 rojo, 1 verde, 2 amarillo — mismo código que
+    /// banderas.html).
+    /// </summary>
+    private void DrawFlags(double scale)
+    {
+        if (_gl == null) return;
+
+        const double astaPx = 22;
+        const double banderaPx = 14;
+        double astaWorld = astaPx / scale;
+        double banderaWorld = banderaPx / scale;
+
+        foreach (var f in _flags)
+        {
+            double baseE = f.Easting, baseN = f.Northing;
+            double topN = baseN + astaWorld;
+
+            // Asta.
+            EnsureScratch(4);
+            _scratch[0] = (float)baseE; _scratch[1] = (float)baseN;
+            _scratch[2] = (float)baseE; _scratch[3] = (float)topN;
+            UploadAndDraw(PrimitiveType.Lines, 2, ColBanderaAsta);
+
+            // Gallardete: triángulo colgando a la derecha de la punta del asta.
+            float[] col = f.Color switch
+            {
+                1 => ColBanderaVerde,
+                2 => ColBanderaAmarilla,
+                _ => ColBanderaRoja,
+            };
+            EnsureScratch(6);
+            _scratch[0] = (float)baseE;                    _scratch[1] = (float)topN;
+            _scratch[2] = (float)baseE;                    _scratch[3] = (float)(topN - banderaWorld * 0.6);
+            _scratch[4] = (float)(baseE + banderaWorld);    _scratch[5] = (float)(topN - banderaWorld * 0.3);
+            UploadAndDraw(PrimitiveType.Triangles, 3, col);
+            UploadAndDraw(PrimitiveType.LineLoop, 3, ColBanderaAsta);
+        }
+    }
+
+    private void EnsureScratch(int neededFloats)
+    {
+        if (_scratch.Length < neededFloats)
+        {
+            int cap = _scratch.Length;
+            while (cap < neededFloats) cap *= 2;
+            _scratch = new float[cap];
+        }
+    }
+
+    private void UploadAndDraw(PrimitiveType prim, int vertexCount, float[] color)
+    {
+        if (_gl == null) return;
+        // Grow VBO si el batch es mas grande de lo que cabe; mas eficiente
+        // que reallocar cada draw call.
+        int floatsNeeded = vertexCount * 2;
+        if (_vboCapacityFloats < floatsNeeded)
+        {
+            int cap = Math.Max(_vboCapacityFloats, 256);
+            while (cap < floatsNeeded) cap *= 2;
+            _vboCapacityFloats = cap;
+            unsafe
+            {
+                _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                    (nuint)(cap * sizeof(float)),
+                    (void*)0,
+                    BufferUsageARB.DynamicDraw);
+            }
+        }
+        unsafe
+        {
+            fixed (float* p = _scratch)
+            {
+                _gl.BufferSubData(BufferTargetARB.ArrayBuffer,
+                    0,
+                    (nuint)(floatsNeeded * sizeof(float)),
+                    p);
+            }
+        }
+        _gl.Uniform4(_uColor, color[0], color[1], color[2], color[3]);
+        _gl.DrawArrays(prim, 0, (uint)vertexCount);
+    }
+
+    // ---- shader util ---------------------------------------------------
+
+    private static uint CompileProgram(GL gl, string vs, string fs)
+    {
+        uint v = CompileShader(gl, ShaderType.VertexShader, vs);
+        uint f = CompileShader(gl, ShaderType.FragmentShader, fs);
+        uint p = gl.CreateProgram();
+        gl.AttachShader(p, v);
+        gl.AttachShader(p, f);
+        gl.BindAttribLocation(p, 0, "aPos");
+        gl.LinkProgram(p);
+        gl.GetProgram(p, ProgramPropertyARB.LinkStatus, out int ok);
+        if (ok == 0)
+        {
+            var log = gl.GetProgramInfoLog(p);
+            gl.DeleteShader(v); gl.DeleteShader(f); gl.DeleteProgram(p);
+            throw new InvalidOperationException("MapGlSurface: link failed: " + log);
+        }
+        gl.DetachShader(p, v);
+        gl.DetachShader(p, f);
+        gl.DeleteShader(v);
+        gl.DeleteShader(f);
+        return p;
+    }
+
+    private static uint CompileShader(GL gl, ShaderType type, string src)
+    {
+        uint s = gl.CreateShader(type);
+        gl.ShaderSource(s, src);
+        gl.CompileShader(s);
+        gl.GetShader(s, ShaderParameterName.CompileStatus, out int ok);
+        if (ok == 0)
+        {
+            var log = gl.GetShaderInfoLog(s);
+            gl.DeleteShader(s);
+            throw new InvalidOperationException("MapGlSurface: compile " + type + " failed: " + log);
+        }
+        return s;
+    }
+}

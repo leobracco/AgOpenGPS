@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- ============================================================================
+  prescripciones.html — RETIRADA (2026-08-05). Redirección a QuantiX → Shape.
+
+  La gestión de prescripciones se consolidó en Módulos → QuantiX → pestaña
+  Shape (dosis): subir shapefile, biblioteca con Activar/Quitar, vista previa
+  y consulta de dosis por toque. Tener dos UIs activando lo mismo era
+  mantenimiento doble y riesgo de que diverjan (esta página, por ejemplo, no
+  mostraba vista previa ni permitía subir archivos).
+
+  El archivo queda solo como redirección para links guardados (mismo patrón
+  que config-implemento.html y herramienta.html). Se conserva ?widget=1.
+============================================================================ -->
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Prescripciones · Agro Parallel</title>
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var destino = 'quantix.html?tab=shape' + (q.get('widget') ? '&widget=1' : '');
+      location.replace(destino);
+    })();
+  </script>
+</head>
+<body>
+  <p>Prescripciones vive ahora en <a href="quantix.html?tab=shape">QuantiX → Shape (dosis)</a>.</p>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Conteo de semillas · VistaX</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <style>
+    /* ============================================================================
+       Conteo de semillas — ventana propia (no vive dentro de Configuración).
+       Contar las semillas de cada surco a lo largo de un tramo y decir cuál está
+       bien y cuál no: la versión digital de poner la bandeja abajo del cuerpo.
+
+       Layout: barra de control arriba (metros, iniciar, parar, reset), progreso,
+       y una TABLA con una fila por surco. Se mira manejando, así que números
+       grandes, una fila por línea de siembra y veredicto por color.
+       ============================================================================ */
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: var(--agp-font-sans); background: var(--agp-bg); color: var(--agp-text);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    /* ── Encabezado ─────────────────────────────────────────────────── */
+    .hd {
+      display: flex; align-items: center; gap: var(--agp-sp-2);
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      background: var(--agp-surface); border-bottom: var(--agp-border-w) solid var(--agp-border);
+      flex-shrink: 0;
+    }
+    .hd h1 { font-size: var(--agp-fs-md); font-weight: var(--agp-fw-semi); margin: 0; flex: 1; }
+    .estado {
+      font-size: var(--agp-fs-xs); font-weight: var(--agp-fw-semi);
+      padding: 3px 10px; border-radius: var(--agp-radius-pill);
+      background: var(--agp-bg-soft); color: var(--agp-text-muted);
+    }
+    .estado.mid { background: var(--agp-state-warn-bg, #FDF3DC); color: var(--agp-state-warn); }
+    .estado.fin { background: var(--agp-accent-soft); color: var(--agp-state-ok); }
+
+    /* ── Controles ──────────────────────────────────────────────────── */
+    .ctrl {
+      display: flex; align-items: center; gap: var(--agp-sp-2); flex-wrap: wrap;
+      padding: var(--agp-sp-2) var(--agp-sp-3); flex-shrink: 0;
+    }
+    .ctrl .lbl { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+    .metros { display: flex; gap: 4px; }
+    .metros button {
+      min-width: 60px; height: 40px; font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-medium);
+      background: var(--agp-surface); color: var(--agp-text); cursor: pointer;
+      border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-sm);
+    }
+    .metros button.on { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .acc { display: flex; gap: 6px; margin-left: auto; }
+    .acc button {
+      height: 40px; padding: 0 var(--agp-sp-4); font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-semi);
+      background: var(--agp-surface); color: var(--agp-text); cursor: pointer;
+      border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-sm);
+    }
+    .acc button.go { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .acc button:disabled { opacity: .45; cursor: default; }
+
+    /* ── Progreso ───────────────────────────────────────────────────── */
+    .prog { padding: 0 var(--agp-sp-3) var(--agp-sp-2); flex-shrink: 0; }
+    .riel {
+      position: relative; height: 30px; border-radius: var(--agp-radius-sm); overflow: hidden;
+      background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-border);
+    }
+    .riel .fill { height: 100%; width: 0; background: var(--agp-accent); transition: width .25s linear; }
+    .riel .txt {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-semi);
+    }
+
+    /* ── Tabla ──────────────────────────────────────────────────────── */
+    .wrap { flex: 1 1 auto; overflow: auto; min-height: 0; padding: 0 var(--agp-sp-3) var(--agp-sp-3); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      position: sticky; top: 0; z-index: 1;
+      background: var(--agp-bg); text-align: right;
+      font-size: var(--agp-fs-xs); font-weight: var(--agp-fw-semi); color: var(--agp-text-muted);
+      padding: var(--agp-sp-2) var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border-strong);
+      white-space: nowrap;
+    }
+    thead th:first-child, tbody td:first-child { text-align: left; }
+    tbody td {
+      padding: var(--agp-sp-2); text-align: right; font-size: var(--agp-fs-sm);
+      border-bottom: var(--agp-border-w) solid var(--agp-border); white-space: nowrap;
+    }
+    tbody tr { background: var(--agp-surface); }
+    tbody tr.ok     td:first-child { border-left: 4px solid var(--agp-state-ok); }
+    tbody tr.bajo   td:first-child { border-left: 4px solid var(--agp-state-bad); }
+    tbody tr.exceso td:first-child { border-left: 4px solid var(--agp-state-warn); }
+    tbody tr.sin_datos td { color: var(--agp-text-muted); }
+    tbody tr.sin_datos td:first-child { border-left: 4px solid var(--agp-border-strong); }
+    .surco { font-weight: var(--agp-fw-semi); color: var(--agp-text); }
+    .cable { font-size: var(--agp-fs-xs); color: var(--agp-text-dim); font-weight: var(--agp-fw-regular); }
+    .dens { font-family: var(--agp-font-mono); font-size: var(--agp-fs-md); font-weight: var(--agp-fw-bold); }
+    .num  { font-family: var(--agp-font-mono); }
+    .vd {
+      display: inline-block; min-width: 74px; text-align: center;
+      font-size: var(--agp-fs-xs); font-weight: var(--agp-fw-bold);
+      padding: 3px 8px; border-radius: var(--agp-radius-pill);
+    }
+    .vd.ok     { background: var(--agp-accent-soft); color: var(--agp-state-ok); }
+    .vd.bajo   { background: var(--agp-state-bad-bg, #FBE9E9); color: var(--agp-state-bad); }
+    .vd.exceso { background: var(--agp-state-warn-bg, #FDF3DC); color: var(--agp-state-warn); }
+    .vd.sin_datos { background: var(--agp-bg-soft); color: var(--agp-text-muted); }
+    .desv.pos { color: var(--agp-state-warn); }
+    .desv.neg { color: var(--agp-state-bad); }
+
+    tfoot td {
+      padding: var(--agp-sp-2); font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-semi);
+      border-top: var(--agp-border-w) solid var(--agp-border-strong); text-align: right;
+    }
+    tfoot td:first-child { text-align: left; color: var(--agp-text-muted); }
+
+    .vacio { text-align: center; color: var(--agp-text-muted); font-size: var(--agp-fs-sm); padding: var(--agp-sp-5); }
+  </style>
+</head>
+<body>
+  <div class="hd">
+    <h1>Conteo de semillas</h1>
+    <span class="estado" id="estado">detenido</span>
+  </div>
+
+  <div class="ctrl">
+    <span class="lbl">Metros a contar</span>
+    <div class="metros" id="metros">
+      <button data-m="25">25</button>
+      <button data-m="50">50</button>
+      <button data-m="100" class="on">100</button>
+      <button data-m="200">200</button>
+    </div>
+    <div class="acc">
+      <button class="go" id="btnGo">Iniciar</button>
+      <button id="btnStop">Parar</button>
+      <button id="btnReset">Reset</button>
+    </div>
+  </div>
+
+  <div class="prog">
+    <div class="riel">
+      <div class="fill" id="fill"></div>
+      <div class="txt" id="progTxt">0 / 100 m</div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Surco</th>
+          <th>Semillas</th>
+          <th>Esperadas</th>
+          <th>Logrado</th>
+          <th>Objetivo</th>
+          <th>Desvío</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="tb">
+        <tr><td colspan="7"><div class="vacio">Elegí los metros y tocá <strong>Iniciar</strong>. Sembrá el tramo a velocidad pareja.</div></td></tr>
+      </tbody>
+      <tfoot id="tf"></tfoot>
+    </table>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+      var API = '/api/vistax';
+      var metrosSel = 100;
+      var $ = function (id) { return document.getElementById(id); };
+      var n1 = function (v) { return (v || 0).toFixed(1); };
+
+      $('metros').addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-m]');
+        if (!b) return;
+        metrosSel = parseInt(b.getAttribute('data-m'), 10) || 100;
+        Array.prototype.forEach.call($('metros').querySelectorAll('button'), function (x) {
+          x.classList.toggle('on', x === b);
+        });
+      });
+
+      async function post(path, body) {
+        try {
+          await fetch(API + path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: body ? JSON.stringify(body) : '{}'
+          });
+        } catch (e) { }
+        pintar();
+      }
+      $('btnGo').addEventListener('click', function () { post('/prueba/iniciar', { distancia_m: metrosSel }); });
+      $('btnStop').addEventListener('click', function () { post('/prueba/cancelar'); });
+      $('btnReset').addEventListener('click', function () { post('/prueba/reset'); });
+
+      var TXT = { ok: 'BIEN', bajo: 'FALTA', exceso: 'DE MÁS', sin_datos: 'sin datos' };
+
+      function fila(s) {
+        var v = s.veredicto || 'sin_datos';
+        var d = s.desvio_pct || 0;
+        var desv = (v === 'sin_datos') ? '—'
+          : '<span class="desv ' + (d >= 0 ? 'pos' : 'neg') + '">' + (d > 0 ? '+' : '') + n1(d) + '%</span>';
+        return '<tr class="' + v + '">' +
+          '<td><span class="surco">Surco ' + (s.bajada || '?') + '</span> <span class="cable">c' + s.cable + '</span></td>' +
+          '<td class="num">' + (s.semillas || 0) + '</td>' +
+          '<td class="num">' + (s.esperadas > 0 ? s.esperadas : '—') + '</td>' +
+          '<td class="dens">' + n1(s.sem_m) + '</td>' +
+          '<td class="num">' + (s.objetivo_sem_m > 0 ? n1(s.objetivo_sem_m) : '—') + '</td>' +
+          '<td>' + desv + '</td>' +
+          '<td><span class="vd ' + v + '">' + (TXT[v] || v) + '</span></td>' +
+        '</tr>';
+      }
+
+      async function pintar() {
+        var p;
+        try { p = await (await fetch(API + '/prueba')).json(); } catch (e) { return; }
+        if (!p) return;
+
+        var obj = p.distancia_objetivo_m || metrosSel;
+        var rec = p.distancia_recorrida_m || 0;
+        $('fill').style.width = (obj > 0 ? Math.min(100, rec / obj * 100) : 0).toFixed(1) + '%';
+        $('progTxt').textContent = rec.toFixed(0) + ' / ' + obj.toFixed(0) + ' m';
+
+        var est = $('estado');
+        est.classList.remove('mid', 'fin');
+        if (p.activa) { est.classList.add('mid'); est.textContent = 'contando…'; }
+        else if (p.terminada) { est.classList.add('fin'); est.textContent = 'terminado'; }
+        else if (rec > 0) { est.textContent = 'en pausa'; }
+        else { est.textContent = 'detenido'; }
+
+        $('btnGo').textContent = (!p.activa && rec > 0 && !p.terminada) ? 'Seguir' : 'Iniciar';
+        $('btnGo').disabled = !!p.activa;
+        $('btnStop').disabled = !p.activa;
+
+        var surcos = (p.surcos || []).filter(function (s) { return s.bajada > 0 || s.semillas > 0; });
+        if (!surcos.length) {
+          $('tb').innerHTML = '<tr><td colspan="7"><div class="vacio">' +
+            (p.activa ? 'Contando… todavía no cayó ninguna semilla.'
+                      : 'Elegí los metros y tocá <strong>Iniciar</strong>. Sembrá el tramo a velocidad pareja.') +
+            '</div></td></tr>';
+          $('tf').innerHTML = '';
+          return;
+        }
+        $('tb').innerHTML = surcos.map(fila).join('');
+
+        // Resumen: total de semillas y cuántos surcos quedaron fuera de tolerancia.
+        var tot = 0, mal = 0, sum = 0, nn = 0;
+        surcos.forEach(function (s) {
+          tot += s.semillas || 0;
+          if (s.veredicto === 'bajo' || s.veredicto === 'exceso') mal++;
+          if (s.sem_m > 0) { sum += s.sem_m; nn++; }
+        });
+        $('tf').innerHTML = '<tr>' +
+          '<td>' + surcos.length + ' surcos · ' + (mal ? mal + ' fuera de tolerancia' : 'todos en tolerancia') + '</td>' +
+          '<td class="num">' + tot + '</td><td></td>' +
+          '<td class="dens">' + (nn ? n1(sum / nn) : '—') + '</td>' +
+          '<td colspan="3"></td></tr>';
+      }
+
+      pintar();
+      setInterval(pintar, 700);
+    })();
+  </script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

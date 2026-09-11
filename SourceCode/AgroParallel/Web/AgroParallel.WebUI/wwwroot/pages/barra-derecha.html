@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es" class="widget-mode">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Barra derecha · PilotX</title>
+  <style>
+    /* Copia HTML de la barra lateral derecha nativa (panelRight, FlowLayout
+       BottomUp): Piloto, U-turn, Secciones auto/manual, ISOBUS, AutoTrack,
+       ciclado de guías, Contorno y candado — mismo orden, mismos íconos y
+       mismas reglas de visibilidad que el panel nativo (GUI.Designer.cs).
+       La barra nativa sigue intacta; esto es un espejo. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: #F5F7F4;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      padding: 4px;
+      overflow: hidden;
+    }
+    /* column-reverse = FlowDirection BottomUp del nativo: el primer botón
+       del markup (Piloto) queda abajo de todo, como en la WinForm. */
+    .bar {
+      display: flex; flex-direction: column-reverse;
+      align-items: stretch; gap: 4px; height: 100%;
+      justify-content: flex-start;
+    }
+    /* Los botones crecen para repartirse la altura de la barra (espejo de
+       PanelSizeRightAndBottom en el nativo) y el ícono escala con el botón,
+       con tope en el tamaño nativo. Achicar la barra achica los íconos. */
+    .rbtn {
+      flex: 1 1 0; min-height: 34px; max-height: 96px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 4px;
+      border: 1px solid #C5CFC5; border-radius: 10px;
+      background: #E2E7E2; cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+      touch-action: manipulation;
+    }
+    .rbtn img {
+      width: 100%; height: 100%;
+      max-width: 54px; max-height: 54px;
+      object-fit: contain; pointer-events: none;
+    }
+    .rbtn:active { background: #C5CFC5; transform: translateY(1px); }
+    .rbtn.flash { border-color: #4ABA3E; box-shadow: 0 0 0 2px rgba(74,186,62,0.35); }
+    .rbtn.disabled { opacity: .45; pointer-events: none; }
+    .rbtn.hidden, .numcu.hidden { display: none; }
+
+    /* lblNumCu: guía activa "n/total" — solo lectura, arriba de todo */
+    .numcu {
+      flex: 0 0 auto; text-align: center;
+      font: 700 18px/1.2 "Arial", sans-serif; color: #101612;
+      padding: 4px 0;
+    }
+
+    /* sin lote abierto el panel nativo directamente no existe */
+    .nolote {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(245,247,244,0.92);
+      font: 600 12px/1.4 "Segoe UI", sans-serif; color: #535E54;
+      text-align: center; padding: 8px;
+    }
+    .nolote.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <!-- btnAutoSteer: piloto automático (abajo de todo, como el nativo) -->
+    <button type="button" class="rbtn" id="btnPiloto" data-cmd="autosteer" title="Piloto automático">
+      <img id="imgPiloto" src="../img/barra-derecha/AutoSteerOff.png" alt="">
+    </button>
+
+    <!-- btnAutoYouTurn: giro automático en cabecera -->
+    <button type="button" class="rbtn" id="btnUturn" data-cmd="uturn" title="Giro automático (U-turn)">
+      <img id="imgUturn" src="../img/barra-derecha/YouTurnNo.png" alt="">
+    </button>
+
+    <!-- btnSectionMasterAuto: secciones automáticas -->
+    <button type="button" class="rbtn" id="btnSecAuto" data-cmd="sec_auto" title="Secciones automáticas">
+      <img id="imgSecAuto" src="../img/barra-derecha/SectionMasterOff.png" alt="">
+    </button>
+
+    <!-- btnSectionMasterManual: secciones manuales -->
+    <button type="button" class="rbtn" id="btnSecManual" data-cmd="sec_manual" title="Secciones manuales">
+      <img id="imgSecManual" src="../img/barra-derecha/ManualOff.png" alt="">
+    </button>
+
+    <!-- btnIsobusSectionControl: solo visible con ISOBUS vivo -->
+    <button type="button" class="rbtn hidden" id="btnIsobus" data-cmd="isobus" title="Control de secciones ISOBUS">
+      <img id="imgIsobus" src="../img/barra-derecha/IsobusSectionControlOff.png" alt="">
+    </button>
+
+    <!-- btnAutoTrack: cambio automático de guía -->
+    <button type="button" class="rbtn hidden" id="btnAutoTrack" data-cmd="autotrack" title="Cambio automático de guía">
+      <img id="imgAutoTrack" src="../img/barra-derecha/AutoTrackOff.png" alt="">
+    </button>
+
+    <!-- btnCycleLinesBk: guía anterior -->
+    <button type="button" class="rbtn hidden" id="btnTrackPrev" data-cmd="track_prev" title="Guía anterior">
+      <img src="../img/barra-derecha/ABLineCycleBk.png" alt="">
+    </button>
+
+    <!-- btnCycleLines: guía siguiente -->
+    <button type="button" class="rbtn hidden" id="btnTrackNext" data-cmd="track_next" title="Guía siguiente">
+      <img src="../img/barra-derecha/ABLineCycle.png" alt="">
+    </button>
+
+    <!-- btnContour: guiado por contorno -->
+    <button type="button" class="rbtn" id="btnContour" data-cmd="contour" title="Guiado por contorno">
+      <img id="imgContour" src="../img/barra-derecha/ContourOff.png" alt="">
+    </button>
+
+    <!-- btnContourLock: candado del contorno (solo con contorno activo) -->
+    <button type="button" class="rbtn hidden" id="btnContourLock" data-cmd="contour_lock" title="Bloquear contorno">
+      <img id="imgContourLock" src="../img/barra-derecha/ColorUnlocked.png" alt="">
+    </button>
+
+    <!-- lblNumCu: guía activa n/total (arriba de todo, como el nativo) -->
+    <div class="numcu hidden" id="numCu"></div>
+  </div>
+
+  <!-- el panelRight nativo se oculta sin lote abierto -->
+  <div class="nolote" id="noLote">Abrí un lote para operar</div>
+
+  <script src="../js/barra-derecha.js?v=2"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

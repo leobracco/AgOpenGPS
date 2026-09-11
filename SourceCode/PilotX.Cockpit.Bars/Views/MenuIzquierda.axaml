@@ -1,0 +1,312 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PilotX.Cockpit.Bars.ViewModels"
+             xmlns:views="using:PilotX.Cockpit.Bars.Views"
+             x:Class="PilotX.Cockpit.Bars.Views.MenuIzquierda"
+             x:DataType="vm:MenuIzquierdaViewModel">
+  <UserControl.Resources>
+    <views:StringEqualsConverter x:Key="StrEq"/>
+  </UserControl.Resources>
+
+  <!-- Clon del panelLeft de AOG 6.8.5 (espejo nativo de menu-izquierda.html):
+       Pantalla, Herramientas, Configuración, LOTE grande, Dirección, CoreX
+       ("Herr. lote" se eliminó 2026-08-06 — la geometría vive en la barra de
+       la pasada), submenús con los iconos del 6.8.5. Estilos scopeados a este
+       control para no chocar con BarStyles global. -->
+  <UserControl.Styles>
+    <!-- Minimalista: sin recuadro por botón. Siete tarjetas con borde apiladas
+         hacían mucho ruido visual al lado del mapa; el botón se distingue por el
+         espaciado y solo se pinta cuando está activo o bajo el dedo. -->
+    <Style Selector="Button.mbtn">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="2"/>
+      <Setter Property="MinHeight" Value="52"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.mbtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F0F4F0"/>
+      <Setter Property="BorderBrush" Value="#C8D1C8"/>
+    </Style>
+    <Style Selector="Button.mbtn.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#EAF6E7"/>
+      <Setter Property="BorderBrush" Value="#4ABA3E"/>
+    </Style>
+
+    <!-- Botón LOTE: más grande que el resto (jerarquía visual, como el
+         btnJobMenu de AOG) pero SIN verde permanente — solo se resalta
+         cuando su submenú está abierto, igual que los demás (.active). -->
+    <Style Selector="Button.mbtn.lote">
+      <Setter Property="MinHeight" Value="78"/>
+    </Style>
+    <Style Selector="Button.mbtn.lote Image.mico">
+      <Setter Property="Width" Value="36"/>
+      <Setter Property="Height" Value="36"/>
+    </Style>
+    <!-- LOTE puede ir más grande: es la palabra más corta del menú y entra
+         holgada aunque no se corte nada. -->
+    <Style Selector="Button.mbtn.lote TextBlock.mlbl">
+      <Setter Property="Foreground" Value="#08120A"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+
+    <Style Selector="Button.sbtn">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="9"/>
+      <Setter Property="MinHeight" Value="48"/>
+      <Setter Property="Padding" Value="2"/>
+      <Setter Property="Margin" Value="1"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.sbtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F0F4F0"/>
+      <Setter Property="BorderBrush" Value="#C8D1C8"/>
+    </Style>
+
+    <Style Selector="Image.mico">
+      <Setter Property="Width" Value="28"/>
+      <Setter Property="Height" Value="28"/>
+      <Setter Property="Stretch" Value="Uniform"/>
+    </Style>
+    <!-- Ícono real del submenú (PNG verdadero del 6.8.5) -->
+    <Style Selector="Image.sico">
+      <Setter Property="Width" Value="24"/>
+      <Setter Property="Height" Value="24"/>
+      <Setter Property="Stretch" Value="Uniform"/>
+    </Style>
+    <!-- Ícono arriba + etiqueta abajo: el ícono es el que se reconoce de lejos
+         (son los mismos PNG del 6.8.5, lo que el operario ya venía usando) y la
+         palabra confirma. La etiqueta NO se toca al agregarlos: sigue en
+         NoWrap 10 px porque las palabras no se tienen que cortar — la columna
+         deja ~80 px útiles y la más larga ("Configuración") mide 93 px a 13,
+         86 a 12 y 72 a 10 — medido, no estimado. Vertical: 28 de ícono + 2 de
+         aire + ~14 de línea = 44 dentro de los 52 de MinHeight. -->
+    <Style Selector="TextBlock.mlbl">
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#101612"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="TextWrapping" Value="NoWrap"/>
+      <Setter Property="TextTrimming" Value="None"/>
+      <Setter Property="Margin" Value="0,2,0,0"/>
+    </Style>
+    <Style Selector="TextBlock.slbl">
+      <Setter Property="FontSize" Value="9"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#101612"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Margin" Value="0,2,0,0"/>
+    </Style>
+    <Style Selector="TextBlock.subtitle">
+      <Setter Property="FontSize" Value="10.5"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#6F786F"/>
+      <Setter Property="Margin" Value="2,0,0,6"/>
+    </Style>
+
+    <!-- Handle de plegado/despliegue: pestaña angosta siempre visible, para
+         que el operario pueda sacar el menú de encima del mapa sin perder
+         acceso a él. -->
+    <Style Selector="Button.collapseToggle">
+      <Setter Property="Background" Value="#F0F4F0"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Width" Value="26"/>
+      <Setter Property="MinHeight" Value="52"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.collapseToggle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#E4EBE4"/>
+    </Style>
+    <Style Selector="TextBlock.collapseGlyph">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#4A5A4A"/>
+    </Style>
+  </UserControl.Styles>
+
+  <!-- El control mide SIEMPRE lo mismo (la columna del submenú ya está
+       reservada): así abrir un submenú no re-acomoda nada bajo el dedo. El
+       fondo blanco lo pone un Border interno que cubre solo el handle y la
+       columna de botones — el resto queda transparente y deja ver el mapa.
+
+       CENTRADO vertical, no estirado (pedido 2026-08-14): con los botones
+       repartidos a lo alto el menú llegaba hasta abajo y desplegado tapaba
+       la barra de la pasada. Ahora es un panel flotante a la altura del
+       chevrón (que ya vivía centrado) y abajo queda mapa libre. -->
+  <Border Background="Transparent" Padding="6" VerticalAlignment="Center">
+    <Grid ColumnDefinitions="Auto,92,*">
+
+      <!-- Fondo de la barra propiamente dicha (handle + botones). -->
+      <Border Grid.Column="0" Grid.ColumnSpan="2"
+              Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1"
+              CornerRadius="10" Margin="-6,-6,0,-6"/>
+
+      <!-- ===== handle de plegado: siempre visible, incluso con el menú
+           colapsado (única forma de volver a desplegarlo) ===== -->
+      <Button Grid.Column="0" Classes="collapseToggle" Margin="0,0,6,0"
+              Command="{Binding ToggleCollapsedCommand}">
+        <Panel>
+          <TextBlock Classes="collapseGlyph" Text="›" IsVisible="{Binding IsCollapsed}"/>
+          <TextBlock Classes="collapseGlyph" Text="‹" IsVisible="{Binding !IsCollapsed}"/>
+        </Panel>
+      </Button>
+
+      <!-- ===== columna principal: orden real del panelLeft de AOG. Oculta
+           por completo (junto con cualquier submenú abierto) cuando el
+           menú está plegado — así no ocupa nada del mapa. Pila COMPACTA
+           (pedido 2026-08-14): las filas "*" repartían los botones en todo
+           el alto y el menú llegaba hasta la barra de abajo; apilados con
+           poco aire el panel mide lo que miden los botones. ===== -->
+      <StackPanel Grid.Column="1" IsVisible="{Binding !IsCollapsed}"
+                  Orientation="Vertical" Spacing="2" Margin="0,0,8,0">
+        <Button Classes="mbtn"
+                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion">
+          <!-- "Pantalla" (ex "Navegación"): el grupo es día/noche + brillo,
+               puro pantalla — el nombre viejo no condecía con el contenido.
+               El sol (settings del handoff) acá SÍ dice lo que hay adentro.
+               El CommandParameter sigue siendo "navegacion": es contrato
+               interno con el ViewModel, no texto visible. -->
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/Pantalla.png"/><TextBlock Classes="mlbl" Text="Pantalla"/></StackPanel>
+        </Button>
+        <Button Classes="mbtn"
+                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="herramientas">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/SpecialFunctions.png"/><TextBlock Classes="mlbl" Text="Herramientas"/></StackPanel>
+        </Button>
+        <!-- Configuración va DIRECTO a la pantalla de config: es la que se usa
+             todo el tiempo y no vale la pena un submenú intermedio. El resto de
+             lo que colgaba de acá (colores, directorios, atajos, ver ajustes)
+             sigue estando en Herramientas y en la propia pantalla. -->
+        <Button Classes="mbtn"
+                Command="{Binding SendCommand}" CommandParameter="config_form">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/Settings48.png"/><TextBlock Classes="mlbl" Text="Configuración"/></StackPanel>
+        </Button>
+        <Button Classes="mbtn lote"
+                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="lote">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/JobActive.png"/><TextBlock Classes="mlbl" Text="LOTE"/></StackPanel>
+        </Button>
+        <!-- "Herr. lote" ELIMINADO del menú (pedido usuario 2026-08-06): la
+             geometría de la pasada (Guías/Lindero/Cabecera) ya vive en la
+             barra inferior. Su submenú se fue con él; los comandos
+             (tram_crear, ruta_grabada, importar_guias, etc.) siguen cableados
+             en RouteCockpitCommand por si vuelven a colgarse de algo. -->
+        <Button Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="direccion">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/AutoSteerConf.png"/><TextBlock Classes="mlbl" Text="Dirección"/></StackPanel>
+        </Button>
+        <Button Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="corex">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/CoreX.png"/><TextBlock Classes="mlbl" Text="CoreX"/></StackPanel>
+        </Button>
+      </StackPanel>
+
+      <!-- ===== submenús (contenido e iconos verdaderos del 6.8.5) ===== -->
+
+      <!-- Navegación (panelNavigation de AOG) -->
+      <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="PANTALLA"/>
+          <ScrollViewer>
+            <UniformGrid Columns="2" VerticalAlignment="Top">
+              <!-- "2D/3D/Norte 2D/Inclinar +/−" sacados (2026-07-29, pedido del
+                   usuario): el pitch de cámara y el heading-up/north-up toggle
+                   quedan afuera del menú. SetHeadingUp/SetPitchDeg/TiltBy
+                   siguen vivos en MapGlSurface/MapPanel + el wiring en
+                   RouteCockpitCommand, por si se los vuelve a colgar de un
+                   botón más adelante — mismo criterio que "Grilla". -->
+              <!-- "Grilla" sacado (2026-07-28): el cuadriculado de fondo se
+                   quitó del mapa a pedido del usuario (no marcaba referencias
+                   y se redibujaba entero cada frame) — el botón quedaba sin
+                   ningún efecto. DrawGrid/_gridOn siguen vivos en MapGlSurface
+                   por si algún día hace falta volver a colgarlo de un toggle. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="dia_noche"><StackPanel><Image Classes="sico" Source="/Assets/menu/WindowNightMode.png"/><TextBlock Classes="slbl" Text="Día / Noche"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="brillo_up"><StackPanel><Image Classes="sico" Source="/Assets/menu/BrightnessUp.png"/><TextBlock Classes="slbl" Text="Brillo +"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="brillo_dn"><StackPanel><Image Classes="sico" Source="/Assets/menu/BrightnessDn.png"/><TextBlock Classes="slbl" Text="Brillo −"/></StackPanel></Button>
+            </UniformGrid>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+
+      <!-- Herramientas (dropdown Tools de AOG, Wizards/Charts aplanados) -->
+      <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="HERRAMIENTAS"/>
+          <ScrollViewer>
+            <UniformGrid Columns="2" VerticalAlignment="Top">
+              <!-- "Asist. dirección" sacado (2026-07-29, pedido del usuario). -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_direccion"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoSteerOn.png"/><TextBlock Classes="slbl" Text="Gráfico dirección"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_rumbo"><StackPanel><Image Classes="sico" Source="/Assets/menu/ConS_SourcesHeading.png"/><TextBlock Classes="slbl" Text="Gráfico rumbo"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_xte"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoManualIsAuto.png"/><TextBlock Classes="slbl" Text="Gráfico XTE"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="chequeo_roll"><StackPanel><Image Classes="sico" Source="/Assets/menu/ConS_SourcesRoll.png"/><TextBlock Classes="slbl" Text="Corrección roll"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="herr_limites"><StackPanel><Image Classes="sico" Source="/Assets/menu/Boundary.png"/><TextBlock Classes="slbl" Text="Herram. límites"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="visor_eventos"><StackPanel><Image Classes="sico" Source="/Assets/menu/ABTracks.png"/><TextBlock Classes="slbl" Text="Visor eventos"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="suavizar_ab"><StackPanel><Image Classes="sico" Source="/Assets/menu/ABSmooth.png"/><TextBlock Classes="slbl" Text="Suavizar AB"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="borrar_contornos"><StackPanel><Image Classes="sico" Source="/Assets/menu/TrashContourRef.png"/><TextBlock Classes="slbl" Text="Ocultar contornos"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="webcam"><StackPanel><Image Classes="sico" Source="/Assets/menu/Webcam.png"/><TextBlock Classes="slbl" Text="Webcam"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="corregir_pos"><StackPanel><Image Classes="sico" Source="/Assets/menu/YouTurnReverse.png"/><TextBlock Classes="slbl" Text="Corregir posición"/></StackPanel></Button>
+              <!-- Conteo de semillas: ventana propia (pedido 2026-08-06), no
+                   embebida en Configuración. Cuenta las semillas de cada surco
+                   sobre un tramo y dice cuál está bien y cuál no. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="conteo_semillas"><StackPanel><Image Classes="sico" Source="/Assets/menu/SectionMapping.png"/><TextBlock Classes="slbl" Text="Conteo de semillas"/></StackPanel></Button>
+              <!-- Apagar / Reiniciar la PC: enrutan por RouteCockpitCommand al
+                   panel Sistema nativo con la accion armada (tap-to-confirm). -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="apagar_pc"><StackPanel><Image Classes="sico" Source="/Assets/menu/SwitchOff.png"/><TextBlock Classes="slbl" Text="Apagar PC"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="reiniciar_pc"><StackPanel><Image Classes="sico" Source="/Assets/menu/SwitchOff.png"/><TextBlock Classes="slbl" Text="Reiniciar PC"/></StackPanel></Button>
+              <!-- Config de IP (DHCP/fija) por adaptador. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="red_ip"><StackPanel><Image Classes="sico" Source="/Assets/menu/Settings48.png"/><TextBlock Classes="slbl" Text="Red IP"/></StackPanel></Button>
+            </UniformGrid>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+
+
+      <!-- LOTE (btnJobMenu de AOG) -->
+      <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="LOTE"/>
+          <ScrollViewer>
+            <UniformGrid Columns="2" VerticalAlignment="Top">
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_continuar"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileOpen.png"/><TextBlock Classes="slbl" Text="Continuar"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_abrir"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileOpen.png"/><TextBlock Classes="slbl" Text="Abrir"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_nuevo"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileNew.png"/><TextBlock Classes="slbl" Text="Nuevo"/></StackPanel></Button>
+              <!-- "Nuevo desde KML" se sacó del menú (pedido 2026-08-06);
+                   el comando lote_kml sigue cableado por si vuelve. -->
+              <!-- Rescatado del difunto "Herr. lote" (pedido 2026-08-06):
+                   borra la cobertura pintada/trabajada del lote. OJO: fiel al
+                   6.8.5, solo borra con las secciones APAGADAS (ni Manual ni
+                   Auto) — con secciones activas devuelve unknown. -->
+              <!-- En rojo: es el ÚNICO del submenú que destruye trabajo hecho,
+                   y hasta ahora se veía igual que "Continuar" o "Abrir". El
+                   color no lo mueve de lugar; la confirmación la pide
+                   MainWindow antes de mandar el comando al motor. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="borrar_aplicado"><StackPanel><Image Classes="sico" Source="/Assets/menu/TrashApplied.png"/><TextBlock Classes="slbl" Foreground="#C84E48" Text="Borrar pintado"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_cerrar"><StackPanel><Image Classes="sico" Source="/Assets/menu/SwitchOff.png"/><TextBlock Classes="slbl" Text="Cerrar"/></StackPanel></Button>
+            </UniformGrid>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+
+      <!-- El submenú "Herr. lote" se fue con su botón (2026-08-06). -->
+    </Grid>
+  </Border>
+</UserControl>

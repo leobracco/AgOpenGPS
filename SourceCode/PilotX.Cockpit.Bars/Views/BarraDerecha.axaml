@@ -1,0 +1,239 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PilotX.Cockpit.Bars.ViewModels"
+             xmlns:views="using:PilotX.Cockpit.Bars.Views"
+             x:Class="PilotX.Cockpit.Bars.Views.BarraDerecha"
+             x:DataType="vm:BarraDerechaViewModel">
+  <UserControl.Resources>
+    <views:AssetImageConverter x:Key="Asset"/>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <!-- Botón con título: el ícono solo no alcanzaba para saber qué hacía
+         cada uno (pedido usuario 2026-08-04). -->
+    <Style Selector="TextBlock.cap">
+      <Setter Property="FontSize" Value="9"/>
+      <Setter Property="Foreground" Value="#535E54"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,1,0,0"/>
+    </Style>
+    <!-- Estos botones son ÍCONO: sin atenuarlo se ven igual de vivos estando
+         deshabilitados y el operario los toca esperando que hagan algo. -->
+    <Style Selector="Button:disabled Image">
+      <Setter Property="Opacity" Value="0.35"/>
+    </Style>
+
+    <!-- ===== EL ESTADO SE VE EN EL BOTÓN, no en el dibujo =====
+         Mismo criterio —y el MISMO verde— que el overlay de la pasada, para que
+         "verde = puesto" signifique una sola cosa en toda la pantalla. Antes el
+         único cambio era el PNG de 26 px de adentro y había que mirarlo para
+         saber si estaba puesto.
+         El fondo NO es el verde de acento #4ABA3E: los PNG de "puesto" están
+         pintados en ese mismo #4ABA3E y el ícono se borraba dentro del botón
+         (1,00:1, medido); además la palabra en blanco sobre ese verde da 2,5:1.
+         Con #1E5E1A el ícono da 3,1:1 y la palabra 7,9:1.
+         Deshabilitado sigue diferenciándose: BarStyles baja el botón entero a
+         0.4 de opacidad, y acá se aclara el verde para que un botón puesto pero
+         no tocable no se lea como apagado. -->
+    <Style Selector="Button.on">
+      <Setter Property="Background" Value="#1E5E1A"/>
+      <Setter Property="BorderBrush" Value="#14400F"/>
+    </Style>
+    <Style Selector="Button.on /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#1E5E1A"/>
+      <Setter Property="BorderBrush" Value="#14400F"/>
+    </Style>
+    <!-- Hover y pressed MÁS oscuros, nunca más claros: el ícono verde no puede
+         perder contraste justo cuando el dedo lo está tocando. -->
+    <Style Selector="Button.on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#1A5216"/>
+      <Setter Property="BorderBrush" Value="#14400F"/>
+    </Style>
+    <Style Selector="Button.on:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#143F11"/>
+      <Setter Property="BorderBrush" Value="#14400F"/>
+    </Style>
+    <Style Selector="Button.on TextBlock.cap">
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <!-- Puesto PERO sin poder tocarse (p. ej. el hidráulico con la cabecera
+         apagada): verde claro, ni miente que esté disponible ni que esté
+         apagado. Sin esto el tema Fluent pintaba el deshabilitado gris y el
+         botón puesto se leía como apagado. -->
+    <Style Selector="Button.on:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#BFDCBA"/>
+      <Setter Property="BorderBrush" Value="#A9CCA3"/>
+    </Style>
+    <Style Selector="Button.on:disabled TextBlock.cap">
+      <Setter Property="Foreground" Value="#516052"/>
+    </Style>
+
+    <!-- Handle de plegado. Mismo lenguaje que el del menú izquierdo para que
+         se lea como el mismo gesto, no como dos cosas distintas. -->
+    <Style Selector="Button.collapseToggle">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Width" Value="18"/>
+      <Setter Property="VerticalAlignment" Value="Stretch"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.collapseToggle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#E2E7E2"/>
+    </Style>
+    <Style Selector="TextBlock.collapseGlyph">
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="Foreground" Value="#535E54"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+  </UserControl.Styles>
+
+  <!-- Panel flotante redondeado, mismo lenguaje que el menú izquierdo
+       compactado (2026-08-14): antes era una franja de borde a borde. -->
+  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="1"
+          CornerRadius="10" Padding="3" Margin="0,0,4,0">
+    <!-- Handle a la IZQUIERDA (el lado del mapa) y flechas espejadas respecto
+         del menú izquierdo: acá "‹" despliega y "›" repliega. Queda siempre
+         visible, incluso plegada — es la única forma de volver a abrirla. -->
+    <Grid ColumnDefinitions="Auto,*">
+      <Button Grid.Column="0" Classes="collapseToggle" Margin="0,0,3,0"
+              Command="{Binding ToggleCollapsedCommand}"
+              ToolTip.Tip="Mostrar/ocultar la barra">
+        <Panel>
+          <TextBlock Classes="collapseGlyph" Text="‹" IsVisible="{Binding IsCollapsed}"/>
+          <TextBlock Classes="collapseGlyph" Text="›" IsVisible="{Binding !IsCollapsed}"/>
+        </Panel>
+      </Button>
+
+    <!-- orden visual arriba->abajo (numCu arriba, Piloto abajo, como el nativo)
+
+         Width FIJO acá, no en el control entero: los botones tienen que medir
+         todos lo mismo (si no, "Cab. secc." ensancha más que "Tram" y la barra
+         queda dentada), pero el ancho tiene que DESAPARECER al plegarse. Poner
+         el ancho en el UserControl hacía una cosa o la otra, nunca las dos. -->
+    <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="3"
+                Width="56" IsVisible="{Binding !IsCollapsed}">
+      <TextBlock Text="{Binding NumCuText}" IsVisible="{Binding NumCuVisible}"
+                 FontSize="14" FontWeight="Bold" Foreground="#101612"
+                 HorizontalAlignment="Center" Margin="0,1"/>
+      <!-- "Contorno" y "Fijar cont." SACADOS de la barra (pedido usuario
+           2026-08-06). Los comandos contour / contour_lock siguen cableados
+           en el motor por si el guiado por contorno vuelve a la UI. -->
+      <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="track_next">
+        <StackPanel>
+          <Image Source="/Assets/barra-derecha/ABLineCycle.png"/>
+          <TextBlock Classes="cap" Text="Guía sig."/>
+        </StackPanel>
+      </Button>
+      <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="track_prev">
+        <StackPanel>
+          <Image Source="/Assets/barra-derecha/ABLineCycleBk.png"/>
+          <TextBlock Classes="cap" Text="Guía ant."/>
+        </StackPanel>
+      </Button>
+      <Button IsVisible="{Binding TrackNavVisible}" Classes.on="{Binding AutoTrackOn}"
+              Command="{Binding SendCommand}" CommandParameter="autotrack">
+        <StackPanel>
+          <Image Source="{Binding AutoTrackImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Auto guía"/>
+        </StackPanel>
+      </Button>
+      <Button IsVisible="{Binding IsobusVisible}" Classes.on="{Binding IsobusOn}"
+              Command="{Binding SendCommand}" CommandParameter="isobus">
+        <StackPanel>
+          <Image Source="{Binding IsobusImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="ISOBUS"/>
+        </StackPanel>
+      </Button>
+      <!-- Manual / Auto de secciones y Giro SE FUERON al overlay flotante de
+           la pasada (MainWindow: NudgeOverlay), junto a la corrección lateral
+           y al Piloto — pedido usuario 2026-08-04. Todo lo que se toca
+           mirando la línea quedó junto y al alcance; duplicarlo acá solo
+           robaba barra. Los bindings (SecManualImg, SecAutoImg, UturnVisible,
+           UturnImg) siguen vivos en el ViewModel: los consume el overlay. -->
+
+      <!-- La corrección lateral (izq/der/centrar) se fue a un overlay
+           flotante sobre el mapa, centrado arriba de las secciones: son tres
+           botones que se usan juntos y mirando la línea, no la barra.
+           Bajados de la barra de abajo (pedido usuario 2026-08-04). Allá
+           aparecían y desaparecían según el estado y nunca se sabía qué eran;
+           acá van fijos y CON TÍTULO. Deshabilitados cuando no aplican. -->
+      <!-- "Tram" (vista de huellas) SACADO de la barra (pedido usuario
+           2026-08-06). El comando tram_vista sigue cableado. -->
+      <Button IsEnabled="{Binding HydEnabled}" IsVisible="{Binding HydVisible}"
+              Classes.on="{Binding HydOn}"
+              Command="{Binding SendCommand}" CommandParameter="hidraulico">
+        <StackPanel>
+          <Image Source="{Binding HydImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Hidráulico"/>
+        </StackPanel>
+      </Button>
+
+      <!-- Guía de por medio y los dos de corte por cabecera. Estuvieron un rato
+           en la barra de arriba pero el usuario los quiso acá, con el resto de
+           lo que se toca durante la pasada. Siempre visibles y deshabilitados
+           cuando no aplican (sin guía activa / sin cabecera), no ocultos: la
+           barra no se mueve sola y se ve qué hay disponible. -->
+      <Button IsEnabled="{Binding YouSkipVisible}" Classes.on="{Binding YouSkipOn}"
+              Command="{Binding SendCommand}"
+              CommandParameter="uturn_skips" ToolTip.Tip="Guía de por medio">
+        <StackPanel>
+          <Image Source="{Binding YouSkipImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Por medio"/>
+        </StackPanel>
+      </Button>
+      <Button IsEnabled="{Binding HeadlandVisible}" Classes.on="{Binding HdlSecOn}"
+              Command="{Binding SendCommand}"
+              CommandParameter="cabecera_secciones" ToolTip.Tip="Corte por cabecera: secciones">
+        <StackPanel>
+          <Image Source="{Binding HdlSecImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Cab. secc."/>
+        </StackPanel>
+      </Button>
+      <Button IsEnabled="{Binding HeadlandVisible}" Classes.on="{Binding HeadlandOn}"
+              Command="{Binding SendCommand}"
+              CommandParameter="cabecera_onoff" ToolTip.Tip="Corte por cabecera: activar">
+        <StackPanel>
+          <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Cabecera"/>
+        </StackPanel>
+      </Button>
+
+      <!-- Bajados de la barra de abajo (pedido usuario 2026-08-04): enderezar
+           implemento, bandera y crear guías. Son acciones puntuales, no de la
+           pasada, y acá quedan al alcance sin competir con las secciones. -->
+      <Button Command="{Binding SendCommand}" CommandParameter="reset_herramienta"
+              ToolTip.Tip="Enderezar implemento">
+        <StackPanel>
+          <Image Source="/Assets/barra-abajo/ResetTool.png"/>
+          <TextBlock Classes="cap" Text="Enderezar"/>
+        </StackPanel>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="bandera" ToolTip.Tip="Bandera">
+        <StackPanel>
+          <Image Source="{Binding FlagImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Bandera"/>
+        </StackPanel>
+      </Button>
+      <!-- "Guías" se mudó al overlay de la pasada (MainWindow, a la derecha
+           de Automático con separador; pedido usuario 2026-08-05): elegir la
+           guía es parte del flujo de la pasada. En el host WinForms (que no
+           tiene ese overlay) el selector sigue accesible por el menú. -->
+
+      <!-- Giro manual (↰/↱), salteo de guía y cantidad de guías a saltear
+           VIVÍAN acá; se quitaron a pedido del usuario porque ya están todos
+           en el cluster del piloto (arriba-centro del mapa, MainWindow:
+           PcGiroIzq/PcGiroDer/PcSkipMenos/PcSkipMas). Duplicados en la barra
+           solo robaban lugar. Los bindings (GiroManualVisible, LateralVisible,
+           SaltosPosibles, SaltoDelGiro) siguen vivos en el ViewModel por si
+           alguna vista los quiere. El Piloto también bajó de acá al overlay
+           flotante de la pasada (MainWindow: NudgeOverlay). -->
+    </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

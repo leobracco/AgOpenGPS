@@ -1,0 +1,44 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Estilo ÚNICO de los botones de las 4 barras (se incluye una vez en
+        App.Styles del Host). Tema CLARO del design system PilotX
+        (superficie #E2E7E2, borde #C5CFC5, texto #101612, acento #4ABA3E),
+        compacto para pantalla chica 1024x768: MinHeight 26, fuente 12,
+        íconos hasta 34px.
+    -->
+    <Style Selector="Button">
+        <Setter Property="Background" Value="#E2E7E2"/>
+        <Setter Property="Foreground" Value="#101612"/>
+        <Setter Property="BorderBrush" Value="#C5CFC5"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Padding" Value="7,2"/>
+        <Setter Property="MinHeight" Value="26"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#D5DDD5"/>
+        <Setter Property="BorderBrush" Value="#B3BEB3"/>
+    </Style>
+
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#4ABA3E"/>
+        <Setter Property="BorderBrush" Value="#4ABA3E"/>
+        <Setter Property="TextBlock.Foreground" Value="#FFFFFF"/>
+    </Style>
+
+    <Style Selector="Button:disabled">
+        <Setter Property="Opacity" Value="0.4"/>
+    </Style>
+
+    <!-- Íconos de las barras derecha/abajo: chicos y uniformes. -->
+    <Style Selector="Image">
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="MaxWidth" Value="34"/>
+        <Setter Property="MaxHeight" Value="34"/>
+    </Style>
+</Styles>

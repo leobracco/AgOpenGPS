@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ayuda · PilotX</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    /* ============================================================================
+       Ayuda de PilotX — manual de cabina.
+       Dos columnas: índice pegajoso a la izquierda (táctil, sin depender de
+       teclado) y contenido a la derecha. Cada tema dice DÓNDE se hace la cosa
+       con una "ruta" (chips), que es lo que el operario necesita: no cómo
+       funciona por dentro, sino qué tocar y en qué orden.
+       Todo con tokens --agp-*; nada de hex sueltos salvo el blanco sobre acento.
+       ============================================================================ */
+    html, body { height: 100%; }
+    .page { display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; padding: var(--agp-sp-3); }
+    .page-head { flex-shrink: 0; margin-bottom: var(--agp-sp-2); }
+    .page-head h1 { font-size: var(--agp-fs-lg); }
+    .page-head .subtitle { font-size: var(--agp-fs-xs); }
+
+    .ay-wrap { display: flex; gap: var(--agp-sp-3); flex: 1 1 auto; min-height: 0; }
+
+    /* ── Índice ───────────────────────────────────────────────────────── */
+    .ay-idx {
+      flex: 0 0 208px; overflow-y: auto; min-height: 0;
+      display: flex; flex-direction: column; gap: 2px;
+      padding-right: var(--agp-sp-1);
+    }
+    .ay-idx a {
+      display: block; padding: 7px var(--agp-sp-2);
+      font-size: var(--agp-fs-sm); color: var(--agp-text); text-decoration: none;
+      border-radius: var(--agp-radius-sm); border: var(--agp-border-w) solid transparent;
+    }
+    .ay-idx a:hover { background: var(--agp-bg-soft); }
+    .ay-idx a.on { background: var(--agp-accent-soft); border-color: var(--agp-accent); font-weight: var(--agp-fw-semi); }
+    .ay-idx .ay-idx-tit {
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted); text-transform: uppercase;
+      letter-spacing: 0.6px; margin: var(--agp-sp-2) 0 2px var(--agp-sp-2);
+    }
+    @media (max-width: 760px) { .ay-idx { flex-basis: 150px; } }
+
+    /* ── Contenido ────────────────────────────────────────────────────── */
+    .ay-doc { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding-right: var(--agp-sp-2); }
+    .ay-doc section { margin-bottom: var(--agp-sp-5); scroll-margin-top: var(--agp-sp-2); }
+    .ay-doc h2 {
+      font-size: var(--agp-fs-md); font-weight: var(--agp-fw-semi); color: var(--agp-text);
+      margin: 0 0 var(--agp-sp-2) 0; padding-bottom: 4px;
+      border-bottom: var(--agp-border-w) solid var(--agp-border);
+    }
+    .ay-doc h3 {
+      font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-semi); color: var(--agp-text);
+      margin: var(--agp-sp-3) 0 var(--agp-sp-1) 0;
+    }
+    .ay-doc p, .ay-doc li { font-size: var(--agp-fs-sm); line-height: var(--agp-lh-normal, 1.5); color: var(--agp-text); }
+    .ay-doc p { margin: 0 0 var(--agp-sp-2) 0; }
+    .ay-doc ul, .ay-doc ol { margin: 0 0 var(--agp-sp-2) 0; padding-left: var(--agp-sp-4); }
+    .ay-doc li { margin-bottom: 3px; }
+    .ay-doc strong { font-weight: var(--agp-fw-semi); }
+
+    /* Ruta: "dónde se toca" — la información que más se busca. */
+    .ruta {
+      display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px;
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      margin: 0 0 var(--agp-sp-2) 0;
+    }
+    .ruta b {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); padding: 2px 7px;
+      color: var(--agp-text); font-weight: var(--agp-fw-medium);
+    }
+    .ruta b img { width: 16px; height: 16px; object-fit: contain; }
+    .ruta i { font-style: normal; color: var(--agp-text-dim); }
+
+    /* Atribución al upstream: PilotX deriva de AgOpenGPS y la GPL-3.0 pide
+       decirlo. Al pie, chica, sin robarle lugar al manual. */
+    .ay-doc .ay-cred {
+      margin: var(--agp-sp-4) 0 var(--agp-sp-3) 0;
+      padding-top: var(--agp-sp-2);
+      border-top: var(--agp-border-w) solid var(--agp-border);
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+    }
+
+    /* ── Botonera ilustrada: el ícono REAL de la app + qué hace ─────────
+       Es lo que convierte el manual en algo mirable: el operario reconoce
+       el dibujo que tiene en pantalla sin leer una palabra.
+
+       Los íconos salen de img/cockpit/, que es una COPIA de
+       PilotX.Cockpit.Bars/Assets — la iconografía Agro Parallel que se ve
+       hoy en las barras. NO usar img/menu ni img/barra-* de wwwroot: son
+       los PNG viejos del 6.8.5 (engranajes de colores) y el manual
+       mostraría botones que ya no existen. Si el pipeline de íconos
+       (Tools/generar-iconos-cockpit.py) regenera los Assets, re-copiar:
+       Assets\{menu,barra-abajo,barra-derecha} → wwwroot\img\cockpit\. */
+    .btns { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--agp-sp-2); margin-bottom: var(--agp-sp-3); }
+    .btn-i {
+      display: flex; align-items: flex-start; gap: var(--agp-sp-2);
+      background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); padding: var(--agp-sp-2);
+    }
+    .btn-i img { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; }
+    .btn-i .tx { min-width: 0; }
+    .btn-i .nm { font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-semi); color: var(--agp-text); }
+    .btn-i .ds { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); line-height: 1.35; }
+
+    /* Esquema de la pantalla: mapa de zonas, para ubicarse de un vistazo. */
+    .esq {
+      border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-md);
+      overflow: hidden; margin-bottom: var(--agp-sp-3); background: var(--agp-bg-soft);
+    }
+    .esq .fila { display: flex; }
+    .esq .z {
+      flex: 1 1 0; padding: var(--agp-sp-2); text-align: center;
+      border: 1px dashed var(--agp-border-strong); margin: 3px;
+      border-radius: var(--agp-radius-sm); background: var(--agp-surface);
+    }
+    .esq .z .t { font-size: var(--agp-fs-xs); font-weight: var(--agp-fw-semi); color: var(--agp-text); }
+    .esq .z .d { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+    .esq .z.centro { background: var(--agp-accent-soft); border-style: solid; border-color: var(--agp-accent); }
+    .esq .lat { flex: 0 0 88px; }
+    .esq .mapa { padding: var(--agp-sp-5) var(--agp-sp-2); }
+
+    /* Pasos numerados con aire, para flujos de campo. */
+    ol.pasos { list-style: none; padding: 0; counter-reset: p; }
+    ol.pasos li {
+      counter-increment: p; position: relative;
+      padding: 0 0 var(--agp-sp-2) 34px; margin: 0;
+    }
+    ol.pasos li::before {
+      content: counter(p); position: absolute; left: 0; top: 0;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--agp-accent); color: #fff;
+      font-size: var(--agp-fs-xs); font-weight: var(--agp-fw-bold);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Puntito de color para explicar lo que se ve en el mapa. */
+    .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px; margin-right: 4px; border: 1px solid var(--agp-border-strong); }
+
+    .aviso {
+      background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-state-warn);
+      border-left-width: 4px; border-radius: var(--agp-radius-sm);
+      padding: var(--agp-sp-2) var(--agp-sp-3); margin: 0 0 var(--agp-sp-2) 0;
+      font-size: var(--agp-fs-sm);
+    }
+    .clave {
+      background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-accent);
+      border-left-width: 4px; border-radius: var(--agp-radius-sm);
+      padding: var(--agp-sp-2) var(--agp-sp-3); margin: 0 0 var(--agp-sp-2) 0;
+      font-size: var(--agp-fs-sm);
+    }
+
+    table.ay-tab { width: 100%; border-collapse: collapse; margin-bottom: var(--agp-sp-2); }
+    table.ay-tab th, table.ay-tab td {
+      text-align: left; font-size: var(--agp-fs-xs); padding: 5px var(--agp-sp-2);
+      border-bottom: var(--agp-border-w) solid var(--agp-border); vertical-align: top;
+    }
+    table.ay-tab th { color: var(--agp-text-muted); font-weight: var(--agp-fw-semi); }
+    table.ay-tab td code { font-family: var(--agp-font-mono); font-size: var(--agp-fs-xs); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Ayuda</h1>
+        <div class="subtitle">Cómo se hace cada cosa en PilotX · manual de cabina</div>
+      </div>
+    </div>
+
+    <div class="ay-wrap">
+      <nav class="ay-idx" id="idx">
+        <div class="ay-idx-tit">Empezar</div>
+        <a href="#arranque">Encender y arrancar</a>
+        <a href="#pantalla">Partes de la pantalla</a>
+        <a href="#jornada">Una jornada, paso a paso</a>
+
+        <div class="ay-idx-tit">Trabajo</div>
+        <a href="#lote">Lote</a>
+        <a href="#guias">Guías</a>
+        <a href="#lindero">Lindero y cabecera</a>
+        <a href="#piloto">Piloto automático</a>
+        <a href="#secciones">Secciones y pintado</a>
+
+        <div class="ay-idx-tit">Equipos</div>
+        <a href="#configuracion">Configuración</a>
+        <a href="#modulos">Nodos y productos X</a>
+        <a href="#camaras">Cámaras</a>
+        <a href="#sonidos">Sonidos</a>
+
+        <div class="ay-idx-tit">Datos</div>
+        <a href="#cloud">Nube y actualizaciones</a>
+        <a href="#simulador">Simulador (banco)</a>
+
+        <div class="ay-idx-tit">Si algo falla</div>
+        <a href="#problemas">Problemas frecuentes</a>
+        <a href="#errores">Códigos de error</a>
+      </nav>
+
+      <div class="ay-doc" id="doc">
+
+        <!-- ================= EMPEZAR ================= -->
+        <section id="arranque">
+          <h2>Encender y arrancar</h2>
+          <p>PilotX arranca solo con la pantalla. Si lo cerraste, abrilo desde el ícono del escritorio: levanta también el motor de guiado, no hace falta abrir nada más.</p>
+          <p>Antes de trabajar, mirá arriba a la izquierda el estado del <strong>GPS</strong>. El color dice qué señal tenés:</p>
+          <table class="ay-tab">
+            <tr><th>Color</th><th>Dice</th><th>Qué significa</th></tr>
+            <tr>
+              <td><span class="dot" style="background:#4ABA3E"></span>Verde</td>
+              <td>RTK FIJO</td>
+              <td>Corrección RTK enganchada: la mejor precisión, centímetros.</td>
+            </tr>
+            <tr>
+              <td><span class="dot" style="background:#E2B53E"></span>Naranja</td>
+              <td>GPS · DGPS · RTK FLOAT</td>
+              <td><strong>Señal libre</strong> — es el modo normal de trabajo en Spark. Se puede sembrar perfectamente; no es un error.</td>
+            </tr>
+            <tr>
+              <td><span class="dot" style="background:#8FA092"></span>Gris</td>
+              <td>SIMULADOR</td>
+              <td>La posición viene del simulador, no de la antena. Solo para probar en el taller.</td>
+            </tr>
+            <tr>
+              <td><span class="dot" style="background:#E15A5A"></span>Rojo</td>
+              <td>SIN FIX</td>
+              <td>La antena todavía no tiene señal. Esperá a cielo abierto unos segundos.</td>
+            </tr>
+          </table>
+          <div class="clave">Solo el <strong>rojo</strong> impide trabajar: sin posición el piloto no engancha y varios botones quedan grises. Con naranja (señal libre) se trabaja normal; el verde es el plus de precisión del RTK.</div>
+
+          <h3>Por dónde entra el GPS</h3>
+          <p class="ruta"><b><img src="../img/cockpit/menu/CoreX.png" alt="">CoreX</b> <i>›</i> <b>Serial</b> <i>o</i> <b>GPS</b></p>
+          <p>La antena puede estar conectada de dos formas, y CoreX es el que las administra:</p>
+          <ul>
+            <li><strong>Por cable (serial)</strong> — la antena va a un puerto COM de la pantalla. Hay que elegir ese puerto y su velocidad en <strong>CoreX › Serial</strong>. Es lo más directo y no depende de la red.</li>
+            <li><strong>Por red</strong> — la antena o el módulo mandan la posición por la red de la máquina, sin cable a la pantalla.</li>
+          </ul>
+          <p>En <strong>CoreX › GPS</strong> se ve lo que está entrando en vivo: si ahí no llega nada, el problema es de la antena o del cable, no de PilotX.</p>
+        </section>
+
+        <section id="pantalla">
+          <h2>Partes de la pantalla</h2>
+
+          <div class="esq">
+            <div class="fila">
+              <div class="z"><div class="t">Barra de arriba</div><div class="d">velocidad · GPS · lote · SISTEMA</div></div>
+            </div>
+            <div class="fila">
+              <div class="z lat"><div class="t">Menú</div><div class="d">config y lote</div></div>
+              <div class="z mapa"><div class="t">MAPA</div><div class="d">el tractor, las guías y lo trabajado</div></div>
+              <div class="z lat"><div class="t">Zoom + barra</div><div class="d">arriba el zoom</div></div>
+            </div>
+            <div class="fila">
+              <div class="z centro"><div class="t">Barra de la pasada</div><div class="d">geometría · corrección · piloto</div></div>
+            </div>
+          </div>
+
+          <h3>Barra de arriba</h3>
+          <p>Velocidad, señal de GPS, tiempo y hectáreas. Los botones: <strong>TRABAJO</strong>, <strong>GPS</strong>, el <strong>nombre del lote</strong> (abre sus datos) y <strong>SISTEMA</strong> (perfiles del vehículo y esta ayuda).</p>
+          <p>Si la pantalla tiene batería, aparece también el chip <strong>BAT</strong> con el porcentaje de carga y un <strong>⚡</strong> cuando está cargando. Enchufada se ve gris; si queda <strong>a batería</strong> (se desenchufó del tractor) se pinta <strong>ámbar</strong>, y <strong>rojo</strong> con menos de 15 %.</p>
+          <p>El contador de <strong>HA</strong> también se toca: abre los <strong>datos del lote</strong>, lo mismo que el nombre del lote. Las ventanas de <strong>GPS</strong> y de <strong>datos del lote</strong> se cierran con la <strong>✕</strong> que tienen arriba a la derecha: esas dos ya no levantan la flecha <strong>←</strong> de la esquina.</p>
+          <p>Esas dos ventanas se pueden <strong>correr</strong>: arrastralas de la <strong>franja del título</strong> para destapar el mapa. Con <strong>doble toque</strong> en esa franja vuelven al centro.</p>
+          <p>En la punta derecha están los botones de ventana (<strong>–</strong>, <strong>☐</strong>, <strong>✕</strong>), que en la pantalla de cabina no aparecen. El <strong>✕</strong> ahora <strong>pregunta antes de cerrar</strong>: avisa que se apaga el guiado y hay que tocar <strong>Cerrar PilotX</strong> para confirmar. Quedó además más separado del <strong>☐</strong> para no errarle con guantes.</p>
+
+          <h3>Menú de la izquierda</h3>
+          <p>Se despliega con la flecha del borde:</p>
+          <div class="btns">
+            <div class="btn-i"><img src="../img/cockpit/menu/NavigationSettings.png" alt=""><div class="tx"><div class="nm">Pantalla</div><div class="ds">Día/noche y brillo.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/SpecialFunctions.png" alt=""><div class="tx"><div class="nm">Herramientas</div><div class="ds">Gráficos, webcam, utilidades.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/Settings48.png" alt=""><div class="tx"><div class="nm">Configuración</div><div class="ds">Vehículo, implemento, módulos.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/JobActive.png" alt=""><div class="tx"><div class="nm">LOTE</div><div class="ds">Abrir, nuevo, cerrar, borrar pintado.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/AutoSteerConf.png" alt=""><div class="tx"><div class="nm">Dirección</div><div class="ds">Cómo responde el volante.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/CoreX.png" alt=""><div class="tx"><div class="nm">CoreX</div><div class="ds">Estado del GPS y las conexiones.</div></div></div>
+          </div>
+
+          <h3>Barra de la pasada (abajo)</h3>
+          <p>Es la que más se usa. Está ordenada por zonas: a la izquierda lo que definís <em>antes</em> de arrancar, al centro la corrección, y a la derecha lo que tocás todo el tiempo.</p>
+          <div class="btns">
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/TrackOn.png" alt=""><div class="tx"><div class="nm">Guías</div><div class="ds">Crear o elegir la línea.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/Boundary.png" alt=""><div class="tx"><div class="nm">Lindero</div><div class="ds">Contorno del lote.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/HeadlandBuild.png" alt=""><div class="tx"><div class="nm">Cabecera</div><div class="ds">Franja del borde para girar.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/HeadlandOn.png" alt=""><div class="tx"><div class="nm">Activar</div><div class="ds">Prende o apaga el corte por cabecera.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/SnapLeft.png" alt=""><div class="tx"><div class="nm">Izq</div><div class="ds">Corre la guía a la izquierda.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/SnapToPivot.png" alt=""><div class="tx"><div class="nm">Centrar</div><div class="ds">Trae la guía bajo el tractor.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/SnapRight.png" alt=""><div class="tx"><div class="nm">Der</div><div class="ds">Corre la guía a la derecha.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/YouTurn80.png" alt=""><div class="tx"><div class="nm">Giro</div><div class="ds">Da la vuelta solo en la cabecera.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/SectionMasterOn.png" alt=""><div class="tx"><div class="nm">Automático</div><div class="ds">Las secciones cortan solas.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/ManualOn.png" alt=""><div class="tx"><div class="nm">Manual</div><div class="ds">Todas abiertas hasta que apagues.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/AutoSteerOn.png" alt=""><div class="tx"><div class="nm">Piloto</div><div class="ds">Engancha el guiado. En la punta derecha.</div></div></div>
+          </div>
+          <div class="clave"><strong>El botón se pinta de verde cuando está puesto.</strong> <strong>Piloto</strong>, <strong>Automático</strong>, <strong>Manual</strong>, <strong>Giro</strong> y <strong>Activar</strong> (cabecera) quedan con fondo verde y la palabra en blanco mientras están activos; apagados se ven claros como el resto. Si el botón está <em>gris</em>, esa función todavía no aplica (falta guía, cabecera o lote).</div>
+
+          <h3>Barra de la derecha</h3>
+          <p>Funciones de la pasada. Se pliega sola y se abre con su lengüeta. Los botones que se prenden y se apagan —<strong>Cabecera on/off</strong>, <strong>Cab. secc.</strong>, <strong>Hidráulico</strong>, <strong>Por medio</strong>, <strong>Auto guía</strong>— también se pintan de verde mientras están activos.</p>
+          <div class="btns">
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/ABLineCycle.png" alt=""><div class="tx"><div class="nm">Guía sig. / ant.</div><div class="ds">Pasar a la línea de al lado.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/AutoTrack.png" alt=""><div class="tx"><div class="nm">Auto guía</div><div class="ds">Elige sola la guía más cercana.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/HeadlandOn.png" alt=""><div class="tx"><div class="nm">Cabecera on/off</div><div class="ds">Activa el corte por cabecera.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/HydraulicLiftOn.png" alt=""><div class="tx"><div class="nm">Hidráulico</div><div class="ds">Sube/baja el implemento en cabecera.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/YouSkipOn.png" alt=""><div class="tx"><div class="nm">Por medio</div><div class="ds">Saltea pasadas al girar.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/ResetTool.png" alt=""><div class="tx"><div class="nm">Enderezar</div><div class="ds">Acomoda el implemento en el mapa.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/FlagRed.png" alt=""><div class="tx"><div class="nm">Bandera</div><div class="ds">Marca un punto en el lote.</div></div></div>
+          </div>
+
+          <h3>Zoom</h3>
+          <p>Los botones <strong>+</strong> y <strong>−</strong> están fijos arriba a la derecha. También podés acercar con dos dedos sobre el mapa.</p>
+
+          <h3>Qué ves en el mapa</h3>
+          <ul>
+            <li><span class="dot" style="background:#4DCCFF"></span><strong>Punto celeste</strong> — la antena GPS, sobre el tractor.</li>
+            <li><span class="dot" style="background:#FF991A"></span><strong>Punto naranja</strong> — hacia dónde apunta el piloto. Si va sobre la línea, el guiado trabaja bien.</li>
+            <li><span class="dot" style="background:#4ABA3E"></span><strong>Verde</strong> — lo ya trabajado (el pintado).</li>
+          </ul>
+        </section>
+
+        <section id="jornada">
+          <h2>Una jornada, paso a paso</h2>
+          <ol class="pasos">
+            <li>Esperar el <strong>GPS en verde</strong>.</li>
+            <li><strong>Abrir el lote</strong> (o crearlo si es la primera vez).</li>
+            <li><strong>Elegir o crear la guía</strong> por donde vas a sembrar.</li>
+            <li>Si hace falta, marcar el <strong>lindero</strong> y construir la <strong>cabecera</strong>.</li>
+            <li>Poner las <strong>secciones en Automático</strong>.</li>
+            <li>Enganchar el <strong>Piloto</strong> y trabajar.</li>
+            <li>Al terminar: <strong>cerrar el lote</strong> (guarda todo y lo manda a la nube si está configurada).</li>
+          </ol>
+        </section>
+
+        <!-- ================= TRABAJO ================= -->
+        <section id="lote">
+          <h2>Lote</h2>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>LOTE</b></p>
+          <ul>
+            <li><strong>Continuar</strong> — vuelve al último lote trabajado.</li>
+            <li><strong>Abrir</strong> — lista de lotes guardados.</li>
+            <li><strong>Nuevo</strong> — crea uno en la posición actual.</li>
+            <li><strong>Borrar pintado</strong> (en rojo) — borra lo trabajado (lo verde del mapa) sin borrar el lote.</li>
+            <li><strong>Cerrar</strong> — termina la jornada y guarda.</li>
+          </ul>
+          <div class="aviso"><strong>Borrar pintado</strong> solo funciona con las secciones apagadas (ni Manual ni Automático). Es una protección: no se borra lo trabajado mientras la máquina está aplicando.</div>
+          <div class="clave"><strong>Borrar pintado</strong> ahora <strong>pregunta antes</strong>: aparece un cartel que dice de qué lote se borra lo trabajado, con <strong>Cancelar</strong> y <strong>Borrar lo trabajado</strong>. Lo pintado no se recupera.</div>
+          <p>Para ver hectáreas y datos del lote abierto, tocá el <strong>nombre del lote</strong> o el contador de <strong>HA</strong> en la barra de arriba. Es una ficha corta: <strong>trabajado</strong> y <strong>repintado</strong> en grande, y abajo lote, ancho, guía y dosis. La cuenta del <strong>ahorro por corte automático</strong> (dosis y precio) está en el desplegable del pie. Se cierra con la <strong>✕</strong> de arriba a la derecha.</p>
+        </section>
+
+        <section id="guias">
+          <h2>Guías</h2>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Guías</b></p>
+          <p>Si el lote ya tiene guías guardadas, al abrir aparece directo el <strong>listado</strong> (con "Nueva guía" para volver a crear). Si no hay ninguna, aparece el menú de crear, sobre el mapa (que se sigue viendo detrás):</p>
+          <h3>AB Line (recta)</h3>
+          <ol class="pasos">
+            <li>Poné el tractor donde empieza la pasada y tocá <strong>A</strong>.</li>
+            <li>Manejá derecho hasta el otro extremo y tocá <strong>B</strong>.</li>
+            <li>Confirmá con el <strong>tilde verde</strong> y ponele nombre. El panel se cierra solo y la guía queda en el mapa.</li>
+          </ol>
+          <h3>AB + Curva</h3>
+          <p>Igual, pero grabando el recorrido: tocá <strong>A</strong>, manejá la curva como querés que quede, y confirmá. Sirve para lotes con contornos irregulares.</p>
+          <h3>Guías guardadas</h3>
+          <p>Lista de las guías del lote. Tocá una y confirmá con el <strong>tilde verde</strong> para usarla. Desde ahí también podés borrarlas, renombrarlas, duplicarlas, invertir A↔B y ordenarlas.</p>
+          <div class="clave"><strong>Borrar guía</strong> pide <strong>dos toques</strong>, como el Lindero: el primero avisa qué guía se va a borrar y el botón queda en <strong>¿Seguro?</strong>; el segundo, dentro de 4 segundos, la borra. Si tocás otra fila o pasan los 4 segundos, se cancela solo.</div>
+          <h3>Corregir la línea</h3>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Izq</b> <b>Centrar</b> <b>Der</b></p>
+          <p>Si la guía quedó corrida respecto de lo sembrado: <strong>Izq</strong> y <strong>Der</strong> la mueven de a poco, y <strong>Centrar</strong> la lleva justo debajo del tractor.</p>
+          <p>Para pasar de una guía a otra durante el trabajo usá <strong>Guía sig.</strong> / <strong>Guía ant.</strong> de la barra derecha.</p>
+
+        </section>
+
+        <section id="lindero">
+          <h2>Lindero y cabecera</h2>
+          <h3>Lindero (contorno del lote)</h3>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Lindero</b></p>
+          <p>Se abre como un panel chico <strong>sobre el mapa</strong>, a la derecha: el mapa se sigue viendo, así vas mirando cómo se dibujan los puntos mientras manejás.</p>
+          <p>Se graba manejando el perímetro: tocá <strong>Crear manejando</strong>, dale <strong>Grabar</strong> y recorré el borde. Podés pausar, agregar un punto suelto y deshacer (esos dos, solo en pausa). Al final, <strong>Terminar</strong>. Borrar, Reiniciar, Cancelar y Terminar piden <strong>dos toques</strong>: el primero pregunta "¿Seguro?".</p>
+          <p>En Ajustes de esa pantalla podés grabar con un <strong>offset</strong> (por ejemplo media máquina) y elegir de qué lado.</p>
+          <p>La lista de arriba muestra el <strong>Exterior</strong> y los contornos <strong>Internos</strong> (islas, montes, molinos) con su área. En los internos, <strong>Cruzar</strong> dice si se puede manejar por encima. Tocá una fila para seleccionarla y usar <strong>Borrar</strong>.</p>
+          <div class="clave">Si cerrás el panel con la grabación prendida, el lindero <strong>se sigue grabando</strong>: volvé a Lindero y el panel entra directo a la grabación para terminarla o cancelarla.</div>
+          <h3>Cabecera</h3>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Cabecera</b></p>
+          <p>La cabecera es la franja del borde donde el tractor da la vuelta. Se abre como un panel chico <strong>sobre el mapa</strong>, a la derecha: el mapa se sigue viendo, así ves la franja verde dibujándose contra el lindero. Se construye hacia adentro del lindero:</p>
+          <ol class="pasos">
+            <li>Poné la <strong>distancia</strong> (viene cargada con el ancho de la máquina). El botón <strong>Ancho de herramienta</strong> la vuelve a poner.</li>
+            <li>Tocá <strong>Construir</strong>: la vas a ver dibujada en el mapa de atrás.</li>
+            <li><strong>Reset al contorno</strong> la vuelve al borde; <strong>Apagar cabecera</strong> la desactiva sin borrarla.</li>
+          </ol>
+          <p>Arriba, al lado del título, un cartelito dice cómo está: <strong>cabecera activa</strong>, <strong>sin cabecera</strong> o <strong>sin contorno</strong>.</p>
+          <p>Una vez construida, el botón <strong>Activar</strong> (al lado de Cabecera, en la barra de la pasada) prende y apaga el corte por cabecera sin borrarla. Queda gris hasta que exista una cabecera.</p>
+          <p>Con <strong>Secciones controladas en cabecera</strong> en <strong>Sí</strong>, la máquina corta sola al entrar en esa franja.</p>
+          <div class="clave">La cabecera necesita lindero. Si no lo hiciste todavía, la pantalla te avisa.</div>
+        </section>
+
+        <section id="piloto">
+          <h2>Piloto automático</h2>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Piloto</b> <i>(a la derecha del todo)</i></p>
+          <p>Para que enganche hacen falta tres cosas:</p>
+          <ul>
+            <li>GPS con señal,</li>
+            <li>lote abierto,</li>
+            <li>una guía elegida (o contorno activo).</li>
+          </ul>
+          <p>Si falta alguna, el botón queda gris. Al enganchar, el tractor busca la línea y se acomoda solo; en el mapa vas a ver el punto naranja tirando hacia la guía.</p>
+          <p><strong>Para saber si está puesto no hace falta mirar el dibujo: el botón entero se pone verde</strong> con la palabra «Piloto» en blanco. Apagado se ve claro, como los demás.</p>
+          <p>Para desenganchar, tocá <strong>Piloto</strong> de nuevo. <strong>Mover el volante también corta</strong> el guiado: es la salida de emergencia de siempre.</p>
+          <h3>Giro en la cabecera</h3>
+          <p>Con <strong>Giro</strong> activado, al llegar a la cabecera el tractor da la vuelta solo y engancha la pasada siguiente. Necesita guía y cabecera hechas. Para saltear pasadas usá <strong>Por medio</strong> en la barra derecha.</p>
+          <h3>Marcar dónde girar</h3>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Marcar</b></p>
+          <p>También podés marcar vos el punto de giro, sin cabecera: con la guía activa, al llegar a donde querés que doble tocá <strong>Marcar</strong> — queda una línea perpendicular a la guía y el giro automático dobla ahí. Marcá los dos extremos del lote (uno en cada punta) y el tractor gira solo en ambos. <strong>Borrar</strong> saca las marcas (aparece solo cuando hay alguna puesta). Las marcas valen para la guía activa: si en el lote quedaron marcas hechas con otra guía, al tocar <strong>Marcar</strong> se descartan solas y la pantalla lo avisa.</p>
+          <div class="clave">Las marcas de giro funcionan con o sin lindero y quedan guardadas con el lote: al reabrirlo siguen ahí.</div>
+          <div class="aviso">El piloto guía la dirección; <strong>el operario sigue a cargo</strong>. Nunca dejes la máquina sola ni te bajes con el piloto enganchado.</div>
+        </section>
+
+        <section id="secciones">
+          <h2>Secciones y pintado</h2>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Automático</b> / <b>Manual</b></p>
+          <ul>
+            <li><strong>Automático</strong> — la máquina abre y cierra sola: corta en lo ya sembrado, en la cabecera y fuera del lindero.</li>
+            <li><strong>Manual</strong> — quedan todas abiertas hasta que las apagues.</li>
+          </ul>
+          <p>Arriba de la barra hay una fila con cada sección, para abrir o cerrar de a una (por ejemplo levantar un cuerpo en una punta).</p>
+          <h3>Anti-solape</h3>
+          <p>PilotX no vuelve a sembrar lo ya sembrado: al pisar una pasada anterior, esas secciones cortan solas. Viene activado.</p>
+          <p>Lo trabajado se pinta de verde en el mapa. Para limpiarlo: <strong>LOTE › Borrar pintado</strong>.</p>
+        </section>
+
+        <!-- ================= EQUIPOS ================= -->
+        <section id="configuracion">
+          <h2>Configuración</h2>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Configuración</b></p>
+          <p>Configuración abre parada en <strong>Resumen</strong>: una ficha de solo lectura con los datos clave del equipo — perfil activo, unidades, ancho de labor, cantidad de secciones, offset, overlap, lookahead, ancho de tram y distancia entre ejes. Sirve para ver de un vistazo con qué medidas está trabajando la máquina antes de tocar nada.</p>
+          <p>Todo lo del equipo vive acá, agrupado en dos filas de pestañas arriba del contenido: la fila de arriba tiene los grupos y, al tocar uno, la fila de abajo muestra sus entradas. Tocar un grupo abre directamente su última entrada visitada (la primera, si es la primera vez):</p>
+          <table class="ay-tab">
+            <tr><th>Grupo</th><th>Para qué</th></tr>
+            <tr><td>Vehículo</td><td><strong>Tipo</strong> (rígido, articulado, cosechadora o pulverizadora — el vehículo se ve como el triángulo verde), dimensiones (distancia entre ejes, trocha) y posición de la antena.</td></tr>
+            <tr><td>Implemento</td><td>Enganche, distancias, offset lateral y pivote.</td></tr>
+            <tr><td>Secciones</td><td>Cuántas hay y qué ancho tiene cada una, la anticipación del corte (encendido/apagado), switches y máquina.</td></tr>
+            <tr><td>GPS / IMU</td><td>De dónde sale el rumbo y corrección de rolido.</td></tr>
+            <tr><td>Otros</td><td>Giro en cabecera (U-Turn), huellas (Tram) y los avisos sonoros (<strong>Sonidos</strong> — también se llega por <strong>Barra de la pasada › Herram. › Sonidos</strong>).</td></tr>
+            <tr><td>Módulos, Campo, Herramientas, Cloud, Mantenimiento</td><td>El resto del equipo: los productos X-*, insumos y mapas, calculadora y diagnósticos, la nube OrbitX y el mantenimiento de la pantalla. Cada entrada se muestra en la misma ventana, con las pestañas siempre arriba.</td></tr>
+          </table>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Configuración</b> <i>›</i> <b>Vehículo</b> <i>›</i> <b>Tipo</b></p>
+          <p>Muestra las cuatro opciones con su dibujo: <strong>Rígido</strong>, <strong>Articulado</strong>, <strong>Cosechadora</strong> y <strong>Pulverizadora</strong>. Se toca la que corresponda y después el botón <strong>Guardar</strong> de abajo a la derecha: el tipo recién queda cargado ahí (mientras no se guarde, no cambió nada en la máquina). Si salís a otra pestaña con el cambio hecho, se guarda solo al salir. Cuidado con <strong>Cosechadora</strong>: además del tipo, <strong>pasa el implemento a frontal</strong> — si tenías un enganche de arrastre, revisá <strong>Implemento › Enganche</strong> después. La <strong>Pulverizadora</strong> se maneja igual que un rígido; la diferencia es solo el dibujo. El vehículo se sigue viendo en el mapa como el triángulo verde: no hay que elegir marca ni imagen.</p>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Configuración</b> <i>›</i> <b>Implemento</b> <i>›</i> <b>Enganche</b></p>
+          <p>Cómo va colgado el implemento, con su dibujo: <strong>Fijo trasero</strong>, <strong>Tanque intermedio (TBT)</strong>, <strong>Frontal</strong> y <strong>De arrastre</strong>. Se toca el que corresponda y después el botón <strong>Guardar</strong> de abajo a la derecha (si salís a otra pestaña con el cambio hecho, se guarda solo al salir). Ojo: el estilo <strong>define de qué lado queda el enganche</strong> — frontal lo pone adelante y los otros tres, atrás —, así que después de cambiarlo el número que muestran <strong>Implemento › Distancias</strong> y <strong>Vehículo › Dimensiones</strong> puede aparecer con el signo dado vuelta. Es correcto: lo acomoda PilotX solo. Si el vehículo es <strong>Cosechadora</strong> no hay nada que elegir: siempre va implemento frontal y la pantalla solo lo informa.</p>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Configuración</b> <i>›</i> <b>Implemento</b> <i>›</i> <b>Distancias</b></p>
+          <p>Las medidas del enganche, en centímetros, con el dibujo de cómo se miden. <strong>Solo aparecen las que corresponden al estilo elegido en Enganche</strong>: con fijo trasero, frontal o cosechadora se ve <strong>Largo de barra</strong>; de arrastre muestra <strong>Enganche de arrastre</strong>; y TBT muestra <strong>Enganche de arrastre</strong> y <strong>Enganche del tanque</strong>. Si cambiaste el estilo y no ves el campo que buscabas, es porque ese estilo no lo usa. Se tocan los números (se abre el teclado de PilotX) y después <strong>Guardar</strong> abajo a la derecha; si salís a otra pestaña con el cambio hecho, se guarda solo al salir. El arrastre y el tanque <strong>no bajan de 10 cm</strong>: si ponés menos, la pantalla lo sube a 10 sola al guardar. Los números van siempre sin signo — de qué lado queda el enganche lo decide el estilo, no vos.</p>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Configuración</b> <i>›</i> <b>Secciones</b> <i>›</i> <b>Secciones</b></p>
+          <p>Acá se define cómo está partido el implemento. Arriba de todo, la tarjeta <strong>Sembradora (modo simple)</strong>: para una sembradora común alcanza con tres números — <strong>Surcos</strong> (1 a 16), <strong>Distancia entre surcos</strong> (en cm) y <strong>Anticipación</strong> (en segundos) — y el botón <strong>Aplicar y guardar</strong>, que arma solo las N secciones iguales y la anticipación de encendido (el apagado queda en la mitad, sin retardo) y lo deja guardado en el momento, sin pasar por el botón Guardar. Lo que tipeás ahí no cambia nada hasta que apretás Aplicar. Debajo, el botón <strong>Avanzado</strong> muestra u oculta el resto de la pantalla (modo, secciones individuales, zonas, trenes y control): si la máquina está cargada como sembradora simple arranca escondido; si tiene zonas o anchos distintos, siempre se ve. La última elección se recuerda en esa pantalla.</p>
+          <p>En <strong>Avanzado</strong>, primero el <strong>modo</strong>: <strong>Secciones individuales</strong> (hasta 16, cada una con su ancho) o <strong>Secciones simétricas (zonas)</strong> (hasta 64 del mismo ancho, agrupadas en 2 a 8 zonas). Se toca el dibujo para cambiar de uno a otro.</p>
+          <ul>
+            <li><strong>Individuales</strong> — se elige la <strong>cantidad</strong> y el <strong>ancho por defecto</strong>, y abajo aparece una casilla por sección para corregir la que sea distinta. Ojo: <strong>cambiar la cantidad pisa todos los anchos</strong> con el ancho por defecto. El <strong>ancho total</strong> se ve al pie y se pone en rojo si se pasa del máximo (5000 cm).</li>
+            <li><strong>Simétricas</strong> — cantidad de secciones, cantidad de zonas y el ancho que tienen todas. Cada zona dice en qué sección termina; la última no se toca porque siempre termina en la última sección. Cambiar la cantidad de secciones o de zonas <strong>vuelve a repartir las zonas en partes iguales</strong>.</li>
+          </ul>
+          <p><strong>Trenes de siembra</strong>: para máquinas con tren delantero y trasero. Cada surco pertenece a un tren y el trasero corta los metros que se le carguen <strong>después</strong>, sobre la misma pasada. Con <strong>+ Agregar tren</strong> se suman hasta 4; el primero es el delantero y va siempre al paso (0 m). Con más de un tren aparece la tira de surcos: se elige un tren arriba y se tocan los surcos que le corresponden. Este es <strong>el único lugar donde se editan los trenes</strong> — VistaX y QuantiX los muestran pero no los cambian.</p>
+          <div class="aviso">Guardar los trenes toca también cómo está partido el implemento. Si estabas en <strong>simétricas (zonas)</strong>, el modo <strong>vuelve solo a «individuales»</strong>; y si tenías <strong>anchos distintos</strong> entre secciones, quedan todos <strong>iguales</strong>. La pantalla te avisa en los dos casos y vuelve a mostrar lo que quedó de verdad: revisalo antes de salir al lote.</div>
+          <p><strong>Control de secciones</strong>: <strong>Corte en el lindero</strong> — el lindero corta siempre; acá se elige cuándo, con dos opciones y una sola marcada: <strong>Apenas asoma una punta</strong> (la sección se apaga en cuanto cualquier parte pisa afuera del contorno) o <strong>Recién cuando sale entera</strong> (aguanta hasta que toda la sección quedó afuera). <strong>Cortar por debajo de</strong> tantos km/h (para que no siga aplicando con la máquina casi parada). <strong>Corta al pisar sembrado</strong>, en % del ancho, de 50 a 95 y 90 por defecto: 90 quiere decir que la sección corta cuando el 90 % de su ancho ya está sobre lo sembrado; con menos corta antes (y vuelve a prender recién cuando baja 20 puntos, para que no parpadee). Como en el resto de Configuración, se guarda con el botón <strong>Guardar</strong> de abajo a la derecha, y si salís a otra pestaña con el cambio hecho se guarda solo al salir. <strong>La máquina no corta por secciones</strong>: para barras o sembradoras sin válvulas ni embragues por sección. Tildado, mientras el maestro está prendido se pinta todo el ancho y no se corta por solape, lindero ni cabecera, así el mapa muestra lo que la máquina aplicó de verdad. Al entrar a esta pantalla, si hay un lote abierto, <strong>las secciones se pasan a apagado</strong> mientras editás (la pantalla lo avisa abajo): no se cambia la geometría con el corte trabajando.</p>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Configuración</b> <i>›</i> <b>Secciones</b> <i>›</i> <b>Anticipación</b></p>
+          <p>Antes era <strong>Implemento › Timing</strong>; ahora vive con las secciones. Tres tiempos en segundos, con un decimal: <strong>Encendido</strong> (0,2 a 10 s: cuánto antes de llegar a lo no sembrado prende la sección), <strong>Apagado</strong> (corta <strong>antes</strong> de pisar lo ya sembrado) y <strong>Retardo de apagado</strong> (sigue aplicando un rato <strong>después</strong>). Apagado y Retardo son excluyentes: al cargar uno, el otro vuelve a 0, y el apagado no puede superar 0,8 × el encendido. Como lo que importa son metros y no segundos, la pantalla te muestra en vivo a cuántos metros equivale cada tiempo a 8 km/h (segundos × 8 ÷ 3,6: 1 s son 2,2 m, 3 s son 6,7 m). El motor tiene un tope: <strong>20 m para encender y 16 m para apagar</strong>, así que a más velocidad o más segundos, de ahí no pasa.</p>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Configuración</b> <i>›</i> <b>Secciones</b> <i>›</i> <b>Máquina</b></p>
+          <p>Lo que la pantalla le manda al <strong>módulo de máquina</strong>. Dos tarjetas. <strong>Levante hidráulico</strong>: se toca <strong>Habilitar levante</strong> para prenderlo y recién ahí se pueden cargar el <strong>Tiempo de subida</strong> y el <strong>Tiempo de bajada</strong> (en segundos, 1 a 255) y la <strong>Anticipación del levante</strong> (1 a 20 s, admite un decimal). Con el levante apagado esos tres quedan en gris. <strong>Módulo</strong>: <strong>Invertir relés</strong> da vuelta las salidas del módulo, y <strong>Usuario 1</strong> a <strong>Usuario 4</strong> son cuatro números de 0 a 255 que interpreta el firmware del módulo (no son medidas: cargá lo que indique quien lo programó).</p>
+          <div class="aviso">Esta pantalla <strong>no se guarda sola</strong>. Es la única de Configuración que funciona al revés que las demás: hay que tocar <strong>Enviar + Guardar</strong>. <strong>Si salís sin enviar, los cambios se pierden</strong> — y es a propósito, para que nadie le cambie los relés o los tiempos al módulo por haber tocado algo de paso. El cartelito rojo al lado del botón avisa que hay cambios que el módulo todavía no tiene; cuando el envío sale, abajo dice <strong>Enviado al módulo ✔</strong>. Si algún número quedó mal escrito, ese casillero se pone en rojo y no se manda nada hasta corregirlo.</div>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Configuración</b> <i>›</i> <b>GPS / IMU</b> <i>›</i> <b>Rumbo</b></p>
+          <p>De dónde saca la pantalla <strong>para dónde está apuntando el tractor</strong>. Arriba, <strong>Tipo de antena</strong>: <strong>Dual</strong> (dos antenas GPS, sabe el rumbo aunque el tractor esté parado) o <strong>Fix</strong> (una sola antena, lo deduce del movimiento). Abajo, dos tarjetas que se prenden según lo elegido — la que no corresponde queda en gris pero <strong>no pierde lo cargado</strong>.</p>
+          <ul>
+            <li><strong>Antena dual</strong> — <strong>Offset de rumbo</strong> en grados (−100 a 100: corrige si las antenas no quedaron paralelas al eje del tractor), <strong>Distancia de reversa</strong> en metros (0,10 a 0,90), <strong>Auto Dual ↔ Fix</strong> y la <strong>Velocidad de conmutación</strong> a la que cambia de una a otra (1 a 10 km/h; en imperial se muestra en mph).</li>
+            <li><strong>Antena simple (Fix)</strong> — <strong>Paso mínimo</strong> (cuánto tiene que avanzar antes de creerle al rumbo: 5 cm o 10 cm; abajo dice la <strong>Distancia de rumbo</strong> que le corresponde, 50 o 100 cm), la barra de <strong>fusión</strong> entre <strong>IMU</strong> (izquierda) y <strong>GPS</strong> (derecha) —por defecto 70 % IMU— y <strong>Detección de reversa</strong>.</li>
+            <li><strong>Compensar velocidad por sección en curva</strong> — prendido, la sección de afuera va más rápido y recibe más dosis; apagado, todos los motores reciben la misma velocidad y prenden y apagan juntos (una sola posición para todo el implemento), y cada motor conserva su dosis. Apagalo si el GPS no compensa terreno y la dosis varía sola.</li>
+            <li><strong>Alarmas GPS</strong> — <strong>Salto de fix</strong> en centímetros (0 la desactiva), <strong>Alarma RTK</strong> y <strong>La alarma frena el autoguiado</strong>.</li>
+          </ul>
+          <div class="aviso"><strong>Ojo, esta pantalla no se guarda toda igual.</strong> <strong>Dual</strong>, <strong>Fix</strong> y <strong>Paso mínimo</strong> se aplican <strong>al toque</strong>, sin tocar Guardar y con el tractor andando: es el comportamiento de siempre. Todo el resto espera el botón <strong>Guardar</strong> de abajo a la derecha (o se guarda solo al salir a otra pestaña). Con <strong>Auto Dual ↔ Fix</strong> prendido, <strong>Fix queda en gris</strong>: no se puede forzar a mano porque el automático se lo cambiaría en la próxima conmutación. La barra de fusión solo se puede mover si hay <strong>IMU conectada</strong> o si el automático está prendido.</div>
+          <div class="aviso"><strong>Alarma RTK y «La alarma frena el autoguiado» todavía no quedan guardadas.</strong> Se pueden tocar, pero al guardar vuelven como estaban: es una falla conocida del motor, no de la pantalla. Los demás valores de esta pantalla sí quedan guardados después de apagar y prender.</div>
+          <p>La misma fila de grupos sigue con los <strong>módulos</strong>, agrupados igual que siempre: <strong>Otros</strong> suma <strong>Sonidos</strong>, y después vienen <strong>Módulos</strong> (Hub, QuantiX, VistaX, FlowX, SectionX, LineX, StormX, CoreX-ECU, Nodos, Cámaras), <strong>Campo</strong> (Insumos, Mapas, Prescripciones), <strong>Herramientas</strong> (Calculadora, Lab PID, Diagnóstico PWM), <strong>Cloud</strong> (OrbitX, Firmwares, Actualizar, Conectar celular) y <strong>Mantenimiento</strong> (Red WiFi, Sistema, Eventos, Debug, Ayuda). Se toca el grupo arriba y la entrada en la fila de abajo: <strong>dos toques como mucho, sin pantallas intermedias</strong>.</p>
+          <p>Todo se muestra <strong>adentro de la misma ventana</strong>: las pestañas quedan arriba, el <strong>✕</strong> sigue siendo la salida, y para cambiar de cosa se toca otra pestaña. Nada abre otra ventana ni cierra la Configuración — ni siquiera las pantallas propias de PilotX (Hub, QuantiX, VistaX, FlowX, SectionX, StormX, CoreX-ECU, Nodos, Cámaras, Prescripciones, Actualizar, Sistema, Sonidos), que se montan abajo de las pestañas, en la misma área de contenido.</p>
+          <div class="clave">Las medidas del vehículo y del implemento son la base de todo: si están mal, la guía y el corte de secciones van a estar mal por más que el GPS sea perfecto.</div>
+          <p>La configuración de la <strong>dirección</strong> (cómo responde el volante) está aparte: <strong>Menú izquierdo › Dirección</strong> abre un panel con seis pestañas — <strong>Probar</strong> (manejo libre), <strong>Sensor</strong> (sensor de ángulo, cuentas, cero), <strong>Fuerza</strong> (PWM y ganancia), <strong>Guiado</strong> (modo suave/firme y ajustes finos), <strong>Módulo</strong> (placa y corte al agarrar el volante) y <strong>Pantalla</strong> (velocidades y barra de guiado) — con el ángulo Objetivo/Actual/Error en vivo arriba. El <strong>?</strong> explica cada botón. Abajo, <strong>Descartar</strong> (dos toques) vuelve a lo guardado y <strong>Guardar</strong> envía los cambios al módulo. Si cerrás el panel con cambios sin guardar, <strong>se guardan solos</strong> — para tirarlos hay que usar Descartar antes de salir. En <strong>Sensor</strong>, <strong>Poner en cero</strong> guarda primero lo que tengas editado (por ejemplo las cuentas por grado) y recién ahí cera: así el cero sale con la escala que estás viendo. Los perfiles del vehículo se guardan y se cambian desde <strong>SISTEMA › Perfiles del vehículo</strong>.</p>
+        </section>
+
+        <section id="modulos">
+          <h2>Nodos y productos X</h2>
+          <p class="ruta"><b>Configuración</b> <i>›</i> <b>Módulos</b></p>
+          <p>Los equipos Agro Parallel que hablan con la pantalla:</p>
+          <ul>
+            <li><strong>QuantiX</strong> — control de los motores de siembra (dosis, calibración, prescripciones).</li>
+            <li><strong>VistaX</strong> — monitoreo de siembra por surco.</li>
+            <li><strong>FlowX</strong> — dosificación líquida.</li>
+            <li><strong>SectionX</strong> — corte de secciones.</li>
+            <li><strong>StormX</strong> — estación meteorológica.</li>
+            <li><strong>LineX</strong> — corte surco por surco.</li>
+            <li><strong>CoreX-ECU</strong> — el módulo de dirección: sensor de ángulo, motor y sensores.</li>
+            <li><strong>Nodos</strong> — lista de todo lo conectado, con su estado y versión.</li>
+            <li><strong>Cámaras</strong> — las cámaras de la máquina.</li>
+            <li><strong>Hub</strong> — qué widgets se ven arriba del mapa.</li>
+          </ul>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Herram.</b></p>
+          <p>Cada producto tiene su botón directo en el menú <strong>Herram.</strong> <strong>CoreX-ECU</strong> muestra la telemetría viva del módulo de dirección (IMU, sensor de ángulo, motor Keya) — útil al instalar o revisar el equipo de piloto.</p>
+          <div class="clave">Los nodos aparecen <strong>solos</strong> cuando se encienden y se conectan a la red de la máquina. No se agregan a mano.</div>
+          <p>En el <strong>overlay de QuantiX</strong> sobre el mapa se ven <strong>todos</strong> los motores, giren o no. Al tocar uno aparece la barra con tres estados: <strong>AUTO</strong> (manda el mapa o la dosis fija), <strong>MAN</strong> (la dosis la ponés vos con − y +) y <strong>OFF</strong>. Con <strong>OFF</strong> ese motor <strong>deja de dosificar y su surco tampoco se pinta</strong> — como no se sembró, la pasada siguiente no lo va a saltear por solapado. El motor queda apagado <strong>aunque reinicies</strong> hasta que lo vuelvas a poner en AUTO o MAN, y se muestra en rojo con el cartel <strong>APAGADO</strong> para que no pase inadvertido.</p>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Herram.</b> <i>›</i> <b>QuantiX</b> <i>›</i> <b>Configurar</b></p>
+          <p>El botón <strong>Configurar</strong> del panel de QuantiX abre el editor con seis pestañas, con el mapa vivo atrás:</p>
+          <ul>
+            <li><strong>Siembra</strong> — la sembradora dibujada: tocá (o arrastrá) los surcos para pintarlos con el motor activo. <strong>+ Motor</strong>, <strong>Auto-repartir</strong> y <strong>Quitar surco</strong> arman el reparto; abajo, la dosis fija de cada motor, la unidad (kg/ha ↔ sem/m) y si usa mapa. Al lado de la unidad, <strong>⇊ a todos</strong> copia <strong>esa</strong> dosis y su unidad a <strong>todos</strong> los motores de todos los nodos (no toca los alvéolos ni las semillas por vuelta de cada uno, que son del dosificador): queda como cambio pendiente, hay que tocar <strong>Guardar</strong>. <strong>Guardar</strong> persiste y <strong>Enviar a nodos</strong> además manda la config a cada nodo. Mientras se está sembrando, la misma pestaña muestra dosis real contra objetivo y los surcos cortados en gris.</li>
+            <li><strong>Cargar placas</strong> (botón de la fila de abajo, en Siembra) — antes de arrancar la pasada hace girar <strong>una vuelta</strong> cada dosificador para que las placas queden llenas; si no, los primeros metros salen sin semilla. Sirve con cualquier sensor que cuente pulsos (encoder o inductivo): lo que tiene que estar bien cargado son los <strong>pulsos por vuelta</strong> del motor, en la pestaña <strong>Motores</strong> — y ese número cambia según el sensor (por ejemplo 600 con un encoder, 24 con un inductivo que lee los alvéolos de la placa). Al terminar avisa cuáles giraron y cuáles quedaron afuera por no tener ese dato cargado. <strong>Mueve los motores de verdad</strong>: usalo con la máquina frenada y sin nadie cerca del dosificador.</li>
+            <li><strong>Motores</strong> — cómo está armado cada motor: sensor (tipo, pulsos por vuelta, filtro), motor (eléctrico/hidráulico, PWM mínimo y máximo) y PID. <strong>Copiar a todos</strong> replica la configuración del fierro al resto de los motores del nodo.</li>
+            <li><strong>Shape</strong> — dosis variable: subir el shapefile (.shp + .shx + .dbf juntos), activar una prescripción guardada y ver la capa activa. Tocando una zona se ve su dosis y, si esa capa es la prescripción activa, se puede corregir ahí mismo.</li>
+            <li><strong>PID live</strong> — afinar Kp/Ki/Kd con el motor andando, medir el tope del motor y el Auto-Tune.</li>
+            <li><strong>Calibración</strong> — girar N vueltas, pesar o contar por surco y calcular cuánto entrega el dosificador.</li>
+            <li><strong>Prueba</strong> — girar una cantidad de pulsos, buscar el PWM mínimo y la calibración avanzada.</li>
+          </ul>
+          <div class="clave">Las pestañas <strong>PID live</strong>, <strong>Calibración</strong> y <strong>Prueba</strong> hacen <strong>girar el motor de verdad</strong>: usalas con la máquina frenada y la tolva como corresponda. Al cerrar el editor el motor se detiene solo.</div>
+          <div class="aviso">Los botones que ponen el motor en marcha <strong>preguntan antes</strong> y avisan qué va a pasar: <strong>▶ Iniciar</strong> de Calibración (además borra la cuenta de la corrida anterior que estabas pesando), <strong>⏱ Medir tope</strong> de Motores y <strong>⏱ Medir Max Hz</strong> y <strong>🎯 Auto-Tune</strong> de PID live. Tocá <strong>Cancelar</strong> si hay alguien cerca del dosificador.</div>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Herram.</b> <i>›</i> <b>VistaX</b> <i>›</i> <b>Configurar</b></p>
+          <p>El panel de VistaX muestra lo que está cayendo en cada surco. Todo lo que se ve está en <strong>sem/m</strong> (semillas por metro): el promedio y el objetivo de arriba, el número grande de cada tubito y el objetivo de cada tren. Al tocar un surco, el detalle agrega <strong>sem/ha</strong>, si la sección está cortada y hace cuánto llegó la última lectura. Con el tractor parado no hay sem/m posible y se muestra <strong>—</strong>. El botón <strong>Configurar</strong> abre el editor con tres pestañas, con el mapa vivo atrás; <strong>‹ Monitor</strong> vuelve a la pantalla de siembra:</p>
+          <ul>
+            <li><strong>Insumo &amp; calibración</strong> — elegir el insumo activo (VistaX usa su densidad objetivo y su densidad de modo flujo) y detectar la densidad real: con la sembradora trabajando, <strong>Detectar densidad — 5 s</strong> promedia los sem/m de los surcos y ofrece guardarlo al insumo. Si el sensor satura, se guarda como <strong>modo flujo</strong>. También se ajusta el <strong>límite del sensor</strong> (sem/m) a partir del cual se considera saturado.</li>
+            <li><strong>Implemento</strong> — de dónde sale el objetivo (QuantiX o manual), el objetivo propio en sem/m, la tolerancia de desvío, los <strong>surcos por torre</strong>, la vista por defecto y el <strong>mapeo de sensores</strong>: por cada bajada, qué nodo y qué cable la reportan, a qué tren pertenece y qué tipo de sensor es. El ancho, el número de surcos, la distancia, los trenes y el <strong>número de torres</strong> son de <strong>solo lectura</strong>: se editan una sola vez en el implemento de PilotX (botón <strong>Editar en Configuración</strong>).</li>
+            <li><strong>Config</strong> — cuándo arranca el monitoreo (caída de semilla, pintado de secciones, manual o por velocidad), el umbral de sensores, los tiempos y el silencio de alarmas. Abajo, <strong>Descargar sesiones del lote (ZIP)</strong> guarda los datos del lote abierto en <strong>Documentos\AgOpenGPS\Exportes</strong> para llevarlos en un pendrive.</li>
+          </ul>
+          <div class="clave">Los nodos de VistaX <strong>no se agregan a mano</strong>: en el mapeo, el UID se elige de la lista de nodos que están publicando (dice <em>online</em> u <em>offline</em>). La lista de nodos vistos está en el panel de VistaX, arriba del botón Configurar.</div>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Herram.</b> <i>›</i> <b>FlowX</b> <i>›</i> <b>Configurar</b></p>
+          <p>El panel de FlowX muestra el caudal real, la dosis, el PWM de la bomba y cuánto insumo se ahorró por el corte automático. El botón <strong>Configurar</strong> abre el editor con seis pestañas, con el mapa vivo atrás; <strong>‹ Monitor</strong> vuelve a la pantalla de caudal. Arriba de todo se elige el <strong>nodo</strong>, se agregan los que aparecieron en la red y se prende o apaga FlowX. Abajo, <strong>Guardar configuración</strong> (y <strong>Recargar</strong> para volver a lo guardado y tirar los cambios).</p>
+          <ul>
+            <li><strong>Nodo activo</strong> — nombre del nodo, si está habilitado y el <strong>ancho de barra</strong> (<strong>Desde PilotX</strong> lo toma del implemento). Debajo, la <strong>reguladora</strong> que se está editando, su modo (automático por dosis L/ha o manual por caudal fijo L/min), la calibración del caudalímetro, el PWM mínimo y máximo, el PID y los pasos de los botones − / +. Cierran la pantalla las casillas de electroválvulas del nodo (3 hilos, inversión de relés y de motor).</li>
+            <li><strong>Reguladoras</strong> — la lista de reguladoras del nodo: nombre, si es válvula o motor, qué caudalímetro lee y la dosis. Se toca una fila para elegir cuál se edita en Nodo activo.</li>
+            <li><strong>Cortes</strong> — cuántas válvulas de corte tiene la barra; <strong>Asignar automáticamente</strong> reparte entre ellas las secciones del implemento y el mapa de abajo muestra cómo quedó. También se elige la <strong>válvula master</strong>.</li>
+            <li><strong>Electroválvulas</strong> — si algún corte usa un tipo distinto al general (2 o 3 cables) y <strong>Sincronizar config al firmware</strong>, que manda esa configuración al nodo para que la guarde en su memoria.</li>
+            <li><strong>Firmware</strong> — actualizar el nodo con un archivo servido por la pantalla.</li>
+            <li><strong>Nodos en red</strong> — los nodos FlowX que están publicando, con su IP, versión y tiempo encendido. Desde acá se los pinguea y se limpia el <strong>modo seguro</strong> si un nodo quedó trabado.</li>
+          </ul>
+          <div class="clave">En Nodo activo, <strong>Detectar PWM mínimo</strong>, <strong>Calibrar caudalímetro</strong>, <strong>Auto-tune PID</strong> y <strong>Barrido auto</strong> hacen <strong>mover la reguladora y la bomba de verdad</strong>: usalos con el sistema cebado y sabiendo que sale líquido. Al cerrar el editor la reguladora se detiene sola.</div>
+          <p>Cada producto tiene su configuración en esta pantalla y un <strong>overlay</strong> que se prende o apaga sobre el mapa para verlo mientras trabajás.</p>
+          <p>En <strong>Campo</strong> están los <strong>insumos</strong> (semillas y fertilizantes), los <strong>mapas</strong> y las <strong>prescripciones</strong> (dosis variable por zona).</p>
+          <div class="clave">La prescripción se activa <strong>con su lote abierto</strong> y vale <strong>solo para ese lote</strong>: en otro lote (o en uno nuevo) no se dibuja ni dosifica. Para usarla en otro lote, abrilo y volvé a activarla.</div>
+        </section>
+
+        <section id="camaras">
+          <h2>Cámaras</h2>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Herramientas</b> <i>›</i> <b>Webcam</b></p>
+          <p>Muestra hasta cuatro cámaras en 1×1, 2×1 o 2×2. Doble toque sobre una para agrandarla y volver.</p>
+          <p>Para cargar IP, usuario y clave de cada cámara: botón <strong>Configurar</strong>, que abre la pantalla de Configuración en el módulo Cámaras.</p>
+        </section>
+
+        <section id="sonidos">
+          <h2>Sonidos</h2>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Herram.</b> <i>›</i> <b>Sonidos</b> &nbsp;·&nbsp; <b>Configuración</b> <i>›</i> <b>Otros</b> <i>›</i> <b>Sonidos</b></p>
+          <p>Qué avisa la cabina, con qué sonido y cuándo. Arriba se ven las <strong>alarmas activas</strong> en ese momento; abajo, la lista de avisos: piloto activado y desactivado, dosis que no alcanza o se pasa, motor sin girar, tubo de bajada sin semilla y tolva sin semilla.</p>
+          <p>De cada aviso se elige:</p>
+          <ul>
+            <li>la <strong>casilla verde</strong> — si avisa o no (apagado, la fila se ve gris);</li>
+            <li>el <strong>sonido</strong> — se toca el nombre del archivo y se elige de la lista;</li>
+            <li><strong>▶</strong> — escuchar el sonido elegido ahí mismo;</li>
+            <li><strong>umbral ±</strong> (solo dosis) — a partir de qué desvío se considera alarma;</li>
+            <li><strong>sostenido</strong> — cuántos segundos tiene que mantenerse la falla antes de sonar (evita saltos por un bache);</li>
+            <li><strong>repetir</strong> — si sigue activa, cada cuántos segundos vuelve a sonar (0 = una sola vez).</li>
+          </ul>
+          <p><strong>Silenciar todo</strong> calla la cabina sin dejar de detectar: las alarmas se siguen viendo en pantalla. El botón queda rojo hasta que se lo vuelve a tocar. <strong>Subir sonido propio (.wav)</strong> agrega un sonido desde un pendrive.</p>
+          <div class="clave">Los cambios se aplican al tocar <strong>Guardar</strong>. Silenciar todo, en cambio, guarda solo (no hace falta confirmar).</div>
+        </section>
+
+        <!-- ================= DATOS ================= -->
+        <section id="cloud">
+          <h2>Nube y actualizaciones</h2>
+          <p class="ruta"><b>Configuración</b> <i>›</i> <b>Cloud</b></p>
+          <ul>
+            <li><strong>OrbitX</strong> — vincula la pantalla con la cuenta del establecimiento. Con esto los lotes y lo trabajado suben solos cuando hay internet.</li>
+            <li><strong>Firmwares</strong> — actualizar los nodos (también desde un pendrive, sin internet, o por cable USB directo al chip).</li>
+            <li><strong>Actualizar</strong> — actualizar PilotX.</li>
+            <li><strong>Conectar celular</strong> — código QR para abrir el panel desde el teléfono, en la misma red. Si la pantalla está en más de una red, aparece un botón por cada una: tocá la de tu red y el QR cambia.</li>
+          </ul>
+          <p>El trabajo se guarda en la pantalla aunque no haya internet; la nube es un respaldo que sincroniza cuando aparece señal.</p>
+          <p class="ruta"><b>Configuración</b> <i>›</i> <b>Cloud</b> <i>›</i> <b>Firmwares</b> <i>›</i> <b>Flashear por USB</b></p>
+          <p>Al pie del panel de <strong>Firmwares</strong> hay una sección aparte para grabar el firmware <strong>directo al chip por cable</strong>, sin pasar por MQTT ni LAN. Sirve para un nodo (FlowX y demás X-*) recién soldado, todavía virgen, o uno que quedó "ladrillado" y no levanta la red — ahí no alcanza con el flasheo por LAN/pendrive de arriba.</p>
+          <ol class="pasos">
+            <li>Conectá el módulo a la PC por <strong>cable USB</strong>.</li>
+            <li>Elegí el <strong>puerto COM</strong>. Si no aparece ninguno, tocá <strong>Instalar driver USB</strong> (pide permiso de administrador) y volvé a enchufar el cable.</li>
+            <li>Elegí el <strong>producto</strong> y la <strong>versión</strong>.</li>
+            <li>Elegí el <strong>modo</strong>: <strong>Completo (chip nuevo)</strong> o <strong>Solo app (actualizar)</strong>.</li>
+            <li>Opcional: <strong>Borrar chip antes</strong>.</li>
+            <li>Tocá <strong>Flashear</strong> y esperá la barra de progreso.</li>
+          </ol>
+          <div class="clave"><strong>Completo</strong> solo está disponible si esa versión tiene el archivo de fábrica (factory); si no lo tiene, se usa <strong>Solo app</strong>.</div>
+        </section>
+
+        <section id="simulador">
+          <h2>Simulador (banco de pruebas)</h2>
+          <p>Para probar sin salir al lote se usa <strong>BenchX</strong> (<code>Build\BenchX\BenchX.exe</code>), que simula el GPS. Es una herramienta de taller, no de trabajo.</p>
+          <ol class="pasos">
+            <li>Abrí <strong>PilotX</strong>.</li>
+            <li>Abrí <strong>BenchX</strong> y ponele velocidad, en cualquier orden.</li>
+            <li>Trabajá como siempre: lote, guía, piloto.</li>
+          </ol>
+          <p>Si el banco tiene una <strong>ECU CoreX real</strong> conectada (motor, sensor de giro, bajada de herramienta), en la tarjeta <em>Red</em> de BenchX apagá lo que maneje la ECU — <em>GPS</em>, <em>WAS</em>, <em>Motor</em>, <em>Máquina</em> o <em>IMU</em> —: lo apagado lo pone la ECU de verdad y BenchX aporta el resto. Con <em>IMU</em> apagado el PANDA viaja sin rumbo/roll (los trae la ECU); con <em>Motor</em> apagado el tractor simulado deja de obedecer solo al piloto y el giro queda en el deslizador. Doble click sobre un deslizador lo vuelve a cero.</p>
+        </section>
+
+        <!-- ================= PROBLEMAS ================= -->
+        <section id="problemas">
+          <h2>Problemas frecuentes</h2>
+
+          <h3>El botón del piloto está gris</h3>
+          <p>Falta alguna de las tres condiciones: GPS con señal, lote abierto y guía elegida. Fijate cuál te falta y resolvé esa.</p>
+
+          <h3>El piloto no sigue la línea</h3>
+          <p>Revisá que la guía elegida sea la de la pasada que estás haciendo (a veces quedó otra activa) y que las medidas del vehículo estén bien cargadas. Si el tractor viene muy cruzado, enderezalo a mano unos metros y volvé a enganchar.</p>
+
+          <h3>Dice SIN FIX o el GPS está en rojo</h3>
+          <p>La antena no tiene señal: cielo tapado, cable flojo o la antena recién encendida. Si tarda mucho, revisá la conexión en <strong>Menú izquierdo › CoreX</strong>.</p>
+
+          <h3>El GPS está en naranja, ¿puedo trabajar?</h3>
+          <p><strong>Sí.</strong> Naranja es <strong>señal libre</strong>, el modo normal de Spark: hay posición y el piloto engancha sin problema. El verde (RTK fijo) es precisión extra, no un requisito para trabajar.</p>
+
+          <h3>Las secciones no cortan solas</h3>
+          <p>Tienen que estar en <strong>Automático</strong> (en Manual quedan siempre abiertas). Si tampoco cortan en la cabecera, fijate que <strong>Secciones controladas en cabecera</strong> esté en <strong>Sí</strong>.</p>
+
+          <h3>Un nodo no aparece</h3>
+          <p>Los nodos aparecen solos al encenderse. Si falta uno: revisá que tenga corriente y que esté en la red de la máquina. En <strong>Configuración › Módulos › Nodos</strong> se ve el último momento en que se lo escuchó.</p>
+
+          <h3>La pantalla quedó en negro o trabada</h3>
+          <p>Cerrá PilotX y volvé a abrirlo: al arrancar levanta todo el sistema de nuevo. Si el problema sigue, apagá y prendé la pantalla.</p>
+
+          <h3>Se cerró PilotX solo</h3>
+          <p>Vuelve a abrirse solo. El trabajo hecho no se pierde: se va guardando a medida que trabajás.</p>
+        </section>
+
+        <section id="errores">
+          <h2>Códigos de error</h2>
+          <p>Cuando algo falla, PilotX muestra un código corto junto al mensaje. Sirve para contarlo por teléfono sin describir toda la pantalla:</p>
+          <table class="ay-tab">
+            <tr><th>Código</th><th>Qué significa</th></tr>
+            <tr><td><code>AGP-MQTT-…</code></td><td>Problema hablando con los nodos (red de la máquina).</td></tr>
+            <tr><td><code>AGP-NET-…</code></td><td>Problema de red o de internet (nube).</td></tr>
+            <tr><td><code>AGP-SYS-…</code></td><td>Problema interno de la pantalla.</td></tr>
+          </table>
+          <p>El detalle técnico está siempre debajo del mensaje, desplegando <strong>Detalles</strong>. Si tenés que reportar algo, mandá el código y qué estabas haciendo.</p>
+          <p>Para soporte: <strong>Configuración › Mantenimiento › Sistema</strong> muestra versión y estado del equipo, y <strong>Eventos</strong> guarda lo que fue pasando.</p>
+          <p>Para conectar la pantalla a internet: <strong>Configuración › Mantenimiento › Red WiFi</strong> lista las redes al alcance con su señal, marca cuál está conectada y deja poner la clave con el teclado de la pantalla. No hace falta salir de PilotX.</p>
+          <p>Para saber la <strong>IP de la pantalla</strong>: <strong>Configuración › Mantenimiento › Sistema</strong>, sección <strong>Red</strong> — muestra la IP de cada conexión activa (cable y WiFi) y el estado de la batería. Es la IP que se necesita para el acceso remoto o para revisar los nodos.</p>
+        </section>
+
+        <p class="ay-cred">PilotX está basado en AgOpenGPS (GPL-3.0).</p>
+
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/sidebar.js"></script>
+  <script>
+    // Índice: marca la sección visible y hace scroll suave. Todo táctil, sin
+    // atajos de teclado (el operario usa los dedos y guantes).
+    (function () {
+      var doc = document.getElementById('doc');
+      var idx = document.getElementById('idx');
+      if (!doc || !idx) return;
+      var links = Array.prototype.slice.call(idx.querySelectorAll('a'));
+
+      links.forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          var s = document.querySelector(a.getAttribute('href'));
+          if (s) doc.scrollTo({ top: s.offsetTop - 8, behavior: 'smooth' });
+        });
+      });
+
+      // Resaltado por scroll: la sección cuyo tope pasó la marca de 1/3 de
+      // pantalla es la que se está leyendo.
+      function marcar() {
+        var y = doc.scrollTop + doc.clientHeight / 3;
+        var actual = links[0];
+        links.forEach(function (a) {
+          var s = document.querySelector(a.getAttribute('href'));
+          if (s && s.offsetTop <= y) actual = a;
+        });
+        links.forEach(function (a) { a.classList.toggle('on', a === actual); });
+      }
+      doc.addEventListener('scroll', marcar);
+      marcar();
+    })();
+  </script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

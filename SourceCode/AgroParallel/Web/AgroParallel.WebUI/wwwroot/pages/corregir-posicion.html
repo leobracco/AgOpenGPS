@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Corregir posición · Agro Parallel</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Corregir posición (reemplazo del WinForms FormShiftPos): corrimiento de
+       deriva GPS norte/este en cm + si se mantiene aplicado. Aplica en vivo por
+       POST /api/aog/guidance/command; lee el estado inicial de /api/aog/shift-pos. */
+    .sp-axes { display: flex; gap: var(--agp-sp-5); flex-wrap: wrap; }
+    .sp-axis {
+      flex: 1 1 240px;
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-4) var(--agp-sp-5);
+    }
+    .sp-axis .sp-label { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-bottom: var(--agp-sp-2); }
+    .sp-value {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-display);
+      font-weight: var(--agp-fw-bold); line-height: 1.1; text-align: center;
+    }
+    .sp-axis.north .sp-value { color: var(--agp-accent); }
+    .sp-axis.east  .sp-value { color: #3D87C6; }
+    .sp-unit { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); }
+    .sp-row { display: flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-3); justify-content: center; }
+    .sp-row .btn { min-width: 64px; }
+
+    .sp-foot { display: flex; gap: var(--agp-sp-4); margin-top: var(--agp-sp-5); align-items: center; flex-wrap: wrap; }
+    .sp-toggle {
+      display: inline-flex; align-items: center; gap: var(--agp-sp-3);
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3) var(--agp-sp-5);
+    }
+    .sp-toggle .sp-toggle-label { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); }
+    #btnOffsets.on { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Corregir posición</h1>
+        <div class="subtitle">Corrimiento de deriva GPS · aplica en vivo</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="statusText">—</span></span>
+    </div>
+
+    <div class="sp-axes">
+      <div class="sp-axis north">
+        <div class="sp-label">Norte / Sur</div>
+        <div class="sp-value"><span id="valNorth">0</span> <span class="sp-unit">cm</span></div>
+        <div class="sp-row">
+          <button class="btn compact" data-axis="north" data-step="-10">−10</button>
+          <button class="btn compact" data-axis="north" data-step="-1">−1</button>
+          <button class="btn compact" data-axis="north" data-step="1">+1</button>
+          <button class="btn compact" data-axis="north" data-step="10">+10</button>
+        </div>
+      </div>
+      <div class="sp-axis east">
+        <div class="sp-label">Este / Oeste</div>
+        <div class="sp-value"><span id="valEast">0</span> <span class="sp-unit">cm</span></div>
+        <div class="sp-row">
+          <button class="btn compact" data-axis="east" data-step="-10">−10</button>
+          <button class="btn compact" data-axis="east" data-step="-1">−1</button>
+          <button class="btn compact" data-axis="east" data-step="1">+1</button>
+          <button class="btn compact" data-axis="east" data-step="10">+10</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sp-foot">
+      <button class="btn" id="btnZero">Poner en cero</button>
+      <div class="sp-toggle">
+        <span class="sp-toggle-label">Mantener corrimiento</span>
+        <button class="btn compact" id="btnOffsets">Off</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/corregir-posicion.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

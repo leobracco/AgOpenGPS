@@ -1,0 +1,94 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.CabinaAlarmasOverlay">
+    <!-- SIN Background en el root: un fondo Transparent (no-null) hace
+         hit-testable TODA la superficie del control — la zona vacía
+         alrededor del chip comía los toques de lo que estuviera debajo.
+         Con null, solo el chip (que sí tiene fondo) recibe toques. -->
+
+    <!--
+        Aviso cabin-critical COMPACTO: nodos del implemento activo offline.
+        Chip chico arriba a la derecha (NO tapa el mapa), con X para ocultar.
+        Polling 2s /api/nodos/unified. Beep one-shot por UID nuevo. La X
+        descarta el chip hasta que entre un nodo nuevo en alarma (code-behind).
+    -->
+    <Border Name="AlertRoot"
+            VerticalAlignment="Top"
+            HorizontalAlignment="Right"
+            IsVisible="False"
+            Margin="0,56,10,0"
+            MaxWidth="380"
+            CornerRadius="10"
+            BorderThickness="1"
+            BorderBrush="#5B0F0F"
+            BoxShadow="0 3 10 0 #55000000"
+            Padding="10,7,8,7">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Offset="0" Color="#C92D2D"/>
+                <GradientStop Offset="1" Color="#8B1B1B"/>
+            </LinearGradientBrush>
+        </Border.Background>
+
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto" VerticalAlignment="Center">
+
+            <!-- Icono warning -->
+            <TextBlock Grid.Column="0"
+                       Text="⚠"
+                       FontSize="18"
+                       Foreground="White"
+                       VerticalAlignment="Center"
+                       Margin="0,0,8,0"/>
+
+            <!-- Cuerpo: titulo corto + lista (compacta) -->
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                <TextBlock Name="TituloText"
+                           Text="Implemento offline"
+                           FontSize="12"
+                           FontWeight="Bold"
+                           Foreground="White"/>
+                <TextBlock Name="ListaText"
+                           Text=""
+                           FontSize="11"
+                           Foreground="White"
+                           Opacity="0.92"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <!-- Silenciar beep (compacto, ícono campana) -->
+            <Button Grid.Column="2"
+                    Name="BtnSilenciar"
+                    Content="🔕"
+                    Click="OnSilenciarClick"
+                    ToolTip.Tip="Silenciar 10 min"
+                    Width="30" Height="30"
+                    Padding="0"
+                    Margin="6,0,0,0"
+                    FontSize="14"
+                    Foreground="White"
+                    Background="#2EFFFFFF"
+                    BorderBrush="#7CFFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="7"
+                    VerticalAlignment="Center"/>
+
+            <!-- Ocultar (X) -->
+            <Button Grid.Column="3"
+                    Name="BtnOcultar"
+                    Content="✕"
+                    Click="OnOcultarClick"
+                    ToolTip.Tip="Ocultar"
+                    Width="30" Height="30"
+                    Padding="0"
+                    Margin="4,0,0,0"
+                    FontSize="13"
+                    FontWeight="Bold"
+                    Foreground="White"
+                    Background="#2EFFFFFF"
+                    BorderBrush="#7CFFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="7"
+                    VerticalAlignment="Center"/>
+        </Grid>
+    </Border>
+</UserControl>

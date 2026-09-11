@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Implemento PilotX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ---- tabstrip (mismo patrón que vehiculo.html) ---- */
+    .tabs {
+      display: flex; gap: var(--agp-sp-1);
+      border-bottom: var(--agp-border-w) solid var(--agp-border);
+      margin: 0 0 var(--agp-sp-3) 0;
+      flex-wrap: wrap;
+    }
+    .tabs .tab {
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      min-height: var(--agp-touch-min);
+      background: transparent; border: 0;
+      color: var(--agp-text-muted);
+      font: inherit; cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+    .tabs .tab.on {
+      color: var(--agp-accent);
+      border-bottom-color: var(--agp-accent);
+      font-weight: var(--agp-fw-semi);
+    }
+    .panel { display: none; }
+    .panel.on { display: block; }
+
+    /* ---- tarjetas grandes de selección (acople / lado / modo) ---- */
+    .sel-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--agp-sp-3);
+    }
+    .sel-card {
+      display: flex; flex-direction: column; align-items: center;
+      gap: var(--agp-sp-2);
+      padding: var(--agp-sp-3);
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      cursor: pointer; font: inherit; color: var(--agp-text-muted);
+      transition: background 0.1s, border-color 0.1s, transform 0.05s;
+      min-height: 150px;
+    }
+    .sel-card:hover { background: var(--agp-bg); }
+    .sel-card:active { transform: translateY(1px); }
+    .sel-card.on {
+      border-color: var(--agp-accent);
+      background: var(--agp-accent-soft, rgba(74,186,62,0.10));
+      color: var(--agp-text);
+    }
+    .sel-card svg { width: 150px; height: 84px; }
+    .sel-card .sel-name { font-weight: var(--agp-fw-semi); color: var(--agp-text); text-align: center; }
+    .sel-card .sel-hint { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); text-align: center; }
+    /* Sprites reales de PilotX (mismos PNG/GIF del FormConfig WinForms):
+       grisado leve cuando idle, color pleno al seleccionar (patrón veh-img). */
+    .sel-card .sel-img {
+      max-width: 170px; max-height: 110px; width: auto; height: auto;
+      object-fit: contain;
+      filter: grayscale(0.55) brightness(0.97);
+      transition: filter 0.15s;
+    }
+    .sel-card.on .sel-img { filter: none; }
+    .diagram img.real {
+      width: 100%; max-width: 420px; height: auto;
+      background: #fff; border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-2); box-sizing: border-box;
+    }
+
+    /* ---- input grande táctil en cm/seg (patrón antena) ---- */
+    .big-field { text-align: center; }
+    .big-field label {
+      display: block;
+      font-weight: var(--agp-fw-semi);
+      margin-bottom: 4px;
+    }
+    .big-input-row { display: inline-flex; align-items: center; gap: 10px; }
+    .big-num {
+      width: 150px;
+      min-height: 56px;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft);
+      color: var(--agp-text);
+      font-size: 32px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .big-num:focus { outline: 2px solid var(--agp-accent); }
+    .big-num:disabled { opacity: 0.45; }
+    .big-unit { font-weight: var(--agp-fw-semi); color: var(--agp-text-muted); }
+
+    /* ---- layout dos columnas diagrama + campos ---- */
+    .split {
+      display: grid;
+      grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+      gap: var(--agp-sp-3);
+      align-items: stretch;
+    }
+    @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
+    .stack-center { display: flex; flex-direction: column; gap: var(--agp-sp-3); align-items: center; justify-content: center; }
+
+    .diagram {
+      background: var(--agp-bg-soft);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3);
+      text-align: center;
+    }
+    .diagram svg { width: 100%; max-width: 460px; height: auto; }
+    .lbl-txt { fill: var(--agp-text); font-size: 11px; }
+    .cota { stroke: var(--agp-accent); stroke-width: 4; }
+    .cota-fill { fill: var(--agp-accent); }
+    .axle { stroke: var(--agp-text-muted); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; }
+
+    /* ---- secciones: barra visual ---- */
+    .sec-readout {
+      display: flex; gap: var(--agp-sp-4); justify-content: center; flex-wrap: wrap;
+      margin-top: var(--agp-sp-3);
+    }
+    .sec-stat { text-align: center; }
+    .sec-stat .v { font-size: 26px; font-weight: 700; color: var(--agp-accent); }
+    .sec-stat .l { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+
+    .stepper { display: inline-flex; align-items: center; gap: var(--agp-sp-2); }
+    .stepper button {
+      width: 56px; height: 56px;
+      font-size: 28px; font-weight: 700;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft); color: var(--agp-text);
+      cursor: pointer;
+    }
+    .stepper button:active { transform: translateY(1px); }
+
+    .msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: var(--agp-sp-3); min-height: 18px; }
+    .msg.ok  { color: var(--agp-state-ok); }
+    .msg.err { color: var(--agp-state-bad); }
+    .help { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 2px; }
+    .send-msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); display: block; margin-top: var(--agp-sp-2); }
+    .send-msg.ok  { color: var(--agp-state-ok); }
+    .send-msg.err { color: var(--agp-state-bad); }
+
+    /* toggle grande on/off */
+    .big-toggle {
+      display: inline-flex; align-items: center; gap: var(--agp-sp-2);
+      min-height: var(--agp-touch-min);
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft);
+      color: var(--agp-text-muted);
+      font: inherit; cursor: pointer;
+    }
+    .big-toggle .knob {
+      width: 46px; height: 26px; border-radius: 13px;
+      background: var(--agp-border); position: relative; transition: background 0.15s;
+    }
+    .big-toggle .knob::after {
+      content: ""; position: absolute; top: 3px; left: 3px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; transition: left 0.15s;
+    }
+    .big-toggle.on { color: var(--agp-text); border-color: var(--agp-accent); }
+    .big-toggle.on .knob { background: var(--agp-accent); }
+    .big-toggle.on .knob::after { left: 23px; }
+
+    /* ---- secciones: aplicar el mismo ancho a todas de un toque ---- */
+    .sec-bulk-row {
+      display: flex; flex-wrap: wrap; align-items: center; gap: var(--agp-sp-3);
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3);
+      margin-bottom: var(--agp-sp-3);
+    }
+    .sec-bulk-row label { font-weight: var(--agp-fw-semi); }
+    .sec-bulk-row .big-num { width: 110px; min-height: 44px; font-size: 22px; }
+    .sec-indiv-label {
+      display: block; font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      margin-bottom: var(--agp-sp-2);
+    }
+
+    /* ---- secciones: grilla de anchos individuales, menos apretada ---- */
+    .sec-widths-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+      gap: var(--agp-sp-3);
+    }
+    .sec-w-cell {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-2);
+    }
+    .sec-w-cell label { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+    .sec-w-cell input {
+      width: 100%; min-height: var(--agp-touch-min); text-align: center;
+      font-weight: var(--agp-fw-semi); font-size: var(--agp-fs-md);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: #fff; color: var(--agp-text);
+    }
+    .sec-w-cell input:focus { outline: 2px solid var(--agp-accent); }
+
+    /* ---- zonas: rango por zona con dropdown "hasta la sección X",
+       auto-corregido en cascada; la última zona es fija y se muestra así ---- */
+    .zone-ranges-grid {
+      margin-top: var(--agp-sp-3);
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--agp-sp-2);
+    }
+    .zone-ranges-grid .field label { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+    .zone-r-fixed {
+      min-height: var(--agp-touch-min);
+      display: flex; align-items: center;
+      padding: 0 var(--agp-sp-3);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: var(--agp-bg-soft); color: var(--agp-text-muted);
+      font-weight: var(--agp-fw-semi);
+    }
+
+    /* ---- toast no-bloqueante: feedback rápido de guardado/aplicado ---- */
+    #implToast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--agp-text); color: #fff;
+      padding: 12px 20px; border-radius: var(--agp-radius-md);
+      font-size: var(--agp-fs-md); font-weight: var(--agp-fw-medium);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+      z-index: 9999; max-width: 480px; text-align: center;
+    }
+    #implToast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    #implToast.ok   { background: var(--agp-accent); }
+    #implToast.bad  { background: #b3261e; }
+    #implToast.warn { background: #b07900; }
+
+    /* ---- trenes: filas editables + pincel + tira surco→tren ---- */
+    #cardTrenes {
+      --tc1: var(--agp-accent);       --tc1-soft: var(--agp-accent-soft);
+      --tc2: var(--agp-warn);         --tc2-soft: var(--agp-warn-soft);
+      --tc3: var(--agp-danger);       --tc3-soft: var(--agp-danger-soft);
+      --tc4: var(--agp-text-muted);   --tc4-soft: var(--agp-surface-3);
+    }
+    .hint { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin: 0 0 var(--agp-sp-3) 0; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: var(--agp-sp-2); }
+
+    .tren-row {
+      display: flex; align-items: center; gap: var(--agp-sp-2); flex-wrap: wrap;
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft);
+      margin-bottom: var(--agp-sp-2);
+    }
+    .tren-swatch {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: var(--agp-border-w-2) solid var(--agp-border);
+      flex: 0 0 auto;
+    }
+    .tren-name-inp {
+      flex: 1 1 160px; min-width: 120px; min-height: var(--agp-touch-min);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: var(--agp-surface); color: var(--agp-text);
+      font-weight: var(--agp-fw-semi); padding: 0 var(--agp-sp-2);
+    }
+    .tren-stepper { display: inline-flex; align-items: center; gap: 6px; }
+    .tren-stepper button {
+      width: 40px; height: 40px; font-size: 20px; font-weight: 700;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: var(--agp-surface); color: var(--agp-text);
+      cursor: pointer;
+    }
+    .tren-stepper button:disabled { opacity: 0.4; cursor: default; }
+    .tren-stepper input {
+      width: 64px; min-height: 40px; text-align: center;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: var(--agp-surface); color: var(--agp-text);
+    }
+    .tren-stepper input:disabled { opacity: 0.5; }
+    .tren-unit { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+    .tren-del {
+      color: var(--agp-danger); border-color: var(--agp-danger-soft);
+      min-height: var(--agp-touch-min); min-width: var(--agp-touch-min);
+    }
+
+    .tren-brush-btn { display: inline-flex; align-items: center; gap: 6px; }
+    .tren-brush-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+
+    .qx-strip {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      margin-top: var(--agp-sp-2);
+    }
+    .qx-strip .trs-cell {
+      min-width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      border: var(--agp-border-w-2) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      font-size: var(--agp-fs-xs); font-weight: 700; color: var(--agp-text);
+      cursor: pointer; user-select: none;
+    }
+    .qx-strip .trs-cell:active { transform: translateY(1px); }
+  </style>
+</head>
+<body>
+  <!-- Esta pantalla se unificó en Configuración (config.html): mismo dato,
+       una sola ventana. Redirigimos ahí; el resto del markup queda para
+       poder volver atrás sin arqueología si hiciera falta. -->
+  <script>location.replace('config.html?tab=tconfig');</script>
+  <aside class="sidebar" data-active="configuracion"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>Implemento PilotX</h1><div class="subtitle">Esta pantalla se unificó en <a href="config.html">Configuración</a></div></div>
+      <span class="pill" id="implStatus"><span class="dot"></span> Redirigiendo…</span>
+    </div>
+
+    <!-- tabstrip -->
+    <div class="tabs">
+      <button class="tab on" data-panel="acople">Acople</button>
+      <button class="tab"    data-panel="enganche">Enganche</button>
+      <button class="tab"    data-panel="desfase">Desfase</button>
+      <button class="tab"    data-panel="secciones">Secciones</button>
+      <button class="tab"    data-panel="anticipo">Anticipo</button>
+    </div>
+
+    <!-- =================== ACOPLE (tabTConfig) =================== -->
+    <section class="panel on" id="panel-acople">
+      <div class="card">
+        <h3 style="margin-top:0">¿Cómo va enganchado el implemento?</h3>
+        <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+          Define cómo PilotX calcula la posición del implemento al doblar. Elegí la opción que más se parece.
+        </p>
+        <div class="sel-cards" id="acopleCards">
+          <!-- Montado 3 puntos (rígido atrás) -->
+          <button type="button" class="sel-card" data-acople="rear">
+            <img class="sel-img" src="../img/tool/ToolChkRear.png" alt="Montado 3 puntos" loading="lazy">
+            <span class="sel-name">Montado 3 puntos</span>
+            <span class="sel-hint">Rígido al levante trasero</span>
+          </button>
+
+          <!-- De arrastre -->
+          <button type="button" class="sel-card" data-acople="trailing">
+            <img class="sel-img" src="../img/tool/ToolChkTrailing.png" alt="De arrastre" loading="lazy">
+            <span class="sel-name">De arrastre</span>
+            <span class="sel-hint">Colgado con lanza y ruedas propias</span>
+          </button>
+
+          <!-- TBT: carro + implemento -->
+          <button type="button" class="sel-card" data-acople="tbt">
+            <img class="sel-img" src="../img/tool/ToolChkTBT.png" alt="Carro + implemento" loading="lazy">
+            <span class="sel-name">Carro + implemento</span>
+            <span class="sel-hint">Tanque o carro entre tractor e implemento (TBT)</span>
+          </button>
+
+          <!-- Frontal -->
+          <button type="button" class="sel-card" data-acople="front">
+            <img class="sel-img" src="../img/tool/ToolChkFront.png" alt="Frontal" loading="lazy">
+            <span class="sel-name">Frontal</span>
+            <span class="sel-hint">Rígido adelante del tractor</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== ENGANCHE (tabTHitch + tabToolPivot) =================== -->
+    <section class="panel" id="panel-enganche">
+      <div class="split">
+        <div class="card">
+          <h3 style="margin-top:0">Distancias del enganche</h3>
+          <div class="stack-center">
+            <div class="big-field">
+              <label for="hitchLength">Eje trasero → punto de enganche</label>
+              <div class="big-input-row">
+                <input class="big-num" type="number" id="hitchLength" min="0" max="2000" step="1">
+                <span class="big-unit">cm</span>
+              </div>
+              <div class="help">Del eje trasero del tractor al punto donde cuelga el implemento</div>
+            </div>
+
+            <div class="big-field" id="rowTrailingHitch">
+              <label for="trailingHitchLength">Enganche → eje del implemento</label>
+              <div class="big-input-row">
+                <input class="big-num" type="number" id="trailingHitchLength" min="0" max="3000" step="1">
+                <span class="big-unit">cm</span>
+              </div>
+              <div class="help">Largo de la lanza: del enganche a las ruedas del implemento (solo de arrastre)</div>
+            </div>
+
+            <div class="big-field" id="rowToolPivot">
+              <label for="toolPivotLength">Eje del implemento → línea de trabajo</label>
+              <div class="big-input-row">
+                <input class="big-num" type="number" id="toolPivotLength" min="-500" max="500" step="1">
+                <span class="big-unit">cm</span>
+              </div>
+              <div class="help">De las ruedas del implemento a donde realmente trabaja (cuerpos/rejas). 0 si coinciden.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0">Vista lateral</h3>
+          <div class="diagram">
+            <!-- Sprite real del FormConfig: cambia según el estilo de acople
+                 elegido en la pestaña Acople (mismo comportamiento que WinForms). -->
+            <img class="real" id="hitchDiagram" src="../img/tool/ToolHitchPageRear.png"
+                 alt="Vista lateral del enganche" loading="lazy">
+            <div class="help" style="text-align:left; margin-top: var(--agp-sp-2)">
+              El dibujo corresponde al estilo de acople elegido. Las medidas de la izquierda
+              son las flechas del dibujo, siempre desde el eje trasero del tractor hacia atrás.
+              Las que no aplican a tu acople quedan deshabilitadas.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== DESFASE (tabToolOffset) =================== -->
+    <section class="panel" id="panel-desfase">
+      <div class="split">
+        <div class="card">
+          <h3 style="margin-top:0">Desfase lateral</h3>
+          <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+            Si el implemento no trabaja centrado con el tractor, indicá cuánto y hacia qué lado.
+          </p>
+          <div class="stack-center">
+            <div class="big-field">
+              <label for="toolOffset">Corrimiento del centro</label>
+              <div class="big-input-row">
+                <input class="big-num" type="number" id="toolOffset" min="0" max="1000" step="1">
+                <span class="big-unit">cm</span>
+              </div>
+            </div>
+            <div class="sel-cards" style="grid-template-columns: 1fr 1fr; width: 100%; max-width: 420px;" id="offsetSideCards">
+              <button type="button" class="sel-card" style="min-height: 110px" data-offside="left">
+                <img class="sel-img" src="../img/tool/ToolOffsetNegativeLeft.png" alt="Implemento a la izquierda" loading="lazy">
+                <span class="sel-name">A la izquierda</span>
+              </button>
+              <button type="button" class="sel-card" style="min-height: 110px" data-offside="right">
+                <img class="sel-img" src="../img/tool/ToolOffsetPositiveRight.png" alt="Implemento a la derecha" loading="lazy">
+                <span class="sel-name">A la derecha</span>
+              </button>
+            </div>
+            <div class="help">Con 0 cm el implemento queda centrado y el lado no importa.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0">Traslape entre pasadas</h3>
+          <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+            Cuánto se pisan (o se separan) las pasadas vecinas. Traslape evita franjas sin trabajar;
+            diferencia deja un hueco a propósito.
+          </p>
+          <div class="stack-center">
+            <div class="big-field">
+              <label for="toolOverlap">Traslape / diferencia</label>
+              <div class="big-input-row">
+                <input class="big-num" type="number" id="toolOverlap" min="0" max="200" step="1">
+                <span class="big-unit">cm</span>
+              </div>
+            </div>
+            <div class="sel-cards" style="grid-template-columns: 1fr 1fr; width: 100%; max-width: 420px;" id="overlapModeCards">
+              <button type="button" class="sel-card" style="min-height: 110px" data-ovmode="overlap">
+                <img class="sel-img" src="../img/tool/ToolOverlap.png" alt="Traslape" loading="lazy">
+                <span class="sel-name">Traslape</span>
+                <span class="sel-hint">Las pasadas se pisan</span>
+              </button>
+              <button type="button" class="sel-card" style="min-height: 110px" data-ovmode="gap">
+                <img class="sel-img" src="../img/tool/ToolGap.png" alt="Diferencia" loading="lazy">
+                <span class="sel-name">Diferencia</span>
+                <span class="sel-hint">Queda un hueco entre pasadas</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== SECCIONES (tabTSections) =================== -->
+    <section class="panel" id="panel-secciones">
+      <div class="card" style="margin-bottom: var(--agp-sp-3)">
+        <h3 style="margin-top:0">Cómo se divide el ancho de trabajo</h3>
+        <div class="sel-cards" id="secModeCards" style="grid-template-columns: 1fr 1fr; max-width: 640px;">
+          <button type="button" class="sel-card" style="min-height: 120px" data-secmode="sections">
+            <span class="sel-name">Secciones individuales</span>
+            <span class="sel-hint">Hasta 16 secciones, cada una con su propio ancho (pulverizadora, fertilizadora)</span>
+          </button>
+          <button type="button" class="sel-card" style="min-height: 120px" data-secmode="zones">
+            <span class="sel-name">Zonas</span>
+            <span class="sel-hint">Hasta 64 secciones iguales agrupadas en zonas (sembradora surco a surco)</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="split">
+          <div class="stack-center">
+            <div class="big-field">
+              <label>Cantidad de secciones</label>
+              <div class="stepper">
+                <button type="button" id="secMinus" aria-label="Menos secciones">−</button>
+                <input class="big-num" type="number" id="numSections" min="1" max="16" step="1" style="width: 110px">
+                <button type="button" id="secPlus" aria-label="Más secciones">+</button>
+              </div>
+              <div class="help" id="secMaxHint">De 1 a 16 secciones</div>
+            </div>
+
+            <!-- modo zonas: ancho único + armado de zonas -->
+            <div class="big-field" id="secZonesBlock" hidden>
+              <label for="sectionWidthMulti">Ancho de cada sección</label>
+              <div class="big-input-row">
+                <input class="big-num" type="number" id="sectionWidthMulti" min="1" max="1000" step="0.5">
+                <span class="big-unit">cm</span>
+              </div>
+              <div class="help">Todas las secciones miden lo mismo; el total es secciones × ancho</div>
+
+              <div style="margin-top: var(--agp-sp-3)">
+                <label>Cantidad de zonas</label>
+                <div class="stepper">
+                  <button type="button" id="zoneMinus" aria-label="Menos zonas">−</button>
+                  <input class="big-num" type="number" id="zoneCount" min="1" max="8" step="1" style="width: 90px">
+                  <button type="button" id="zonePlus" aria-label="Más zonas">+</button>
+                </div>
+                <div class="help">Cada zona agrupa secciones consecutivas (para el control por relés)</div>
+              </div>
+              <div id="zoneRangesGrid" class="zone-ranges-grid"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="diagram">
+              <svg viewBox="0 0 460 120" aria-hidden="true">
+                <!-- tractor arriba centrado -->
+                <rect x="216" y="6" width="28" height="34" rx="6" fill="var(--agp-text)" opacity="0.75"/>
+                <line x1="230" y1="40" x2="230" y2="56" stroke="var(--agp-text-muted)" stroke-width="2"/>
+                <!-- barra de secciones dinámica -->
+                <g id="secBar"></g>
+              </svg>
+              <div class="sec-readout">
+                <div class="sec-stat"><div class="v" id="secWidthEach">—</div><div class="l">cm por sección</div></div>
+                <div class="sec-stat"><div class="v" id="secWidthTotal">—</div><div class="l">m de ancho total</div></div>
+              </div>
+            </div>
+
+            <!-- modo secciones: ancho individual por sección -->
+            <div id="secIndivBlock" style="margin-top: var(--agp-sp-3)">
+              <div class="sec-bulk-row">
+                <label for="secWidthBulk">Poner el mismo ancho a las <span id="secBulkCount">—</span> secciones</label>
+                <div class="big-input-row">
+                  <input class="big-num" type="number" id="secWidthBulk" min="1" max="1000" step="1" placeholder="200">
+                  <span class="big-unit">cm</span>
+                </div>
+                <button type="button" class="btn primary" id="btnSecWidthBulk">Aplicar a todas</button>
+              </div>
+              <label class="sec-indiv-label">O ajustá cada sección por separado (cm)</label>
+              <div id="secWidthsGrid" class="sec-widths-grid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== TRENES DE SIEMBRA ===== -->
+      <!-- Los trenes se EDITAN en Configuración → Secciones (config.html):
+           un solo editor, una sola verdad. Acá queda el aviso. -->
+      <div class="card" id="cardTrenes" style="margin-top: var(--agp-sp-3)">
+        <h3 style="margin-top:0">Trenes de siembra</h3>
+        <p class="hint" style="margin:0">Se configuran en
+          <a href="config.html">Configuración → Secciones</a>: ahí elegís los trenes,
+          la distancia del trasero y qué surco va en cada uno.</p>
+      </div>
+    </section>
+
+    <!-- =================== ANTICIPO (tabTSettings) =================== -->
+    <section class="panel" id="panel-anticipo">
+      <div class="card">
+        <h3 style="margin-top:0">Anticipo de secciones</h3>
+        <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+          Cuánto se adelanta PilotX a prender o apagar cada sección para compensar la demora
+          del equipo (válvulas, dosificadores). Se mide en segundos.
+        </p>
+        <div class="sel-cards" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+          <div class="sel-card" style="cursor: default;">
+            <img class="sel-img" src="../img/tool/SectionOnLookAhead.gif" alt="" loading="lazy" style="filter:none">
+            <div class="big-field">
+              <label for="lookAheadOn">Encendido</label>
+              <div class="big-input-row">
+                <input class="big-num" type="number" id="lookAheadOn" min="0" max="10" step="0.1">
+                <span class="big-unit">s</span>
+              </div>
+              <div class="help">Prende la sección este tiempo antes de entrar a zona sin trabajar</div>
+            </div>
+          </div>
+          <div class="sel-card" style="cursor: default;">
+            <img class="sel-img" src="../img/tool/SectionLookAheadOff.gif" alt="" loading="lazy" style="filter:none">
+            <div class="big-field">
+              <label for="lookAheadOff">Apagado</label>
+              <div class="big-input-row">
+                <input class="big-num" type="number" id="lookAheadOff" min="0" max="10" step="0.1">
+                <span class="big-unit">s</span>
+              </div>
+              <div class="help">Apaga la sección este tiempo antes de pisar lo ya trabajado</div>
+            </div>
+          </div>
+          <div class="sel-card" style="cursor: default;">
+            <img class="sel-img" src="../img/tool/SectionLookAheadDelay.gif" alt="" loading="lazy" style="filter:none">
+            <div class="big-field">
+              <label for="turnOffDelay">Retardo al apagar</label>
+              <div class="big-input-row">
+                <input class="big-num" type="number" id="turnOffDelay" min="0" max="10" step="0.1">
+                <span class="big-unit">s</span>
+              </div>
+              <div class="help">Demora extra antes de cortar (evita parpadeo en bordes)</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: var(--agp-sp-3); text-align: center;">
+          <button type="button" class="big-toggle" id="sectionOffWhenOut">
+            <span class="knob"></span>
+            <span>Apagar secciones al salir del lote o cabecera</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div style="margin-top: var(--agp-sp-4); display:flex; gap: var(--agp-sp-2); align-items: center;">
+      <button class="btn primary" id="btnSaveImpl" style="min-height: var(--agp-touch-min)">Guardar y aplicar</button>
+      <button class="btn" id="btnReloadImpl">Descartar cambios</button>
+      <span class="msg" id="msgImpl"></span>
+    </div>
+  </main>
+  <div id="implToast" role="status" aria-live="polite"></div>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/config-implemento.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

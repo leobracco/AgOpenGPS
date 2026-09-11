@@ -1,0 +1,15 @@
+{
+  "name": "AgroParallel Field",
+  "short_name": "AP Field",
+  "description": "Calibracion, pruebas y configuracion movil de AgroParallel.",
+  "start_url": "/m/",
+  "scope": "/m/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#16181A",
+  "theme_color": "#4BA63F",
+  "icons": [
+    { "src": "/m/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/m/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

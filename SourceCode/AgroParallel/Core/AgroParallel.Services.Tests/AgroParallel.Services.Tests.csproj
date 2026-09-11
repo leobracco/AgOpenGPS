@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="NUnit" Version="4.3.2" />
+    <PackageReference Include="NUnit.Analyzers" Version="4.6.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageReference Include="xunit" Version="2.7.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.8">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AgroParallel.Services\AgroParallel.Services.csproj" />
+    <ProjectReference Include="..\AgroParallel.Models\AgroParallel.Models.csproj" />
+    <!-- CNmeaParser (AgIO) linkeado igual que en PilotX.GuidanceEngine: es la
+         entrada NMEA REAL de RS232/LAN y los tests le dan chunks fragmentados
+         como los entrega un puerto serie. AgLibrary via netstandard2.0. -->
+    <ProjectReference Include="..\..\..\AgLibrary\AgLibrary.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\CoreX.Shared\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
+    <Compile Include="..\..\..\CoreX.Shared\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
+    <Compile Include="..\..\..\CoreX.Shared\CGLM.cs" Link="AgIO\CGLM.cs" />
+  </ItemGroup>
+</Project>

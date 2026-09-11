@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rutas grabadas</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: var(--agp-bg); color: var(--agp-text); }
+    body { font-family: var(--agp-font-sans); display: flex; flex-direction: column; overflow: hidden; }
+
+    .rp-head { display: flex; align-items: center; gap: 8px; padding: clamp(3px,1vh,6px) 10px;
+      background: var(--agp-surface); border-bottom: 1px solid var(--agp-border); flex-shrink: 0; }
+    .rp-head .title { font-weight: var(--agp-fw-bold); font-size: 13px; flex: 1; }
+
+    .rp-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: clamp(4px,1vh,8px);
+      padding: clamp(6px,1.5vh,12px); overflow-y: auto; }
+
+    .rp-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+
+    .rp-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+      background: var(--agp-surface); border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      cursor: pointer; font-size: clamp(11px,2.4vh,13px); }
+    .rp-item.selected { background: #d0e8f0; border-color: var(--agp-accent); }
+    .rp-item .rp-name { flex: 1; }
+
+    .btn { min-height: clamp(28px,6vh,40px); font-family: var(--agp-font-sans); font-size: clamp(11px,2.2vh,13px);
+      background: var(--agp-surface); color: var(--agp-text); border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); cursor: pointer; padding: 2px 8px; }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .rp-accent { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .rp-danger { background: #5a2c2c; color: #fff; border-color: #5a2c2c; }
+    .rp-row { display: flex; gap: clamp(4px,0.8vw,8px); }
+    .rp-row .btn { flex: 1 1 0; }
+
+    .rp-save { display: none; flex-direction: column; gap: 6px; }
+    .rp-save.show { display: flex; }
+    .rp-save input { min-height: 32px; font-family: var(--agp-font-sans); font-size: 13px;
+      background: var(--agp-bg); color: var(--agp-text); border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); padding: 0 8px; }
+    .rp-save .rp-row { margin-top: 4px; }
+
+    .rp-check { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+    .rp-check input { width: 18px; height: 18px; }
+
+    .rp-msg { display: none; font-size: 12px; color: var(--agp-text-muted); text-align: center; padding: 8px; }
+    .rp-msg.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="rp-head">
+    <span class="title" id="titleText">Rutas grabadas</span>
+  </div>
+
+  <div class="rp-body">
+    <!-- Vista picker (lista) -->
+    <div id="viewPicker">
+      <div class="rp-list" id="pathList"></div>
+      <div class="rp-msg" id="msgEmpty">No hay rutas grabadas en este lote.</div>
+      <div class="rp-row" style="margin-top:6px;">
+        <button class="btn rp-accent" id="btnLoad">Usar seleccionada</button>
+        <button class="btn rp-danger" id="btnDelete">Borrar</button>
+      </div>
+      <button class="btn rp-danger" id="btnOff" style="margin-top:4px;">Apagar ruta grabada</button>
+    </div>
+
+    <!-- Vista save (nombre al guardar) -->
+    <div class="rp-save" id="viewSave">
+      <div style="font-size:13px;">Nombre de la ruta grabada:</div>
+      <input id="inpName" type="text" placeholder="Nombre" />
+      <label class="rp-check"><input type="checkbox" id="chkDate" checked /> Agregar fecha</label>
+      <label class="rp-check"><input type="checkbox" id="chkTime" checked /> Agregar hora</label>
+      <div class="rp-row">
+        <button class="btn rp-accent" id="btnSave">Guardar</button>
+        <button class="btn" id="btnDiscard">Descartar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/recpath.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

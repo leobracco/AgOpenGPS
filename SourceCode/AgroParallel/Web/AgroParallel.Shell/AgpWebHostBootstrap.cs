@@ -1,0 +1,225 @@
+// ============================================================================
+// AgpWebHostBootstrap.cs
+// Singleton estatico que levanta UN solo AgpWebHost (127.0.0.1:5180) y lo
+// comparte entre FormGPS (que lo arranca eager en su Load) y los hosts que
+// lo consumen (FormAgroParallelHubWebView2 y/o AgroParallel.Shell.Avalonia
+// que apuntan a la URL via WebView2).
+//
+// Antes el host vivia adentro del Hub y solo se levantaba al click "AP".
+// Eso impedia que widgets Avalonia standalone (--page=pages/camaras.html)
+// pudieran conectar antes de abrir el Hub. Ahora arranca con PilotX.
+// ============================================================================
+
+using System;
+using AgroParallel.FlowX;
+using AgroParallel.Services;
+using AgroParallel.Services.Abstractions;
+using AgroParallel.WebHost;
+
+namespace AgroParallel.Shell
+{
+    public static class AgpWebHostBootstrap
+    {
+        private static readonly object s_lock = new object();
+        private static AgpWebHost s_host;
+        private static NodoRegistryService s_nodos;
+        private static FlowXBridge s_flowxBridge;
+        private static IFlowXLiveService s_flowxLive;
+        private static IFlowXConfigService s_flowxCfg;
+        private static ISectionXConfigService s_sectionxCfg;
+        private static IOrbitXConfigService s_orbitxCfg;
+        private static IImplementoService s_implemento;
+        private static string s_url;
+
+        public static AgpWebHost Host { get { lock (s_lock) return s_host; } }
+        public static string Url { get { lock (s_lock) return s_url; } }
+        public static bool IsRunning { get { lock (s_lock) return s_host != null; } }
+
+        // Expuestos para que widgets fuera del WebHost (overlay PilotX) puedan
+        // leer telemetría sin pasar por HTTP loopback.
+        public static IFlowXLiveService FlowXLive { get { lock (s_lock) return s_flowxLive; } }
+        public static IFlowXConfigService FlowXConfigSvc { get { lock (s_lock) return s_flowxCfg; } }
+
+        // Expuesto para que FormGPS pueda suscribirse al evento ConfigSaved y
+        // relanzar SectionXBridge cuando el operario guarda desde la UI Hub
+        // (si no se relanza, /sections nunca se publica → relays no se activan).
+        public static ISectionXConfigService SectionXConfigSvc { get { lock (s_lock) return s_sectionxCfg; } }
+
+        // Misma idea para OrbitX: FormGPS se suscribe a ConfigSaved para relanzar
+        // OrbitXSync en caliente cuando el operario activa/vincula desde la UI.
+        public static IOrbitXConfigService OrbitXConfigSvc { get { lock (s_lock) return s_orbitxCfg; } }
+
+        // Implemento central compartido (Task 5): QuantiXMotorBridge y
+        // CutDispatcher/SectionXCutAdapter (ambos instanciados por FormGPS, no
+        // por el WebHost) lo usan para derivar el tren de cada motor/cable
+        // desde sus surcos, en vez del campo manual sectionx.json/quantiX_motores.json
+        // por nodo. Misma instancia que ya usa VistaXLiveService — sin esto
+        // habría una segunda copia con cache propia.
+        public static IImplementoService Implemento { get { lock (s_lock) return s_implemento; } }
+
+        // Registry MQTT compartido: QuantiXMotorBridge (FormGPS) publica sus
+        // targets por esta conexión en vez de abrir un IMqttClient propio.
+        public static INodoRegistryService Nodos { get { lock (s_lock) return s_nodos; } }
+
+        /// <summary>
+        /// Idempotente: si ya hay host corriendo, no hace nada.
+        /// Lo invocan FormGPS_Load (arranque temprano) y el Hub WebView2 (defensive).
+        /// </summary>
+        public static AgpWebHost EnsureStarted(
+            IAogStateProvider state,
+            ILotesService lotes,
+            IVehicleToolService vehicleTool,
+            IShapefileService shapefile,
+            ICoverageService coverage,
+            ISectionControlService sectionsCore,
+            IQuantiXRuntimeService quantixRuntime,
+            IGuidanceCalculator guidance,
+            IPilotXUpdateService pilotxUpdate,
+            string wwwroot,
+            int port = 5180,
+            string brokerHost = "127.0.0.1",
+            int brokerPort = 1883,
+            IToolGeometryCalculator toolGeometry = null,
+            ITramCalculator tram = null,
+            IImuCalibracionService imuCalibracion = null,
+            ITrackListService trackList = null,
+            IPerfilVehiculoService perfiles = null,
+            IConfigVehiculoService configVehiculo = null,
+            IHeadlandEditService headlandEdit = null,
+            ITramSimpleService tramSimple = null,
+            INudgeService nudge = null,
+            IQuickAbService quickAb = null,
+            IFlagsService flags = null,
+            IContornoService contorno = null,
+            ICabeceraLineasService cabeceraLineas = null,
+            ITramLineService tramLine = null,
+            ITrackBuilderService trackBuilder = null,
+            IRecPathService recPath = null,
+            IPathsGeometryCalculator paths = null,
+            ISteerConfigService steerConfig = null)
+        {
+            lock (s_lock)
+            {
+                if (s_host != null) return s_host;
+
+                s_nodos = new NodoRegistryService();
+                try { s_nodos.Start(brokerHost, brokerPort); }
+                catch (Exception ex) { System.Diagnostics.Trace.WriteLine("[AgpBootstrap] NodoRegistry start: " + ex.Message); }
+
+                var vistaxCfg = new VistaXConfigService();
+                var insumosCat = new InsumoCatalogService();
+                // Instancias únicas expuestas a FormGPS — sin esto el controller
+                // construiría las suyas y el evento ConfigSaved no llegaría al shell.
+                var sectionxCfg = new SectionXConfigService();
+                var orbitxCfg = new OrbitXConfigService();
+                var quantixCfg = new QuantiXConfigService(s_nodos);
+                // Implemento central: UNA sola instancia compartida entre el live
+                // service de VistaX y el WebHost. Sin esto habría dos caches (uno
+                // por instancia) y el overlay VistaX mostraría geometría vieja hasta
+                // reiniciar. VistaX/VehicleTool/QuantiX/SectionX son opcionales (solo
+                // para el seed inicial del "default" si no hay implementos/ todavía).
+                var implemento = new ImplementoService(vistaxCfg, vehicleTool, quantixCfg, sectionxCfg);
+                var vistaxLive = new VistaXLiveService(s_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento);
+                var flowxCfg = new FlowXConfigService();
+                var flowxLive = new FlowXLiveService(s_nodos, flowxCfg);
+                var stormxCfg = new StormXConfigService();
+                var stormxLive = new StormXLiveService(s_nodos, stormxCfg);
+                var linexCfg = new LineXConfigService();
+                var linexLive = new LineXLiveService(s_nodos, linexCfg);
+
+                var host = new AgpWebHost(
+                    state,
+                    new SistemaService(),
+                    s_nodos,
+                    orbitxCfg,
+                    sectionxCfg,
+                    new CamarasConfigService(),
+                    quantixCfg,
+                    vistaxCfg,
+                    vistaxLive,
+                    new DebugLogService(),
+                    lotes,
+                    vehicleTool,
+                    shapefile,
+                    coverage,
+                    sectionsCore,
+                    quantixRuntime,
+                    guidance,
+                    pilotxUpdate,
+                    flowxCfg,
+                    flowxLive,
+                    stormxCfg,
+                    stormxLive,
+                    linexCfg,
+                    linexLive,
+                    wwwroot,
+                    port,
+                    insumos: null,
+                    toolGeometry: toolGeometry,
+                    tram: tram,
+                    implemento: implemento,
+                    imuCalibracion: imuCalibracion,
+                    trackList: trackList,
+                    perfiles: perfiles,
+                    configVehiculo: configVehiculo,
+                    headlandEdit: headlandEdit,
+                    tramSimple: tramSimple,
+                    nudge: nudge,
+                    quickAb: quickAb,
+                    flags: flags,
+                    contorno: contorno,
+                    cabeceraLineas: cabeceraLineas,
+                    tramLine: tramLine,
+                    trackBuilder: trackBuilder,
+                    recPath: recPath,
+                    paths: paths,
+                    steerConfig: steerConfig);
+                host.Start();
+                s_host = host;
+                s_url = host.Url;
+                // host.Start() ya hace flowxLive.Start(); guardamos refs para
+                // que widgets de PilotX puedan leer el snapshot in-process.
+                s_flowxLive = flowxLive;
+                s_flowxCfg = flowxCfg;
+                s_sectionxCfg = sectionxCfg;
+                s_orbitxCfg = orbitxCfg;
+                s_implemento = implemento;
+
+                // FlowXBridge: publica targets PC -> ESP. No depende del WebHost,
+                // pero el ciclo de vida queda atado al bootstrap para que arranque
+                // / pare junto con todo lo demás. Si flowX.json no tiene nodos o
+                // está deshabilitado, StartAsync sale en silencio (es idempotente).
+                try
+                {
+                    s_flowxBridge = new FlowXBridge(state, FlowXConfig.Load());
+                    _ = s_flowxBridge.StartAsync(); // fire-and-forget; loguea internamente
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Trace.WriteLine("[AgpBootstrap] FlowXBridge start: " + ex.Message);
+                }
+
+                return s_host;
+            }
+        }
+
+        public static void Stop()
+        {
+            lock (s_lock)
+            {
+                try { s_flowxBridge?.Stop(); s_flowxBridge?.Dispose(); } catch { }
+                try { (s_flowxLive as IDisposable)?.Dispose(); } catch { }
+                try { s_host?.Stop(); } catch { }
+                try { s_nodos?.Stop(); } catch { }
+                s_flowxBridge = null;
+                s_flowxLive = null;
+                s_flowxCfg = null;
+                s_sectionxCfg = null;
+                s_orbitxCfg = null;
+                s_host = null;
+                s_nodos = null;
+                s_url = null;
+            }
+        }
+    }
+}

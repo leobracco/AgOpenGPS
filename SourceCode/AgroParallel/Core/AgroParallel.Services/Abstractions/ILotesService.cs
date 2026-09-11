@@ -1,0 +1,62 @@
+// ILotesService — gestión de lotes (campos / Fields/&lt;Name&gt;) para la UI HTML.
+// La implementación que toca PilotX vive del lado GPS (FormGpsLotesService) — esta
+// interfaz no depende de WinForms.
+
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using AgroParallel.Models;
+
+namespace AgroParallel.Services.Abstractions
+{
+    public interface ILotesService
+    {
+        /// <summary>Lista los lotes existentes bajo Fields/ ordenados por fecha desc.</summary>
+        IList<FieldInfo> ListFields();
+
+        /// <summary>Nombre del lote actualmente abierto en PilotX, o null si no hay.</summary>
+        string GetCurrentFieldName();
+
+        /// <summary>Path absoluto del directorio del lote actual, o null si no hay job abierto.</summary>
+        string GetCurrentFieldDirectory();
+
+        /// <summary>Cierra el lote actual si hay alguno y abre <paramref name="name"/>.</summary>
+        Task<bool> OpenFieldAsync(string name);
+
+        /// <summary>Cierra el lote actual, guardando todo (boundary/sections/contour/tracks).</summary>
+        Task<bool> CloseFieldAsync();
+
+        /// <summary>Crea un lote nuevo con <paramref name="name"/> y lo deja abierto.</summary>
+        Task<bool> CreateFieldAsync(string name);
+
+        /// <summary>Borra la carpeta del lote <paramref name="name"/>. No borra
+        /// el lote que está abierto (hay que cerrarlo antes). false si no existe
+        /// o es el activo.</summary>
+        Task<bool> DeleteFieldAsync(string name);
+
+        /// <summary>
+        /// Crea un lote nuevo clonando <paramref name="templateName"/> (ex
+        /// FormFieldExisting): contorno/headlines/elevación siempre; lo aplicado
+        /// (contour+sections), banderas, líneas de guiado y headland según flags.
+        /// Deja el lote nuevo abierto.
+        /// </summary>
+        Task<bool> CreateFromExistingAsync(string templateName, string newName,
+                                           bool copyApplied, bool copyFlags,
+                                           bool copyGuidance, bool copyHeadland);
+
+        /// <summary>Import de lote desde KML — abre el diálogo nativo (ex FormFieldKML).</summary>
+        Task<bool> ImportKmlAsync();
+
+        /// <summary>
+        /// Importa un KML SIN diálogo nativo: crea el lote <paramref name="nombre"/>
+        /// tomando como origen del plano local la primera coordenada del archivo
+        /// y carga el polígono como lindero exterior.
+        /// <paramref name="rutaArchivo"/> es una ruta local del equipo; para
+        /// subida por HTTP el controller guarda el archivo en temporal y pasa
+        /// esa ruta, así los dos caminos usan el mismo código.
+        /// </summary>
+        Task<bool> ImportKmlAsync(string nombre, string rutaArchivo);
+
+        /// <summary>Import de lote desde ISO-XML — abre el diálogo nativo (ex FormFieldIsoXml).</summary>
+        Task<bool> ImportIsoXmlAsync();
+    }
+}

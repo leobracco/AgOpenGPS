@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Coordenadas del simulador · Agro Parallel</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Coordenadas del simulador (reemplazo del WinForms FormSimCoords): reubica el
+       simulador a una lat/lon. Aplica por POST /api/aog/guidance/command
+       (sim_coords_<lat>_<lon>); el estado inicial viene de /api/aog/sim-coords.
+       Sólo se puede aplicar con el simulador encendido y sin lote abierto. */
+    .sc-fields { display: flex; flex-direction: column; gap: var(--agp-sp-4); max-width: 460px; }
+    .sc-field {
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-4) var(--agp-sp-5);
+    }
+    .sc-field .sc-label { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-bottom: var(--agp-sp-2); }
+    .sc-field input {
+      width: 100%; box-sizing: border-box;
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-xl);
+      font-weight: var(--agp-fw-bold);
+      background: var(--agp-bg); color: var(--agp-text);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      padding: var(--agp-sp-3) var(--agp-sp-4);
+    }
+    .sc-field.lat input { color: var(--agp-accent); }
+    .sc-field.lon input { color: #3D87C6; }
+    .sc-field input.bad { border-color: #C6483D; }
+
+    .sc-note {
+      margin-top: var(--agp-sp-4); font-size: var(--agp-fs-sm);
+      color: var(--agp-text-muted); max-width: 460px;
+    }
+    .sc-warn {
+      margin-top: var(--agp-sp-4); max-width: 460px;
+      background: rgba(198, 72, 61, 0.10);
+      border: var(--agp-border-w) solid #C6483D;
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3) var(--agp-sp-5);
+      color: #C6483D; font-size: var(--agp-fs-sm);
+    }
+    .sc-warn[hidden] { display: none; }
+
+    .sc-foot { display: flex; gap: var(--agp-sp-3); margin-top: var(--agp-sp-5); max-width: 460px; }
+    .sc-foot .btn { flex: 1; }
+    .btn.primary { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .btn.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Coordenadas del simulador</h1>
+        <div class="subtitle">Reubicar el simulador a una latitud / longitud</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="statusText">—</span></span>
+    </div>
+
+    <div class="sc-fields">
+      <div class="sc-field lat">
+        <div class="sc-label">Latitud (grados decimales)</div>
+        <input id="inLat" type="text" inputmode="decimal" autocomplete="off"
+               spellcheck="false" placeholder="-31.42010" />
+      </div>
+      <div class="sc-field lon">
+        <div class="sc-label">Longitud (grados decimales)</div>
+        <input id="inLon" type="text" inputmode="decimal" autocomplete="off"
+               spellcheck="false" placeholder="-64.18880" />
+      </div>
+    </div>
+
+    <div class="sc-warn" id="warnBox" hidden></div>
+
+    <div class="sc-note">
+      El simulador se teletransporta a la coordenada indicada. Sólo funciona con el
+      simulador encendido y sin ningún lote abierto.
+    </div>
+
+    <div class="sc-foot">
+      <button class="btn" id="btnReset">Restablecer</button>
+      <button class="btn primary" id="btnApply">Aplicar</button>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/sim-coords.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

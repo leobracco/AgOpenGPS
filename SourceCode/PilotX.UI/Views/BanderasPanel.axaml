@@ -1,0 +1,404 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.BanderasPanel"
+             IsVisible="False">
+    <!--
+        BanderasPanel — reemplazo nativo de pages/banderas.html (que a su vez
+        reemplazó a FormFlags + FormEnterFlag).
+
+        Es pantalla de LABOR: el operario marca una piedra, un pozo, un
+        alambrado caído mientras maneja, y la lista muestra la distancia a cada
+        bandera EN VIVO (poll de 500 ms, el mismo que el timer1 del form). La
+        ventana de Chromium de 350x340 se paraba justo encima del mapa, que es
+        donde se ve dónde está la bandera. Ahora es una card chica flotante con
+        el mapa vivo detrás — el mapa nunca se apaga ni se tapa del todo.
+
+        Dos vistas en el mismo lugar, igual que el HTML (paneList / paneAdd):
+          · LISTA: banderas + notas de la seleccionada + Borrar/Nueva +
+            Importar/Exportar.
+          · ALTA:  lat/lon (WGS84) + "Usar posición actual" + los tres colores;
+            tocar un color CREA la bandera. "Volver" vuelve a la lista.
+        El comando `bandera` abre en LISTA; `bandera_latlon` abre directo en
+        ALTA — es el equivalente del ?add=1 de la página.
+
+        Wire: el MISMO /api/flags/* de siempre (snake_case). Cero cambios de
+        backend — ver Services/BanderasClient.cs.
+
+        Los emojis del HTML (🗑 ➕ 📍) NO viajan: en Avalonia dependen de la
+        fuente y quedan como tofu. Mismo criterio que CabeceraLineasPanel.
+    -->
+    <UserControl.Resources>
+        <!--
+            Los tres colores de bandera son DATO, no decoración: son los mismos
+            códigos que dibuja el mapa GL (0 roja, 1 verde, 2 amarilla) y que
+            usaba .fl-dot en banderas.html. No existen como token del theme
+            (que no tiene "amarillo de bandera"), así que se declaran una sola
+            vez acá y se consumen por StaticResource — nunca sueltos en un
+            control.
+        -->
+        <SolidColorBrush x:Key="BanderaRoja"     Color="#D9534F"/>
+        <SolidColorBrush x:Key="BanderaVerde"    Color="#4ABA3E"/>
+        <SolidColorBrush x:Key="BanderaAmarilla" Color="#E5C04B"/>
+        <!--
+            Las FILAS de la lista las arma el code-behind (son datos vivos, no
+            estructura) y toman sus pinceles de los MISMOS tokens del theme que
+            usa el XAML de acá abajo — PilotXPanelSurface/Surface2/BorderHigh/
+            Accent/Text/AccentText. No hay un solo color propio ahí adentro.
+        -->
+    </UserControl.Resources>
+
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <Border Name="Card"
+                Background="{StaticResource PilotXPanelCard}"
+                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                BorderThickness="1"
+                CornerRadius="14"
+                ClipToBounds="True"
+                BoxShadow="0 8 26 0 #33101612"
+                Width="380" MaxHeight="580"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,8">
+            <Grid RowDefinitions="Auto,Auto,*" Margin="16,12,16,16">
+
+                <!-- ============ Header: título + contador + ✕ ============ -->
+                <!-- Name="DragHandle": de acá se agarra para CORRER la card
+                     sobre el mapa (PanelArrastrable). Doble toque = al centro. -->
+                <Grid Name="DragHandle" Grid.Row="0" Background="Transparent"
+                      ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+                    <TextBlock Grid.Column="0"
+                               Text="Banderas"
+                               Foreground="{StaticResource PilotXPanelText}"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+
+                    <!-- La pill del HTML: cuántas banderas tiene el lote. -->
+                    <Border Grid.Column="1"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="999"
+                            Padding="12,5,12,5"
+                            VerticalAlignment="Center">
+                        <TextBlock Name="PillContador"
+                                   Text="0"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- La página vivía en una ventana con la ✕ del sistema; la
+                         card embebida necesita la suya. 48x48 para guantes. -->
+                    <Button Grid.Column="2" Name="BtnCerrar" Content="✕"
+                            Click="OnCerrarClick"
+                            ToolTip.Tip="Cerrar"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8" Width="48" Height="48"
+                            FontSize="15"
+                            Margin="10,0,0,0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ============ Aviso (el #warnBox del HTML) ============ -->
+                <!-- El original lo pintaba bordó oscuro (#5a2c2c) sobre fondo
+                     oscuro; acá va con los tokens de error de la paleta clara,
+                     que es la vigente para pantallas. Mismo texto, mismo lugar,
+                     misma regla de visibilidad. -->
+                <Border Name="CajaAviso" Grid.Row="1"
+                        Background="{StaticResource PilotXPanelErrSoft}"
+                        BorderBrush="{StaticResource PilotXPanelErr}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="10,7,10,7"
+                        Margin="0,0,0,8"
+                        IsVisible="False">
+                    <TextBlock Name="TxtAviso"
+                               Text=""
+                               Foreground="{StaticResource PilotXPanelErr}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"/>
+                </Border>
+
+                <!-- ============ Cuerpo: las dos vistas ============ -->
+                <Grid Grid.Row="2">
+
+                    <!-- ========== Vista LISTA ========== -->
+                    <Grid Name="PaneLista" RowDefinitions="*,Auto,Auto,Auto">
+
+                        <Border Grid.Row="0"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="6"
+                                MinHeight="120"
+                                MaxHeight="240">
+                            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <TextBlock Name="MsgVacio"
+                                               Text="No hay banderas en el lote."
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap"
+                                               Margin="4,12,4,12"/>
+                                    <!-- Las filas las arma el code-behind: son
+                                         datos vivos, no estructura. -->
+                                    <StackPanel Name="ListaFilas" Spacing="4"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+
+                        <!-- Notas de la seleccionada -->
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="0,8,0,0">
+                            <TextBlock Grid.Column="0"
+                                       Text="Notas"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0"/>
+                            <TextBox Grid.Column="1" Name="InpNotas"
+                                     Text=""
+                                     IsEnabled="False"
+                                     MinHeight="48"
+                                     FontSize="14"
+                                     FontFamily="Consolas, Courier New, monospace"
+                                     Background="{StaticResource PilotXPanelSurface}"
+                                     Foreground="{StaticResource PilotXPanelText}"
+                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                     BorderThickness="1"
+                                     CornerRadius="8"
+                                     Padding="9,6,9,6"
+                                     VerticalContentAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Borrar / Nueva -->
+                        <Grid Grid.Row="2" ColumnDefinitions="*,*" Margin="0,8,0,0">
+                            <Button Grid.Column="0" Name="BtnBorrar"
+                                    Content="Borrar"
+                                    Click="OnBorrarClick"
+                                    IsEnabled="False"
+                                    Background="{StaticResource PilotXPanelErr}"
+                                    Foreground="White"
+                                    BorderBrush="{StaticResource PilotXPanelErr}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Height="52"
+                                    FontSize="14"
+                                    FontWeight="SemiBold"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Margin="0,0,4,0"/>
+                            <Button Grid.Column="1" Name="BtnNueva"
+                                    Content="Nueva"
+                                    Click="OnNuevaClick"
+                                    Background="{StaticResource PilotXPanelAccent}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelAccent}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Height="52"
+                                    FontSize="14"
+                                    FontWeight="SemiBold"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Margin="4,0,0,0"/>
+                        </Grid>
+
+                        <!-- Importar / Exportar -->
+                        <Grid Grid.Row="3" ColumnDefinitions="*,*" Margin="0,8,0,0">
+                            <Button Grid.Column="0" Name="BtnImportar"
+                                    Content="Importar"
+                                    Click="OnImportarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Height="52"
+                                    FontSize="14"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Margin="0,0,4,0"/>
+                            <Button Grid.Column="1" Name="BtnExportar"
+                                    Content="Exportar"
+                                    Click="OnExportarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Height="52"
+                                    FontSize="14"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Margin="4,0,0,0"/>
+                        </Grid>
+                    </Grid>
+
+                    <!-- ========== Vista ALTA ========== -->
+                    <Grid Name="PaneAlta" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto"
+                          IsVisible="False">
+
+                        <TextBlock Grid.Row="0"
+                                   Text="Posición (WGS84)"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"/>
+
+                        <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="0,6,0,0">
+                            <TextBox Grid.Column="0" Name="InpLat"
+                                     Text=""
+                                     Watermark="Latitud"
+                                     MinHeight="48"
+                                     FontSize="15"
+                                     FontFamily="Consolas, Courier New, monospace"
+                                     Background="{StaticResource PilotXPanelSurface}"
+                                     Foreground="{StaticResource PilotXPanelText}"
+                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                     BorderThickness="1"
+                                     CornerRadius="8"
+                                     Padding="6,6,6,6"
+                                     HorizontalContentAlignment="Center"
+                                     VerticalContentAlignment="Center"
+                                     Margin="0,0,3,0"/>
+                            <TextBox Grid.Column="1" Name="InpLon"
+                                     Text=""
+                                     Watermark="Longitud"
+                                     MinHeight="48"
+                                     FontSize="15"
+                                     FontFamily="Consolas, Courier New, monospace"
+                                     Background="{StaticResource PilotXPanelSurface}"
+                                     Foreground="{StaticResource PilotXPanelText}"
+                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                     BorderThickness="1"
+                                     CornerRadius="8"
+                                     Padding="6,6,6,6"
+                                     HorizontalContentAlignment="Center"
+                                     VerticalContentAlignment="Center"
+                                     Margin="3,0,0,0"/>
+                        </Grid>
+
+                        <Button Grid.Row="2" Name="BtnUsarActual"
+                                Content="Usar posición actual"
+                                Click="OnUsarActualClick"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Height="52"
+                                FontSize="14"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Margin="0,8,0,0"/>
+
+                        <TextBlock Grid.Row="3"
+                                   Text="Color — tocá para crear"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"
+                                   Margin="0,10,0,0"/>
+
+                        <Grid Grid.Row="4" ColumnDefinitions="*,*,*" Margin="0,6,0,0">
+                            <Button Grid.Column="0" Name="BtnRoja"
+                                    Click="OnAgregarRojaClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Height="56"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Margin="0,0,3,0">
+                                <StackPanel Orientation="Horizontal" Spacing="6"
+                                            VerticalAlignment="Center">
+                                    <Ellipse Width="12" Height="12"
+                                             Fill="{StaticResource BanderaRoja}"
+                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="Roja"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="14"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="1" Name="BtnVerde"
+                                    Click="OnAgregarVerdeClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Height="56"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Margin="3,0,3,0">
+                                <StackPanel Orientation="Horizontal" Spacing="6"
+                                            VerticalAlignment="Center">
+                                    <Ellipse Width="12" Height="12"
+                                             Fill="{StaticResource BanderaVerde}"
+                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="Verde"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="14"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="2" Name="BtnAmarilla"
+                                    Click="OnAgregarAmarillaClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Height="56"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Margin="3,0,0,0">
+                                <StackPanel Orientation="Horizontal" Spacing="6"
+                                            VerticalAlignment="Center">
+                                    <Ellipse Width="12" Height="12"
+                                             Fill="{StaticResource BanderaAmarilla}"
+                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="Amarilla"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="14"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- Fila 5 vacía: empuja "Volver" al pie, como el
+                             margin-top:auto del HTML. -->
+                        <Button Grid.Row="6" Name="BtnVolver"
+                                Content="Volver"
+                                Click="OnVolverClick"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Height="52"
+                                FontSize="14"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Margin="0,10,0,0"/>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </ThemeVariantScope>
+</UserControl>

@@ -1,0 +1,345 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.NodosPanel">
+    <!--
+        NodosPanel — reemplazo nativo COMPLETO de pages/nodos.html (port #12
+        cerrado). Card clara flotante con el mapa VIVO detras.
+
+        Pantalla LISTA:
+          · pills online/offline + broker + implemento activo
+          · banner de nodos del implemento activo caidos (SIN beep: el beep es
+            responsabilidad exclusiva de CabinaAlarmasOverlay, que corre siempre
+            y ya tiene su "Silenciar 10 min" — con los dos sonando el operario
+            escuchaba doble con el panel abierto)
+          · tabs Pendientes / Aceptados / Off-line / Ignorados con contador
+          · tabla Estado · Alias/UID · Tipo · IP · FW · Ultima senal · acciones
+          · acciones por fila: Aceptar / Ignorar / pin del implemento /
+            Configurar / Renombrar / Eliminar / Restaurar
+
+        Pantalla DIAGNOSTICO (polling 2s solo mientras esta a la vista):
+          · pill de conexion, grid broker/intentos/ultima conexion/nodos/subs/
+            wildcard/gaps/reboots
+          · caja de error con codigo AGP-XXX-nnn dictable + detalle tecnico
+          · Reconectar / Refrescar / Wildcard on-off / Re-escanear
+          · log de los ultimos mensajes MQTT
+
+        Lo unico que sigue saliendo por WebView es el DETALLE del nodo
+        (pages/nodo-detalle.html: matriz wifi/mqtt/target, OTA, comandos) al
+        tocar una fila, y el asistente de primera vez (pages/setup.html): son
+        otras paginas con su propio port. La pagina nodos.html NO se borra
+        (Hub remoto / celular / PWA la siguen usando).
+
+        Polling unified: 3s (igual al JS legacy).
+    -->
+    <Panel>
+
+        <!-- ============================ CARD ============================
+             Name="Card": ModoEmbebido() (adentro de la Configuración) le
+             suelta el marco/tamaño; la instancia flotante no cambia. -->
+        <Border Name="Card"
+                Background="#FAFBFA"
+                BorderBrush="#C5CFC5"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="14"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="1040" MaxHeight="660"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,0">
+            <DockPanel>
+
+                <!-- ================= Header ================= -->
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="4,0,0,10">
+                    <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Text="Nodos" Foreground="#101612"
+                                   FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="Equipos Agro Parallel en la red de la maquina"
+                                   Foreground="#535E54" FontSize="11"/>
+                    </StackPanel>
+
+                    <!-- Name="HeaderPills": la instancia embebida las entrega
+                         (PillsDeContexto) a la barra de contexto del shell;
+                         la flotante no cambia. -->
+                    <StackPanel Grid.Column="2" Name="HeaderPills"
+                                Orientation="Horizontal" Spacing="8"
+                                VerticalAlignment="Center">
+                        <!-- online / offline -->
+                        <Border Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="999" Padding="10,5,12,5" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <Ellipse Width="9" Height="9" Fill="#3D9A33" VerticalAlignment="Center"/>
+                                <TextBlock Name="StatOnline" Text="0 online"
+                                           Foreground="#101612" FontSize="12" VerticalAlignment="Center"/>
+                                <Ellipse Width="9" Height="9" Fill="#8A958B" VerticalAlignment="Center"
+                                         Margin="6,0,0,0"/>
+                                <TextBlock Name="StatOffline" Text="0 offline"
+                                           Foreground="#535E54" FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- broker -->
+                        <Border Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="999" Padding="10,5,12,5" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                <Ellipse Name="BrokerDot" Width="10" Height="10" Fill="#8A958B"
+                                         VerticalAlignment="Center"/>
+                                <TextBlock Name="BrokerText" Text="Broker --"
+                                           Foreground="#535E54" FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- implemento activo -->
+                        <Border Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="999" Padding="10,5,12,5" VerticalAlignment="Center">
+                            <TextBlock Name="ImplementoText" Text="Implemento: --"
+                                       Foreground="#535E54" FontSize="12" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <Button Name="BtnAsistente" Content="Asistente"
+                                Click="OnAsistenteClick"
+                                Background="#FFFFFF" Foreground="#101612"
+                                BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="8" MinHeight="40" Padding="14,0,14,0"
+                                ToolTip.Tip="Asistente de primera vez"/>
+
+                        <Button Name="BtnCerrar" Content="✕"
+                                Click="OnCerrarClick"
+                                Background="#FFFFFF" Foreground="#535E54"
+                                BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="8" Width="44" Height="40"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                ToolTip.Tip="Cerrar"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ============ Switch de pantalla: Lista / Diagnostico ============ -->
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6"
+                            Margin="4,0,0,10">
+                    <!-- MinHeight 40: son la navegacion principal del panel y se
+                         tocan con guante; sin esto quedaban en ~33 px. -->
+                    <Button Name="BtnPantallaLista" Content="Lista"
+                            Click="OnPantallaListaClick"
+                            Background="#FFFFFF" Foreground="#101612"
+                            BorderBrush="#4ABA3E" BorderThickness="0,0,0,3"
+                            CornerRadius="8" MinHeight="40" Padding="18,0,18,0"
+                            VerticalContentAlignment="Center" FontWeight="SemiBold"/>
+                    <Button Name="BtnPantallaDiag" Content="Diagnóstico"
+                            Click="OnPantallaDiagClick"
+                            Background="Transparent" Foreground="#535E54"
+                            BorderBrush="Transparent" BorderThickness="0,0,0,3"
+                            CornerRadius="8" MinHeight="40" Padding="18,0,18,0"
+                            VerticalContentAlignment="Center"/>
+                </StackPanel>
+
+                <!-- ============================ CUERPO ============================ -->
+                <Panel>
+
+                    <!-- ===== PANTALLA LISTA ===== -->
+                    <Grid Name="PantallaLista" RowDefinitions="Auto,Auto,*,Auto">
+
+                        <!-- Banner: nodos del implemento activo caidos -->
+                        <Border Grid.Row="0" Name="AlertBanner" IsVisible="False"
+                                Background="#FBECEC" BorderBrush="#D0504A" BorderThickness="1"
+                                CornerRadius="8" Padding="12,9,12,9" Margin="0,0,0,10">
+                            <StackPanel Spacing="3">
+                                <TextBlock Name="AlertTitulo"
+                                           Text="Nodos del implemento activo caídos"
+                                           Foreground="#B33F3A" FontSize="13" FontWeight="SemiBold"/>
+                                <StackPanel Name="AlertLista" Spacing="1"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Tabs de estado curado -->
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
+                            <Button Name="TabPendiente" Content="Pendientes" Tag="pendiente"
+                                    Click="OnTabClick" MinHeight="40" Padding="16,0,16,0" CornerRadius="8"/>
+                            <Button Name="TabAceptado" Content="Aceptados" Tag="aceptado"
+                                    Click="OnTabClick" MinHeight="40" Padding="16,0,16,0" CornerRadius="8"/>
+                            <Button Name="TabOffline" Content="Off-line" Tag="offline"
+                                    Click="OnTabClick" MinHeight="40" Padding="16,0,16,0" CornerRadius="8"/>
+                            <Button Name="TabIgnorado" Content="Ignorados" Tag="ignorado"
+                                    Click="OnTabClick" MinHeight="40" Padding="16,0,16,0" CornerRadius="8"/>
+                        </StackPanel>
+
+                        <!-- Tabla -->
+                        <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#C5CFC5"
+                                BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Auto">
+                                <StackPanel MinWidth="960">
+                                    <Grid Name="TablaHeader"
+                                          ColumnDefinitions="56,*,96,116,78,104,300"
+                                          Background="#F5F7F4">
+                                        <TextBlock Grid.Column="0" Text=""             Padding="10,9,4,9"  Foreground="#535E54" FontSize="11" FontWeight="SemiBold"/>
+                                        <TextBlock Grid.Column="1" Text="Alias / UID"  Padding="6,9,4,9"   Foreground="#535E54" FontSize="11" FontWeight="SemiBold"/>
+                                        <TextBlock Grid.Column="2" Text="Tipo"         Padding="6,9,4,9"   Foreground="#535E54" FontSize="11" FontWeight="SemiBold"/>
+                                        <TextBlock Grid.Column="3" Text="IP"           Padding="6,9,4,9"   Foreground="#535E54" FontSize="11" FontWeight="SemiBold"/>
+                                        <TextBlock Grid.Column="4" Text="FW"           Padding="6,9,4,9"   Foreground="#535E54" FontSize="11" FontWeight="SemiBold"/>
+                                        <TextBlock Grid.Column="5" Text="Última señal" Padding="6,9,4,9"   Foreground="#535E54" FontSize="11" FontWeight="SemiBold"/>
+                                        <TextBlock Grid.Column="6" Text=""             Padding="6,9,10,9"  Foreground="#535E54" FontSize="11" FontWeight="SemiBold"/>
+                                    </Grid>
+                                    <StackPanel Name="FilasList"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+
+                        <!-- ¿Cómo funciona? (pie) -->
+                        <TextBlock Grid.Row="3" Margin="2,8,2,0" TextWrapping="Wrap"
+                                   Foreground="#7A857B" FontSize="11"
+                                   Text="Cada equipo se anuncia solo al encenderse y aparece en Pendientes: tocá Aceptar y ponele un nombre que se entienda (por ejemplo &quot;Motor izquierdo&quot;). No se agregan a mano."/>
+                    </Grid>
+
+                    <!-- ===== PANTALLA DIAGNÓSTICO ===== -->
+                    <ScrollViewer Name="PantallaDiag" IsVisible="False"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="10">
+
+                            <!-- pill + botones -->
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Border Grid.Column="0" Name="MqttPillBox"
+                                        Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                                        CornerRadius="999" Padding="12,6,14,6" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                        <Ellipse Name="MqttDot" Width="10" Height="10" Fill="#8A958B"
+                                                 VerticalAlignment="Center"/>
+                                        <TextBlock Name="MqttText" Text="sin datos"
+                                                   Foreground="#535E54" FontSize="12" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <Button Grid.Column="2" Name="BtnRescan" Content="Re-escanear nodos"
+                                        Click="OnRescanClick"
+                                        Background="#FFFFFF" Foreground="#101612"
+                                        BorderBrush="#C5CFC5" BorderThickness="1"
+                                        CornerRadius="8" MinHeight="40" Padding="14,0,14,0"/>
+                            </Grid>
+
+                            <!-- grid clave -> valor -->
+                            <Border Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                                    CornerRadius="10" Padding="12">
+                                <Grid Name="DiagGrid"
+                                      ColumnDefinitions="180,*"
+                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Broker"                   Foreground="#535E54" FontSize="12" Margin="0,3,10,3"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Name="DiagBroker"   Text="--"   Foreground="#101612" FontSize="12" Margin="0,3,0,3" FontFamily="Consolas, Courier New, monospace"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Intentos de conexión"     Foreground="#535E54" FontSize="12" Margin="0,3,10,3"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Name="DiagAttempts" Text="--"   Foreground="#101612" FontSize="12" Margin="0,3,0,3"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Última conexión OK"       Foreground="#535E54" FontSize="12" Margin="0,3,10,3"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Name="DiagLastOk"   Text="--"   Foreground="#101612" FontSize="12" Margin="0,3,0,3"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Nodos conocidos"          Foreground="#535E54" FontSize="12" Margin="0,3,10,3"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Name="DiagCount"    Text="--"   Foreground="#101612" FontSize="12" Margin="0,3,0,3"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Suscripciones"            Foreground="#535E54" FontSize="12" Margin="0,3,10,3"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Name="DiagSubs"     Text="--"   Foreground="#101612" FontSize="11" Margin="0,3,0,3" TextWrapping="Wrap" FontFamily="Consolas, Courier New, monospace"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Captura wildcard #"       Foreground="#535E54" FontSize="12" Margin="0,3,10,3"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Name="DiagWild"     Text="--"   Foreground="#101612" FontSize="12" Margin="0,3,0,3"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Mensajes perdidos"        Foreground="#535E54" FontSize="12" Margin="0,3,10,3"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Name="DiagGaps"     Text="--"   Foreground="#101612" FontSize="12" Margin="0,3,0,3"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="0" Text="Reinicios detectados"     Foreground="#535E54" FontSize="12" Margin="0,3,10,3"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="1" Name="DiagResets"   Text="--"   Foreground="#101612" FontSize="12" Margin="0,3,0,3"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- caja de error (codigo dictable + detalle tecnico) -->
+                            <Border Name="DiagErrorBox" IsVisible="False"
+                                    Background="#FBECEC" BorderBrush="#D0504A" BorderThickness="1"
+                                    CornerRadius="10" Padding="12">
+                                <StackPanel Spacing="6">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Border Background="#FFFFFF" BorderBrush="#D0504A" BorderThickness="1"
+                                                CornerRadius="6" Padding="8,2,8,2">
+                                            <TextBlock Name="DiagErrorCode" Text="AGP-SYS-009"
+                                                       Foreground="#B33F3A" FontSize="12" FontWeight="Bold"
+                                                       FontFamily="Consolas, Courier New, monospace"/>
+                                        </Border>
+                                        <TextBlock Name="DiagErrorTs" Text="" Foreground="#535E54"
+                                                   FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock Name="DiagErrorMsg" Text="" Foreground="#101612"
+                                               FontSize="12" TextWrapping="Wrap"/>
+                                    <TextBlock Name="DiagErrorAyuda" Text="" Foreground="#535E54"
+                                               FontSize="11" TextWrapping="Wrap"/>
+                                    <Expander Name="DiagErrorTechBox" IsVisible="False"
+                                              Header="Detalle técnico (soporte)">
+                                        <TextBlock Name="DiagErrorTech" Text="" Foreground="#535E54"
+                                                   FontSize="11" TextWrapping="Wrap"
+                                                   FontFamily="Consolas, Courier New, monospace"/>
+                                    </Expander>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- acciones -->
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Name="BtnReconnect" Content="Reconectar al broker"
+                                        Click="OnReconnectClick"
+                                        Background="#4ABA3E" Foreground="#FFFFFF"
+                                        BorderThickness="0" CornerRadius="8"
+                                        MinHeight="40" Padding="16,0,16,0" FontWeight="SemiBold"/>
+                                <Button Name="BtnRefreshDiag" Content="Refrescar"
+                                        Click="OnRefreshDiagClick"
+                                        Background="#FFFFFF" Foreground="#101612"
+                                        BorderBrush="#C5CFC5" BorderThickness="1"
+                                        CornerRadius="8" MinHeight="40" Padding="16,0,16,0"/>
+                                <Button Name="BtnWildcard" Content="Activar captura wildcard"
+                                        Click="OnWildcardClick"
+                                        Background="#FFFFFF" Foreground="#101612"
+                                        BorderBrush="#C5CFC5" BorderThickness="1"
+                                        CornerRadius="8" MinHeight="40" Padding="16,0,16,0"/>
+                            </StackPanel>
+
+                            <!-- log de mensajes -->
+                            <TextBlock Text="Últimos mensajes MQTT" Foreground="#535E54"
+                                       FontSize="11" FontWeight="SemiBold" Margin="2,4,0,0"/>
+                            <Border Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                                    CornerRadius="10" Padding="8">
+                                <ScrollViewer MaxHeight="230" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Name="MsgLogHost" Spacing="2"/>
+                                </ScrollViewer>
+                            </Border>
+
+                            <TextBlock TextWrapping="Wrap" Foreground="#7A857B" FontSize="11"
+                                       Text="Si un equipo no aparece en la lista: revisá que tenga corriente y que esté en la red de la máquina. La captura wildcard muestra TODO lo que pasa por el broker."/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Panel>
+            </DockPanel>
+        </Border>
+
+        <!-- ======================= OVERLAY DE DIÁLOGO =======================
+             Border + IsVisible + ZIndex, NUNCA Flyout/ShowDialog: los flyouts
+             no se dibujan sobre el mapa GL y ShowDialog trababa la cabina. -->
+        <Border Name="ModalOverlay" IsVisible="False" ZIndex="60"
+                Background="#66101612"
+                PointerPressed="OnModalBackdropPressed">
+            <Border Name="ModalCard"
+                    Background="#FAFBFA" BorderBrush="#C5CFC5" BorderThickness="1"
+                    CornerRadius="14" Padding="16" Width="460"
+                    BoxShadow="0 8 26 0 #33101612"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    PointerPressed="OnModalCardPressed">
+                <StackPanel Spacing="10">
+                    <TextBlock Name="ModalTitulo" Text="" Foreground="#101612"
+                               FontSize="16" FontWeight="Bold"/>
+                    <TextBlock Name="ModalMensaje" Text="" Foreground="#535E54"
+                               FontSize="13" TextWrapping="Wrap"/>
+                    <TextBox Name="ModalTexto" IsVisible="False"
+                             FontSize="18" Height="52" Background="#FFFFFF"
+                             Foreground="#101612" BorderBrush="#C5CFC5"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10"
+                                HorizontalAlignment="Right" Margin="0,4,0,0">
+                        <Button Name="BtnModalCancelar" Content="Cancelar"
+                                Click="OnModalCancelarClick"
+                                Background="#FFFFFF" Foreground="#101612"
+                                BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="8" MinHeight="44" Padding="20,0,20,0"/>
+                        <Button Name="BtnModalConfirmar" Content="Aceptar"
+                                Click="OnModalConfirmarClick"
+                                Background="#4ABA3E" Foreground="#FFFFFF"
+                                BorderThickness="0" CornerRadius="8"
+                                MinHeight="44" Padding="20,0,20,0" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Panel>
+</UserControl>

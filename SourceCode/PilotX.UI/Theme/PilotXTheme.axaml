@@ -1,0 +1,151 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        DOS paletas, cada una con su trabajo. No mezclarlas.
+
+        1) PilotX* (oscura) — SOLO para lo que se dibuja ENCIMA del mapa GL:
+           la barra de la pasada, los widgets flotantes de producto y los
+           overlays sobre video. Ahi el fondo oscuro translucido no es
+           decoracion: es contraste contra el terreno y contra la imagen de
+           camara. No usarla para pantallas.
+
+        2) PilotXPanel* (clara) — la paleta VIGENTE de las pantallas: Config y
+           sus pestanas, los editores de producto, Contorno, Cabecera y los
+           paneles monitor (SectionX, QuantiX, VistaX, FlowX, StormX, Hub,
+           Sistema, Camaras, Actualizar, Datos del lote, Antena GPS). Fondo
+           claro, superficies blancas, gris estructural y verde SOLO de acento.
+
+        Antes los paneles monitor consumian la paleta oscura y la app se veia
+        partida en dos mitades: el operario pasaba de blanco a negro segun que
+        tocara (reporte 2026-08-16, "SectionX abrio una ventana negra
+        gigante"). Los valores claros salen de pages/theme.css y de la card de
+        ConfigPanel, para que nativo y PWA se vean iguales.
+
+        Memo: feedback_branding_pilotx + project_pilotx_design_system.
+    -->
+
+    <!-- ================= Paleta OSCURA — solo sobre el mapa ================= -->
+
+    <!-- Tonos base de cabina (deep -> mid -> high) -->
+    <Color x:Key="PilotXBgDeepColor">#101612</Color>   <!-- fondo principal cabina -->
+    <Color x:Key="PilotXBgMidColor">#1A1F1B</Color>    <!-- header bar / cards -->
+    <Color x:Key="PilotXBgHighColor">#262C28</Color>   <!-- hover / elevated -->
+    <Color x:Key="PilotXBorderColor">#2A332C</Color>   <!-- separadores sutiles -->
+    <Color x:Key="PilotXBorderHighColor">#535E54</Color> <!-- bordes visibles -->
+
+    <!-- Texto -->
+    <Color x:Key="PilotXTextHiColor">#E2E7E2</Color>   <!-- titulos / primary -->
+    <Color x:Key="PilotXTextMidColor">#C5CFC5</Color>  <!-- body -->
+    <Color x:Key="PilotXTextDimColor">#8FA092</Color>  <!-- captions / subtitle -->
+
+    <!-- Acento PilotX (verde marca) -->
+    <Color x:Key="PilotXAccentColor">#4ABA3E</Color>
+    <Color x:Key="PilotXAccentHoverColor">#5BC850</Color>
+
+    <!-- Semaforo cabina -->
+    <Color x:Key="PilotXOkColor">#4ABA3E</Color>
+    <Color x:Key="PilotXWarnColor">#E2B53E</Color>
+    <Color x:Key="PilotXErrColor">#E15A5A</Color>
+    <Color x:Key="PilotXErrStrongColor">#C92D2D</Color>
+
+    <!-- Brushes ya armados para bindear directo desde XAML -->
+    <SolidColorBrush x:Key="PilotXBgDeep"        Color="{StaticResource PilotXBgDeepColor}"/>
+    <SolidColorBrush x:Key="PilotXBgMid"         Color="{StaticResource PilotXBgMidColor}"/>
+    <SolidColorBrush x:Key="PilotXBgHigh"        Color="{StaticResource PilotXBgHighColor}"/>
+    <SolidColorBrush x:Key="PilotXBorder"        Color="{StaticResource PilotXBorderColor}"/>
+    <SolidColorBrush x:Key="PilotXBorderHigh"    Color="{StaticResource PilotXBorderHighColor}"/>
+    <SolidColorBrush x:Key="PilotXTextHi"        Color="{StaticResource PilotXTextHiColor}"/>
+    <SolidColorBrush x:Key="PilotXTextMid"       Color="{StaticResource PilotXTextMidColor}"/>
+    <SolidColorBrush x:Key="PilotXTextDim"       Color="{StaticResource PilotXTextDimColor}"/>
+    <SolidColorBrush x:Key="PilotXAccent"        Color="{StaticResource PilotXAccentColor}"/>
+    <SolidColorBrush x:Key="PilotXAccentHover"   Color="{StaticResource PilotXAccentHoverColor}"/>
+    <SolidColorBrush x:Key="PilotXOk"            Color="{StaticResource PilotXOkColor}"/>
+    <SolidColorBrush x:Key="PilotXWarn"          Color="{StaticResource PilotXWarnColor}"/>
+    <SolidColorBrush x:Key="PilotXErr"           Color="{StaticResource PilotXErrColor}"/>
+    <SolidColorBrush x:Key="PilotXErrStrong"     Color="{StaticResource PilotXErrStrongColor}"/>
+
+    <!-- ================= Paleta CLARA — pantallas y paneles ================= -->
+    <!--
+        Contrastes medidos (WCAG 2.1) contra superficie blanca #FFFFFF:
+          texto #101612 18.3:1 · medio #303B33 11.7:1 · tenue #535E54 6.8:1
+          verde #2F7A26 5.3:1 · ambar #8A6100 5.5:1 · rojo #C0261F 5.9:1
+          gris de "sin datos" #6E7A70 4.5:1 (punto, minimo 3:1)
+        El verde de marca #4ABA3E se usa como RELLENO (boton primario, barra,
+        celda abierta) y lleva texto oscuro encima: 7.3:1. Texto verde sobre
+        fondo claro va con #2F7A26 — #4ABA3E sobre blanco da 2.5:1 y al sol no
+        se lee.
+    -->
+    <Color x:Key="PilotXPanelBgColor">#F5F7F4</Color>          <!-- fondo de zona -->
+    <Color x:Key="PilotXPanelCardColor">#FAFBFA</Color>        <!-- card raiz flotante -->
+    <Color x:Key="PilotXPanelSurfaceColor">#FFFFFF</Color>     <!-- tarjeta interna -->
+    <Color x:Key="PilotXPanelSurface2Color">#EDF1EC</Color>    <!-- pill / boton secundario / riel -->
+    <Color x:Key="PilotXPanelBorderColor">#E2E7E2</Color>      <!-- divisor suave -->
+    <Color x:Key="PilotXPanelBorderHighColor">#C5CFC5</Color>  <!-- borde de control -->
+
+    <Color x:Key="PilotXPanelTextColor">#101612</Color>
+    <Color x:Key="PilotXPanelTextMidColor">#303B33</Color>
+    <Color x:Key="PilotXPanelTextDimColor">#535E54</Color>
+
+    <Color x:Key="PilotXPanelAccentColor">#4ABA3E</Color>      <!-- relleno de acento -->
+    <Color x:Key="PilotXPanelAccentTextColor">#2F7A26</Color>  <!-- verde para TEXTO -->
+
+    <Color x:Key="PilotXPanelOkColor">#2F7A26</Color>
+    <Color x:Key="PilotXPanelWarnColor">#8A6100</Color>
+    <Color x:Key="PilotXPanelErrColor">#C0261F</Color>
+    <Color x:Key="PilotXPanelIdleColor">#6E7A70</Color>
+
+    <Color x:Key="PilotXPanelOkSoftColor">#E8F4E5</Color>
+    <Color x:Key="PilotXPanelWarnSoftColor">#FBF1DC</Color>
+    <Color x:Key="PilotXPanelErrSoftColor">#FBE6E6</Color>
+
+    <SolidColorBrush x:Key="PilotXPanelBg"          Color="{StaticResource PilotXPanelBgColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelCard"        Color="{StaticResource PilotXPanelCardColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelSurface"     Color="{StaticResource PilotXPanelSurfaceColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelSurface2"    Color="{StaticResource PilotXPanelSurface2Color}"/>
+    <SolidColorBrush x:Key="PilotXPanelBorder"      Color="{StaticResource PilotXPanelBorderColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelBorderHigh"  Color="{StaticResource PilotXPanelBorderHighColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelText"        Color="{StaticResource PilotXPanelTextColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelTextMid"     Color="{StaticResource PilotXPanelTextMidColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelTextDim"     Color="{StaticResource PilotXPanelTextDimColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelAccent"      Color="{StaticResource PilotXPanelAccentColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelAccentText"  Color="{StaticResource PilotXPanelAccentTextColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelOk"          Color="{StaticResource PilotXPanelOkColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelWarn"        Color="{StaticResource PilotXPanelWarnColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelErr"         Color="{StaticResource PilotXPanelErrColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelIdle"        Color="{StaticResource PilotXPanelIdleColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelOkSoft"      Color="{StaticResource PilotXPanelOkSoftColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelWarnSoft"    Color="{StaticResource PilotXPanelWarnSoftColor}"/>
+    <SolidColorBrush x:Key="PilotXPanelErrSoft"     Color="{StaticResource PilotXPanelErrSoftColor}"/>
+
+    <!-- ============ TextBox: forzar paleta CLARA en TODOS los estados ============
+        La app corre en FluentTheme variante Dark (por el mapa/overlays oscuros),
+        pero TODOS los campos de texto viven en pantallas CLARAS. Sin esto, al
+        enfocar un campo Fluent lo pinta con su fondo oscuro de foco
+        (TextControlBackgroundFocused del tema Dark) y como el texto es oscuro
+        queda negro sobre negro: "el input se pone negro y no se ve lo que se
+        escribe" (reporte del operario). Redefinir estos recursos en
+        Application.Resources gana sobre el diccionario de FluentTheme, así que
+        el campo queda blanco con texto oscuro en normal / hover / foco. No hay
+        TextBox sobre el mapa, así que el override es seguro en toda la app. -->
+    <SolidColorBrush x:Key="TextControlBackground"                 Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver"      Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextControlBackgroundFocused"          Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextControlBackgroundDisabled"         Color="#EDF1EC"/>
+
+    <SolidColorBrush x:Key="TextControlForeground"                 Color="#101612"/>
+    <SolidColorBrush x:Key="TextControlForegroundPointerOver"      Color="#101612"/>
+    <SolidColorBrush x:Key="TextControlForegroundFocused"          Color="#101612"/>
+    <SolidColorBrush x:Key="TextControlForegroundDisabled"         Color="#6E7A70"/>
+
+    <SolidColorBrush x:Key="TextControlBorderBrush"                Color="#C5CFC5"/>
+    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver"     Color="#8FA092"/>
+    <SolidColorBrush x:Key="TextControlBorderBrushFocused"         Color="#4ABA3E"/>
+    <SolidColorBrush x:Key="TextControlBorderBrushDisabled"        Color="#E2E7E2"/>
+
+    <SolidColorBrush x:Key="TextControlPlaceholderForeground"            Color="#6E7A70"/>
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#6E7A70"/>
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused"     Color="#6E7A70"/>
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundDisabled"    Color="#A9B3AA"/>
+
+</ResourceDictionary>

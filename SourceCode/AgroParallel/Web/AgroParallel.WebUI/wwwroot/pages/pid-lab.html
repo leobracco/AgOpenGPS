@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Laboratorio PID · Agro Parallel</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Herramienta técnica interna: acá SÍ se muestran pps/PWM crudos. */
+    .pl-bar { display:flex; flex-wrap:wrap; gap:var(--agp-sp-3); align-items:flex-end; }
+    .pl-bar .field { min-width:170px; }
+    .pl-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+               gap:var(--agp-sp-3); margin-top:var(--agp-sp-3); }
+    .pl-kpi { display:flex; flex-direction:column; gap:2px; }
+    .pl-kpi .k { font-size:var(--agp-fs-xs); text-transform:uppercase; letter-spacing:.05em;
+                 color:var(--agp-text-muted); }
+    .pl-kpi .v { font-size:var(--agp-fs-lg); font-variant-numeric:tabular-nums; }
+    #plChart { width:100%; height:260px; border:var(--agp-border-w) solid var(--agp-border);
+               border-radius:var(--agp-radius-md); background:var(--agp-surface);
+               touch-action:none; }
+    table.pl-tabla { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+    table.pl-tabla th, table.pl-tabla td { padding:var(--agp-sp-2) var(--agp-sp-3);
+      border-bottom:1px solid var(--agp-border); text-align:right; font-size:var(--agp-fs-sm); }
+    table.pl-tabla th:first-child, table.pl-tabla td:first-child { text-align:left; }
+    .pl-reco { margin-top:var(--agp-sp-3); padding:var(--agp-sp-3);
+               border:var(--agp-border-w) solid var(--agp-border);
+               border-left:4px solid var(--agp-accent);
+               border-radius:var(--agp-radius-md); background:var(--agp-bg-soft); }
+    .pl-reco h4 { margin:0 0 var(--agp-sp-2) 0; }
+    .pl-reco .motivo { color:var(--agp-text-muted); font-size:var(--agp-fs-sm); }
+    .pl-leyenda { display:flex; gap:var(--agp-sp-4); font-size:var(--agp-fs-xs);
+                  color:var(--agp-text-muted); margin-top:var(--agp-sp-2); flex-wrap:wrap; }
+    .pl-leyenda .sw { display:inline-block; width:14px; height:3px; vertical-align:middle;
+                      margin-right:4px; border-radius:2px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="pid-lab"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Laboratorio PID</h1>
+        <div class="subtitle">Capturá el lazo en vivo, mirá cómo responde y sabé qué parámetro tocar</div>
+      </div>
+      <span id="plEstado" class="pill idle"><span class="dot"></span> <span id="plEstadoTxt">Parado</span></span>
+    </div>
+
+    <div class="card">
+      <div class="pl-bar">
+        <div class="field">
+          <label for="plFuente">Qué lazo mirar</label>
+          <select id="plFuente"></select>
+        </div>
+        <button class="btn primary" id="plStart">▶ Capturar</button>
+        <button class="btn" id="plStop">■ Parar</button>
+        <button class="btn" id="plClear">Limpiar</button>
+        <button class="btn" id="plCsv">Exportar CSV</button>
+        <span class="send-msg" id="plMsg"></span>
+      </div>
+      <canvas id="plChart"></canvas>
+      <div class="pl-leyenda">
+        <span><span class="sw" style="background:#4ABA3E"></span>Objetivo</span>
+        <span><span class="sw" style="background:#101612"></span>Real</span>
+        <span><span class="sw" style="background:#5B8DD9"></span>PWM (escalado)</span>
+        <span><span class="sw" style="background:#C5CFC5"></span>Velocidad km/h ×10</span>
+      </div>
+      <div class="pl-kpis">
+        <div class="pl-kpi"><span class="k">Muestras</span><span class="v" id="kN">—</span></div>
+        <div class="pl-kpi"><span class="k">Error medio</span><span class="v" id="kBias">—</span></div>
+        <div class="pl-kpi"><span class="k">Error RMS</span><span class="v" id="kRms">—</span></div>
+        <div class="pl-kpi"><span class="k">Oscilación</span><span class="v" id="kOsc">—</span></div>
+        <div class="pl-kpi"><span class="k">Período</span><span class="v" id="kPer">—</span></div>
+        <div class="pl-kpi"><span class="k">PWM saturado</span><span class="v" id="kSat">—</span></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:var(--agp-sp-4)">
+      <h3>Diagnóstico</h3>
+      <div id="plRecos"><p class="pl-reco motivo" style="border-left-color:var(--agp-border)">
+        Capturá al menos 30 segundos con el lazo trabajando (dosificando de verdad)
+        y acá aparece qué está pasando y qué conviene tocar.</p></div>
+      <table class="pl-tabla" style="margin-top:var(--agp-sp-3)">
+        <thead><tr><th>Ventana</th><th>Obj. medio</th><th>Real medio</th><th>Error %</th>
+          <th>Desvío</th><th>PWM medio</th><th>PWM σ</th></tr></thead>
+        <tbody id="plTabla"><tr><td colspan="7" style="text-align:center;color:var(--agp-text-muted)">
+          Sin datos todavía</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/pid-lab.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>
