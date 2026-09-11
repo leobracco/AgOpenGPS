@@ -144,6 +144,11 @@ Avisar "instalando helper de red (PilotXNetApply)" "instalando"
 try { Invoke-Expression (Invoke-RestMethod -Uri "$Servidor/red.ps1" -TimeoutSec 30) }
 catch { Write-Host "Helper de red: $($_.Exception.Message) — correr después: irm $Servidor/red.ps1 | iex" -ForegroundColor Yellow }
 
+# ── 9. RustDesk contra el servidor propio, con contraseña fija (queda en el pedido) ──
+Avisar "instalando RustDesk" "instalando"
+try { Invoke-Expression (Invoke-RestMethod -Uri "$Servidor/rustdesk.ps1?p=$Pedido" -TimeoutSec 30) }
+catch { Write-Host "RustDesk: $($_.Exception.Message) — correr después: irm $Servidor/rustdesk.ps1?p=$Pedido | iex" -ForegroundColor Yellow }
+
 Avisar "instalación terminada; falta reiniciar" "instalado"
 Stop-Transcript | Out-Null
 Write-Host ""

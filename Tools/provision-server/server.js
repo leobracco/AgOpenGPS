@@ -37,7 +37,19 @@ const cfg = Object.assign({
   ip_preferida: "",           // vacío = la primera 192.168.x que no sea VirtualBox/Hyper-V
   // ViewX TabletTools (NetApplyWatcher.ps1 y compañía): hermano del repo en Productos.
   tablettools_dir: path.resolve(REPO, "..", "..", "..", "..", "ViewX", "Software", "TabletTools"),
+  // RustDesk: servidor propio (hbbs/hbbr en el droplet, PM2 asistx-id / asistx-relay)
+  // y su clave publica. El .exe del repo (Tools/RustDesk, no versionado) es un
+  // cliente oficial: lee servidor y clave del NOMBRE del archivo, asi que se
+  // sirve renombrado con estos valores.
+  rustdesk_host: "asistx.agroparallel.com",
+  rustdesk_key: "o2t8Us0hreitDLKtR3XVCnYShLICjAfQtqey4LvJwRE=",
+  rustdesk_exe: "",   // vacio = el primer .exe de Tools/RustDesk
 }, leerJson(CONFIG_PATH, {}));
+function rustdeskExe() {
+  if (cfg.rustdesk_exe) return cfg.rustdesk_exe;
+  try { const d = path.join(REPO, "Tools", "RustDesk"); const f = fs.readdirSync(d).find(x => /\.exe$/i.test(x)); return f ? path.join(d, f) : ""; } catch { return ""; }
+}
+function rustdeskNombre() { return "rustdesk-host=" + cfg.rustdesk_host + ",key=" + cfg.rustdesk_key + ".exe"; }
 
 let estado = Object.assign({ jwt: null, usuario: null, pedidos: [], eventos: [] }, leerJson(ESTADO_PATH, {}));
 
@@ -74,6 +86,7 @@ function kit() {
     // Helper de red de ViewX TabletTools (tarea SYSTEM PilotXNetApply): sin él
     // PilotX no puede aplicar la IP fija del Ethernet (tablet de Clancy, 2026-09-11).
     { nombre: "TabletTools/NetApplyWatcher.ps1", ruta: path.join(cfg.tablettools_dir, "NetApplyWatcher.ps1"), req: true },
+    { nombre: "RustDesk.exe", ruta: rustdeskExe(), descarga: rustdeskNombre() },
     { nombre: "PilotX-KioskSetup.exe", ruta: path.join(REPO, "Build", "PilotX-KioskSetup.exe"), req: true },
     { nombre: "Branding/logo.png", ruta: path.join(REPO, "Build", "Branding", "logo.png") },
     { nombre: "Branding/logo-fondo-blanco.png", ruta: path.join(REPO, "Build", "Branding", "logo-fondo-blanco.png") },
@@ -241,6 +254,22 @@ const rutas = {
     log("pedido " + p.codigo + ": clave de soporte actualizada");
     return { ok: true };
   },
+  // Datos para instalar RustDesk en una pantalla: nombre del .exe (lleva servidor
+  // y clave), servidor, clave y la contraseña de acceso del pedido (se genera y
+  // se guarda en el pedido; sin pedido se genera una suelta).
+  "GET /api/rustdesk": async (req) => {
+    const u = new URL(req.url, "http://x"); const p = buscarPedido(u.searchParams.get("p"));
+    let password = p && p.rustdesk_pass;
+    if (!password) { password = nuevaClave(); if (p) { p.rustdesk_pass = password; guardarEstado(); } }
+    return { ok: true, archivo: rustdeskNombre(), servidor: cfg.rustdesk_host, clave: cfg.rustdesk_key, password };
+  },
+  "POST /api/pedidos/rustdesk": async (req, body) => {
+    const p = buscarPedido(body.codigo); if (!p) throw new Error("Pedido no existe");
+    p.rustdesk_id = String(body.id || "").trim(); if (body.pass) p.rustdesk_pass = String(body.pass).trim();
+    p.pasos.push({ t: Date.now(), msg: "RustDesk instalado, ID " + p.rustdesk_id }); guardarEstado();
+    log("pedido " + p.codigo + ": RustDesk ID " + p.rustdesk_id);
+    return { ok: true };
+  },
   "DELETE /api/pedidos": async (req, body) => {
     const i = estado.pedidos.findIndex(p => p.codigo === String(body.codigo || "").toUpperCase());
     if (i >= 0) { estado.pedidos.splice(i, 1); guardarEstado(); }
@@ -306,6 +335,10 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, await rutas[clave](req, body));
     }
     if (u.pathname === "/instalar.ps1") return texto(res, 200, scriptInstalar(req, u.searchParams.get("p") || ""));
+    if (u.pathname === "/rustdesk.ps1") {
+      const base = "http://" + ipServidor(req) + ":" + cfg.puerto;
+      return texto(res, 200, fs.readFileSync(path.join(AQUI, "rustdesk.ps1"), "utf8").replace(/__SERVIDOR__/g, base).replace(/__PEDIDO__/g, u.searchParams.get("p") || ""));
+    }
     if (u.pathname === "/red.ps1") {
       const base = "http://" + ipServidor(req) + ":" + cfg.puerto;
       return texto(res, 200, fs.readFileSync(path.join(AQUI, "red.ps1"), "utf8").replace(/__SERVIDOR__/g, base));
@@ -319,7 +352,7 @@ const server = http.createServer(async (req, res) => {
     if (u.pathname.startsWith("/kit/")) {
       const nombre = decodeURIComponent(u.pathname.slice("/kit/".length));
       const k = kit().find(x => x.nombre.toLowerCase() === nombre.toLowerCase());
-      return k ? archivo(res, k.ruta, path.basename(k.nombre)) : json(res, 404, { error: "no existe en el kit: " + nombre });
+      return k ? archivo(res, k.ruta, k.descarga || path.basename(k.nombre)) : json(res, 404, { error: "no existe en el kit: " + nombre });
     }
     // estático
     let rel = u.pathname === "/" ? "/index.html" : u.pathname;

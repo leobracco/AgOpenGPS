@@ -94,7 +94,7 @@
   <section class="card">
     <h2>Pedidos</h2>
     <table>
-      <thead><tr><th>Código</th><th>Cliente</th><th>Org</th><th>Versión</th><th>Estado</th><th>Equipo</th><th>Clave soporte</th><th>Último paso</th><th></th></tr></thead>
+      <thead><tr><th>Código</th><th>Cliente</th><th>Org</th><th>Versión</th><th>Estado</th><th>Equipo</th><th>Clave soporte</th><th>RustDesk</th><th>Último paso</th><th></th></tr></thead>
       <tbody id="pedidos"></tbody>
     </table>
   </section>
@@ -151,8 +151,9 @@
       return '<tr><td><code>' + p.codigo + '</code></td><td>' + esc(p.cliente) + '</td><td>' + esc(p.estab_slug) + '</td><td>' + p.version + '</td>' +
         '<td><span class="pill ' + p.estado + '">' + p.estado + '</span></td><td>' + esc(p.device_id || '') + (p.hostname ? '<br><span class="nota">' + esc(p.hostname) + '</span>' : '') + '</td>' +
         '<td><code>' + esc(p.soporte_pass || '—') + '</code> <button class="sec" data-clave="' + p.codigo + '" style="padding:3px 7px;font-size:11px" title="Cargar o corregir la clave">✎</button></td>' +
+        '<td>' + (p.rustdesk_id ? '<code>' + esc(p.rustdesk_id) + '</code><br><span class="nota">clave <code>' + esc(p.rustdesk_pass || '') + '</code></span>' : '<span class="nota">—</span>') + '</td>' +
         '<td class="nota">' + esc(ult) + '</td><td><button class="sec" data-cmd="' + p.codigo + '" style="padding:5px 9px;font-size:12px">comando</button> <button class="peligro" data-del="' + p.codigo + '" style="padding:5px 9px;font-size:12px">borrar</button></td></tr>';
-    }).join('') || '<tr><td colspan="9" class="nota">Sin pedidos todavía.</td></tr>';
+    }).join('') || '<tr><td colspan="10" class="nota">Sin pedidos todavía.</td></tr>';
   }
   function cargarEstado() { return api('GET', '/api/estado').then(function (e) { estado = e; pintarEstado(); }); }
 
