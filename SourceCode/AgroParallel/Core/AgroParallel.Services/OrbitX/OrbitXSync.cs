@@ -624,12 +624,15 @@ namespace AgroParallel.OrbitX
         }
 
         // ── RustDesk (soporte remoto) ────────────────────────────────────────
-        // Lee el ID de RustDesk UNA vez por sesión ejecutando el cliente con
-        // --get-id (2 s de timeout, best-effort). Si RustDesk no está
-        // instalado o falla, devuelve null y el heartbeat lo reporta así:
-        // el CRM muestra "sin RustDesk" en vez de romper nada.
+        // Lee el ID de RustDesk ejecutando el cliente con --get-id (2 s de
+        // timeout, best-effort) y lo cachea 10 minutos. Antes se leía UNA vez
+        // por sesión: cuando el instalador LAN cambió el servidor de RustDesk
+        // de la tablet de Clancy (2026-09-11) el ID cambió, y el heartbeat
+        // siguió mandando el viejo hasta reiniciar PilotX, pisando lo que se
+        // corregía a mano en OrbitX. Si RustDesk no está instalado o falla,
+        // devuelve el último bueno (o null): el CRM muestra "sin RustDesk".
         private static string _rustdeskId;
-        private static bool _rustdeskLeido;
+        private static DateTime _rustdeskLeidoUtc = DateTime.MinValue;
 
         // ── Nodos para el heartbeat ──────────────────────────────────────────
         /// <summary>Lo cablea el host con el registro de nodos (NodoRegistryService.GetAll).
@@ -671,8 +674,8 @@ namespace AgroParallel.OrbitX
 
         private static string LeerRustDeskId()
         {
-            if (_rustdeskLeido) return _rustdeskId;
-            _rustdeskLeido = true;
+            if ((DateTime.UtcNow - _rustdeskLeidoUtc).TotalMinutes < 10) return _rustdeskId;
+            _rustdeskLeidoUtc = DateTime.UtcNow;
             try
             {
                 string exe = System.IO.Path.Combine(
