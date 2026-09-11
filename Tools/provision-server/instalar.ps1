@@ -131,6 +131,17 @@ $orbit = @{
 $orbit | ConvertTo-Json | Out-File "$engine\orbitX.json" -Encoding utf8
 Paso "orbitX.json escrito (device $($reg.device_id), org $($reg.estab_slug))"
 
+# ── 6b. Firewall de PilotX (UDP 9999 módulos/ECU, MQTT 1883, 5180/5181, 8888) ──
+# El kit crea reglas por programa, pero en la tablet de Clancy no quedó ninguna:
+# setup_pilotx_lan.bat (viene en el paquete) las crea por puerto. Se corre sin
+# interacción (< nul salta el "Presione una tecla").
+if (Test-Path "C:\PilotX\setup_pilotx_lan.bat") {
+    Avisar "creando reglas de firewall de PilotX" "instalando"
+    cmd /c "C:\PilotX\setup_pilotx_lan.bat < nul" 2>&1 | Out-Null
+    $reglas = (Get-NetFirewallRule -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match "PilotX" } | Measure-Object).Count
+    Paso "Firewall: $reglas reglas PilotX"
+}
+
 # ── 7. Kiosko ────────────────────────────────────────────────────────────────
 if ($reg.kiosko -and (Test-Path "$kit\PilotX-KioskSetup.exe")) {
     Avisar "activando modo kiosko" "instalando"

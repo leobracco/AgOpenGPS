@@ -44,7 +44,10 @@ Stop-Service RustDesk -Force -ErrorAction SilentlyContinue
 Get-Process rustdesk -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 $srv = $info.servidor
-$toml = "rendezvous_server = '${srv}:21116'`nnat_type = 1`nserial = 0`n`n[options]`ncustom-rendezvous-server = '$srv'`nrelay-server = '$srv'`nkey = '$($info.clave)'`n"
+# approve-mode password + verification-method use-permanent-password: se entra
+# con la contraseña fija sin que nadie acepte nada en la pantalla (kiosko sin
+# teclado). enable-file-transfer para mandar archivos por RustDesk.
+$toml = "rendezvous_server = '${srv}:21116'`nnat_type = 1`nserial = 0`n`n[options]`ncustom-rendezvous-server = '$srv'`nrelay-server = '$srv'`nkey = '$($info.clave)'`napprove-mode = 'password'`nverification-method = 'use-permanent-password'`nenable-file-transfer = 'Y'`n"
 $dirs = @("C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config") + (Get-ChildItem C:\Users -Directory | ForEach-Object { $_.FullName + "\AppData\Roaming\RustDesk\config" })
 foreach ($dir in $dirs) {
     try {

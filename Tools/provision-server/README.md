@@ -60,4 +60,16 @@ Opcional `config.json`:
 - `/instalar.ps1?p=<pedido>`: el script de la tablet con el servidor y el
   pedido ya puestos.
 
-`estado.json` y `runtimes\` no van al repo.
+`estado.json`, `secretos.json` y `runtimes\` no van al repo.
+
+## Una sola clave de administrador
+
+`secretos.json` (al lado de `server.js`):
+
+```json
+{ "soporte_pass": "la-clave", "rustdesk_pass": "la-clave" }
+```
+
+Con eso todos los pedidos nuevos usan esa clave para el usuario `soporte` y
+para el acceso RustDesk, salvo que se escriba otra en el pedido. Sin el
+archivo, se genera una distinta por pedido (queda en la tabla).

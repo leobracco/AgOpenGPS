@@ -29,6 +29,11 @@ const AQUI = __dirname;
 const REPO = path.resolve(AQUI, "..", "..");
 const CONFIG_PATH = path.join(AQUI, "config.json");
 const ESTADO_PATH = path.join(AQUI, "estado.json");
+// secretos.json (no va al repo): { "soporte_pass": "...", "rustdesk_pass": "..." }.
+// Misma clave de administrador para todas las pantallas (pedido 2026-09-11);
+// si falta, se genera una por pedido como antes.
+const SECRETOS_PATH = path.join(AQUI, "secretos.json");
+function secretos() { return leerJson(SECRETOS_PATH, {}); }
 const RUNTIMES_DIR = path.join(AQUI, "runtimes");
 
 const cfg = Object.assign({
@@ -196,7 +201,7 @@ const rutas = {
   // ---- estado general ----
   "GET /api/estado": async (req) => ({
     ok: true, ip: ipServidor(req), ips: ips(), puerto: cfg.puerto, orbitx_url: cfg.orbitx_url,
-    logueado: !!estado.jwt, usuario: estado.usuario, paquetes: paquetes().slice(0, 10).map(p => ({ version: p.version, archivo: p.archivo, bytes: p.bytes, mtime: p.mtime })),
+    logueado: !!estado.jwt, usuario: estado.usuario, clave_fija: !!secretos().soporte_pass, paquetes: paquetes().slice(0, 10).map(p => ({ version: p.version, archivo: p.archivo, bytes: p.bytes, mtime: p.mtime })),
     kit: kit().map(k => ({ nombre: k.nombre, existe: k.existe, bytes: k.bytes, req: !!k.req })),
     pedidos: estado.pedidos, eventos: estado.eventos.slice(0, 60),
   }),
@@ -239,7 +244,7 @@ const rutas = {
     const p = {
       codigo, cliente, cuit: String(body.cuit || "").trim(), estab_slug: body.estab_slug,
       nombre_equipo: String(body.nombre_equipo || "").trim(), version, kiosko: body.kiosko !== false,
-      soporte_pass: String(body.soporte_pass || "").trim() || nuevaClave(),
+      soporte_pass: String(body.soporte_pass || "").trim() || secretos().soporte_pass || nuevaClave(),
       creado: Date.now(), estado: "esperando", device_id: null, hostname: null, pasos: [],
     };
     estado.pedidos.unshift(p); guardarEstado();
@@ -260,7 +265,7 @@ const rutas = {
   "GET /api/rustdesk": async (req) => {
     const u = new URL(req.url, "http://x"); const p = buscarPedido(u.searchParams.get("p"));
     let password = p && p.rustdesk_pass;
-    if (!password) { password = nuevaClave(); if (p) { p.rustdesk_pass = password; guardarEstado(); } }
+    if (!password) { password = secretos().rustdesk_pass || secretos().soporte_pass || nuevaClave(); if (p) { p.rustdesk_pass = password; guardarEstado(); } }
     return { ok: true, archivo: rustdeskNombre(), servidor: cfg.rustdesk_host, clave: cfg.rustdesk_key, password };
   },
   "POST /api/pedidos/rustdesk": async (req, body) => {
