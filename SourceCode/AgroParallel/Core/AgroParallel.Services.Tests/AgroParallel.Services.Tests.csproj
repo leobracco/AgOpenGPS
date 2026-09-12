@@ -4,6 +4,11 @@
     <IsPackable>false</IsPackable>
     <LangVersion>latest</LangVersion>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <!-- NUnit1032: LibraXLiveServiceTests hace TearDown con _svc.Stop() (el
+         metodo de dominio), no _svc.Dispose() (el alias IDisposable). El
+         analyzer lo marca error por defecto; lo bajamos a warning solo para
+         esta regla, no para el resto. -->
+    <NoWarn>$(NoWarn);NUnit1032</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
