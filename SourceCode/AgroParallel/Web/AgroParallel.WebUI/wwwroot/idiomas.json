@@ -4,7 +4,7 @@
     "si_falta_una_entrada": "Se ve en castellano. Nunca una clave cruda ni una pantalla rota.",
     "como_corregir": "Editar la traduccion en este archivo y reiniciar PilotX. No hace falta recompilar.",
     "quien_lo_usa": "La pantalla nativa (PilotX.Cockpit.Bars/Traductor.cs) y las paginas del Hub (wwwroot/js/i18n.js).",
-    "no_se_traduce": "Nombres de producto (PilotX, QuantiX, VistaX, CoreX, FlowX, StormX, SectionX, LineX, OrbitX, Agro Parallel) ni unidades/siglas (km/h, ha, sem/m, kg/ha, rpm, PWM, GPS, RTK, IMU, MQTT, UID, AB, XTE, NTRIP)."
+    "no_se_traduce": "Nombres de producto (PilotX, QuantiX, VistaX, CoreX, FlowX, StormX, SectionX, LineX, LibraX, OrbitX, Agro Parallel) ni unidades/siglas (km/h, ha, sem/m, kg/ha, rpm, PWM, GPS, RTK, IMU, MQTT, UID, AB, XTE, NTRIP)."
   },
   "Idioma": {
     "en": "Language",

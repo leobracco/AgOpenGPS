@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LibraX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <script src="../js/widget-mode.js"></script>
+  <style>
+    html.widget-mode body{grid-template-columns:1fr}
+    html.widget-mode aside.sidebar{display:none}
+    /* Barra de ratio 0-100 %: la lectura de un vistazo desde la cabina. */
+    .lbx-bar{height:28px;border-radius:6px;background:var(--agp-surface-2,#1a1f1c);overflow:hidden;margin-top:var(--agp-sp-2)}
+    .lbx-bar>i{display:block;height:100%;width:0;background:var(--agp-state-ok,#4ABA3E);transition:width .15s linear}
+    #ratioCanvas{width:100%;height:220px;display:block}
+    .lbx-warn{color:var(--agp-state-warn,#E0A93C)}
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="librax"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>LibraX</h1>
+        <div class="subtitle">Monitor de rendimiento · diagnóstico de sensor</div>
+      </div>
+      <span class="pill idle" id="okPill"><span class="dot"></span> Sin nodo</span>
+    </div>
+
+    <div class="grid">
+      <div class="card" style="grid-column: span 2">
+        <h3>Flujo de grano</h3>
+        <div class="metric"><span id="kpiRatio">—</span><span class="unit">%</span></div>
+        <div class="lbx-bar"><i id="ratioBar"></i></div>
+        <div class="row" style="margin-top:var(--agp-sp-2)">
+          <span>Estado del sensor</span><strong id="kpiSensor" style="color:var(--agp-text)">—</strong>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Velocidad de noria</h3>
+        <div class="metric"><span id="kpiPaddle">—</span><span class="unit">paletas/s</span></div>
+        <div class="row"><span>Hall</span><strong id="kpiRpm" style="color:var(--agp-text)">— rpm</strong></div>
+      </div>
+      <div class="card">
+        <h3>Humedad (crudo)</h3>
+        <div class="metric"><span id="kpiMoist">—</span><span class="unit">mV</span></div>
+        <div class="row"><span>Uptime del nodo</span><strong id="kpiUptime" style="color:var(--agp-text)">—</strong></div>
+      </div>
+      <div class="card">
+        <h3>Ruido</h3>
+        <div class="metric"><span id="kpiNoise">—</span><span class="unit">glitches</span></div>
+        <div class="row"><span id="noiseHint" class="subtitle">—</span></div>
+      </div>
+    </div>
+
+    <h2>Últimos 60 segundos</h2>
+    <div class="card">
+      <canvas id="ratioCanvas"></canvas>
+      <div class="subtitle" style="margin-top:var(--agp-sp-2)">
+        Con la noria vacía en marcha el ratio tiene que quedar estable entre 15 y 35 %
+        (son las paletas). Ese valor es la baseline que va a consumir la fase 2 —
+        <strong>anotarlo</strong>. Con grano, sube de forma monótona hasta 60-90 % a boca llena.
+      </div>
+    </div>
+
+    <h2>Nodos LibraX</h2>
+    <div class="card" id="nodosList">
+      <div class="subtitle">
+        Buscando nodos en LAN… El nodo publica en
+        <code>agp/librax/{uid}/status_live</code> al broker MQTT del PC.
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/librax.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

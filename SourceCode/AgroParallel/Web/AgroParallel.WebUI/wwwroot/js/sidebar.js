@@ -61,6 +61,7 @@
       { id: 'linex',    ico: '⊞',  label: 'LineX',    href: 'linex.html' },
       { id: 'vistax',   ico: '◉',  label: 'VistaX',   href: 'vistax.html' },
       { id: 'stormx',   ico: '☴',  label: 'StormX',   href: 'stormx.html' },
+      { id: 'librax',   ico: '⚖',  label: 'LibraX',   href: 'librax.html' },
       { id: 'corex-ecu', ico: '⌬', label: 'CoreX-ECU', href: 'corex-ecu.html' },
       { id: 'nodos',    ico: '📡', label: 'Nodos',    href: 'nodos.html' },
       { id: 'camaras',  ico: '⌘',  label: 'Cámaras',  href: 'camaras.html' }
