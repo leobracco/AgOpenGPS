@@ -106,6 +106,23 @@ namespace AgroParallel.Services
         // subtopic = "status_live". El uid ya viene extraído del payload o del topic.
         protected override void OnPayload(string uid, string subtopic, string[] topicParts, JsonElement root)
         {
+            // GUARD OBLIGATORIO. La base filtra por prefijo de topic y por
+            // cantidad de partes, NO por subtopic, y el NodoRegistry dispara
+            // MessageReceived para TODO mensaje que recibe — incluidos los
+            // suyos: está suscripto a agp/+/+/announcement.
+            //
+            // El firmware de StormX publica agp/storm/<uid>/announcement
+            // RETAINED (MQTT_Custom.cpp:119). Tiene 4 partes, arranca con
+            // agp/storm/ y trae uid en el payload, así que pasa todos los
+            // filtros de la base. Sin este guard se escribía una lectura en
+            // ceros, y con todo en cero ComputeVerdict devuelve "ok" porque
+            // los chequeos de mínimo están guardados con > 0: la pantalla
+            // decía "PULVERIZAR OK" con datos inexistentes, de un nodo que
+            // podía estar apagado. Al ser retained, pasaba en cada arranque
+            // de PilotX.
+            if (!string.Equals(subtopic, "status_live", StringComparison.OrdinalIgnoreCase))
+                return;
+
             DateTime now = DateTime.UtcNow;
             lock (_lock)
             {
