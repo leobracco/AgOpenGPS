@@ -37,8 +37,12 @@ namespace AgroParallel.Services.Tests
             _svc.Start();
         }
 
+        // Dispose(), no Stop(): el service implementa IDisposable y el analyzer
+        // NUnit1032 exige que un campo IDisposable se libere en el TearDown.
+        // Dispose() llama a Stop() internamente, así que hace lo mismo y además
+        // deja contento al analyzer sin suprimirlo para todo el repo.
         [TearDown]
-        public void TearDown() => _svc.Stop();
+        public void TearDown() => _svc.Dispose();
 
         private const string PayloadOk =
             "{\"ratio\":412,\"paddle_hz\":7,\"rpm\":420,\"moist_mv\":1832," +
