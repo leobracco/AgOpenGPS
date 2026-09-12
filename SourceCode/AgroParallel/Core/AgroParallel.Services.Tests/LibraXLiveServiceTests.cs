@@ -142,5 +142,36 @@ namespace AgroParallel.Services.Tests
             Assert.That(_svc.GetSnapshot().Nodos.Count, Is.EqualTo(0));
             Assert.That(_svc.IsRunning, Is.False);
         }
+
+        // REGRESIÓN: el announcement del nodo llega al mismo prefijo de topic,
+        // con 4 partes y con "uid" en el payload, así que pasa todos los
+        // filtros de la clase base. Sin el guard de subtopic escribía una
+        // lectura en ceros y la pantalla parpadeaba "sensor sin señal" cada
+        // 10 s, que es cuando el firmware re-publica el announcement.
+        [Test]
+        public void Announcement_no_pisa_la_lectura_de_status_live()
+        {
+            _fake.Emit("agp/librax/a1b2c3/status_live", PayloadOk);
+
+            _fake.Emit("agp/librax/a1b2c3/announcement",
+                "{\"uid\":\"a1b2c3\",\"ip\":\"192.168.1.55\",\"version\":\"0.1.0\"," +
+                "\"hw\":\"S3-DEV\",\"device\":\"LibraX\"}");
+
+            var n = _svc.GetSnapshot().Nodos[0];
+            Assert.That(n.RatioPermil, Is.EqualTo(412), "el announcement piso el ratio");
+            Assert.That(n.SensorOk, Is.True, "el announcement piso sensor_ok");
+        }
+
+        // ota/progress publica un número desnudo, no un objeto JSON.
+        [Test]
+        public void Ota_progress_no_pisa_la_lectura_ni_tira_el_service()
+        {
+            _fake.Emit("agp/librax/a1b2c3/status_live", PayloadOk);
+            _fake.Emit("agp/librax/a1b2c3/ota/progress", "40");
+
+            Assert.That(_svc.IsRunning, Is.True);
+            var n = _svc.GetSnapshot().Nodos[0];
+            Assert.That(n.RatioPermil, Is.EqualTo(412));
+        }
     }
 }

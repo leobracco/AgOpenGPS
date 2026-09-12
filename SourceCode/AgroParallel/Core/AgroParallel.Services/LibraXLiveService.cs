@@ -84,9 +84,28 @@ namespace AgroParallel.Services
             => System.Diagnostics.Trace.WriteLine("[librax] live service stopped");
 
         // ── OnPayload ────────────────────────────────────────────────────────
-        // subtopic = "status_live". El uid ya viene extraído.
         protected override void OnPayload(string uid, string subtopic, string[] topicParts, JsonElement root)
         {
+            // GUARD OBLIGATORIO. La base filtra por prefijo de topic y por
+            // cantidad de partes, NO por subtopic, y el NodoRegistry dispara
+            // MessageReceived para TODO mensaje que recibe — incluidos los
+            // suyos: está suscripto a agp/+/+/announcement.
+            //
+            // El nodo publica agp/librax/<uid>/announcement RETAINED cada 10 s
+            // y agp/librax/<uid>/ota/resultado durante una OTA. Los dos tienen
+            // 4 partes, arrancan con agp/librax/ y traen "uid" en el payload,
+            // así que pasan todos los filtros de la base. Sin este guard,
+            // ReadDouble devuelve 0 para todos los campos y ReadBool devuelve
+            // false para sensor_ok: la pantalla parpadea "sensor sin señal",
+            // agujerea el gráfico de 60 s y dispara la falsa advertencia de EMI
+            // cada diez segundos. Y como el announcement es retained, al
+            // arrancar PilotX el nodo aparece online en 0 % aunque esté apagado.
+            //
+            // El molde correcto es LineXLiveService.cs:82, no StormXLiveService
+            // (que no tiene el guard y arrastra este mismo bug).
+            if (!string.Equals(subtopic, "status_live", StringComparison.OrdinalIgnoreCase))
+                return;
+
             DateTime now = DateTime.UtcNow;
             lock (_lock)
             {
