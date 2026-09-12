@@ -126,6 +126,8 @@ namespace AgroParallel.Shell
                 var stormxLive = new StormXLiveService(s_nodos, stormxCfg);
                 var linexCfg = new LineXConfigService();
                 var linexLive = new LineXLiveService(s_nodos, linexCfg);
+                var libraxCfg = new LibraXConfigService();
+                var libraxLive = new LibraXLiveService(s_nodos, libraxCfg);
 
                 var host = new AgpWebHost(
                     state,
@@ -173,7 +175,9 @@ namespace AgroParallel.Shell
                     trackBuilder: trackBuilder,
                     recPath: recPath,
                     paths: paths,
-                    steerConfig: steerConfig);
+                    steerConfig: steerConfig,
+                    libraxCfg: libraxCfg,
+                    libraxLive: libraxLive);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;

@@ -88,6 +88,8 @@ namespace AgroParallel.WebHost
         private readonly IStormXLiveService _stormxLive;
         private readonly ILineXConfigService _linexCfg;
         private readonly ILineXLiveService _linexLive;
+        private readonly ILibraXConfigService _libraxCfg;
+        private readonly ILibraXLiveService _libraxLive;
         private readonly IInsumoCatalogService _insumos;
         private readonly IVistaXCalibracionService _vistaxCalib;
         private readonly IFieldMapsService _fieldMaps;
@@ -182,7 +184,9 @@ namespace AgroParallel.WebHost
                           IRecPathService recPath = null,
                           IPathsGeometryCalculator paths = null,
                           ISteerConfigService steerConfig = null,
-                          IWifiService wifi = null)
+                          IWifiService wifi = null,
+                          ILibraXConfigService libraxCfg = null,
+                          ILibraXLiveService libraxLive = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _wifi = wifi;               // nullable
@@ -227,6 +231,8 @@ namespace AgroParallel.WebHost
             _stormxLive = stormxLive;         // nullable
             _linexCfg = linexCfg;             // nullable
             _linexLive = linexLive;           // nullable
+            _libraxCfg = libraxCfg;           // nullable
+            _libraxLive = libraxLive;         // nullable
             // Catálogo de insumos: si nadie lo pasa, el host instancia uno
             // default (file-based, sin dependencias) para que la página
             // /pages/insumos.html y los endpoints /api/insumos funcionen
@@ -343,6 +349,7 @@ namespace AgroParallel.WebHost
                 if (_flowxCfg != null) m.WithController(() => new FlowXController(_flowxCfg, _nodos, _flowxLive));
                 if (_stormxCfg != null) m.WithController(() => new StormXController(_stormxCfg, _nodos, _stormxLive));
                 if (_linexCfg != null) m.WithController(() => new LineXController(_linexCfg, _nodos, _linexLive));
+                if (_libraxCfg != null) m.WithController(() => new LibraXController(_libraxCfg, _nodos, _libraxLive));
                 if (_insumos != null) m.WithController(() => new InsumoCatalogController(_insumos));
                 if (_fieldMaps != null) m.WithController(() => new MapasController(_fieldMaps));
                 if (_prescripciones != null) m.WithController(() => new PrescripcionesController(_prescripciones));
@@ -446,6 +453,7 @@ namespace AgroParallel.WebHost
             _flowxLive?.Start();
             _stormxLive?.Start();
             _linexLive?.Start();
+            _libraxLive?.Start();
 
             // mDNS responder: publica "agroparallel.local" -> IPs LAN del tractor.
             // Asi el operario puede tipear http://agroparallel.local:5180/m/ desde
@@ -480,6 +488,7 @@ namespace AgroParallel.WebHost
             try { _flowxLive?.Stop(); } catch { }
             try { _stormxLive?.Stop(); } catch { }
             try { _linexLive?.Stop(); } catch { }
+            try { _libraxLive?.Stop(); } catch { }
             try { _quantixHub?.Stop(); } catch { }
             try { _debugHub?.Stop(); } catch { }
             try { _telemetry?.Stop(); } catch { }
