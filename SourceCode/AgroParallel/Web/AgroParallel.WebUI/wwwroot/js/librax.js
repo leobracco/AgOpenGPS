@@ -45,7 +45,9 @@
   }
 
   function fmtUptime(s) {
-    if (!s) return '—';
+    // Comparación explícita contra null/undefined: un nodo recién booteado
+    // manda uptime_s = 0, que es un dato real ("0 s"), no un dato ausente.
+    if (s === null || s === undefined) return '—';
     if (s < 60) return s + ' s';
     if (s < 3600) return Math.floor(s / 60) + ' min';
     return Math.floor(s / 3600) + ' h ' + Math.floor((s % 3600) / 60) + ' min';
@@ -87,16 +89,23 @@
 
     if (serie.length < 2) return;
 
-    // Serie del ratio.
+    // Serie del ratio. Los puntos null son "sin dato" y dejan un HUECO: el
+    // trazo se corta y vuelve a arrancar con moveTo. Dibujarlos como 0 sería
+    // indistinguible de un flujo real de 0 %, y esta pantalla existe
+    // justamente para leer este gráfico.
     ctx.strokeStyle = linea;
     ctx.lineWidth = 2;
     ctx.lineJoin = 'round';
     ctx.beginPath();
     var x0 = 28, ancho = w - 28;
+    var trazando = false;
     for (var i = 0; i < serie.length; i++) {
+      var v = serie[i];
+      if (v === null) { trazando = false; continue; }
       var x = x0 + (i / (MAX_POINTS - 1)) * ancho;
-      var yy = h - (Math.max(0, Math.min(100, serie[i])) / 100) * h;
-      if (i === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+      var yy = h - (Math.max(0, Math.min(100, v)) / 100) * h;
+      if (trazando) { ctx.lineTo(x, yy); }
+      else { ctx.moveTo(x, yy); trazando = true; }
     }
     ctx.stroke();
   }
@@ -156,8 +165,9 @@
     else if (!n.sensor_ok)  setPill('warn', 'Sin señal del sensor');
     else                    setPill('ok',   'Midiendo');
 
-    // Serie: solo se grafica lo que el sensor realmente midió.
-    serie.push(n.online && n.sensor_ok ? pct : 0);
+    // Serie: solo se grafica lo que el sensor realmente midió. Sin dato va
+    // null, no 0 — el gráfico deja un hueco (ver draw()).
+    serie.push(n.online && n.sensor_ok ? pct : null);
     if (serie.length > MAX_POINTS) serie.shift();
     draw();
   }
@@ -168,7 +178,7 @@
       kpiSensor.textContent = 'Ningún nodo publicando';
       kpiSensor.style.color = css('--agp-text-muted', '#8a938c');
     }
-    serie.push(0);
+    serie.push(null);   // sin nodo = sin dato, no un flujo de 0 %
     if (serie.length > MAX_POINTS) serie.shift();
     draw();
   }
