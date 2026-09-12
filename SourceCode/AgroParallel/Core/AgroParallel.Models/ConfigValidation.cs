@@ -258,6 +258,29 @@ namespace AgroParallel.Models
             return r;
         }
 
+        // ---------------- LibraX ----------------
+
+        public static ValidationResult ValidarLibraX(LibraXConfigDto cfg)
+        {
+            var r = new ValidationResult();
+            if (cfg == null) { r.Requerir(false, "config LibraX vacía"); return r; }
+
+            // El nodo publica a 5 Hz: menos de 500 ms de timeout haría parpadear
+            // el estado online con cualquier hipo de WiFi.
+            Rango(r, cfg.TimeoutMs, 500, 60000, "timeout de nodo LibraX (ms)");
+            Rango(r, cfg.HistorialSeg, 10, 600, "historial del gráfico LibraX (s)");
+
+            if (cfg.Nodos != null)
+            {
+                foreach (var n in cfg.Nodos)
+                {
+                    if (n == null) continue;
+                    ValidarUidNodo(r, n.Uid, n.Habilitado, "LibraX nodo '" + (n.Uid ?? "?") + "'");
+                }
+            }
+            return r;
+        }
+
         // ---------------- Implemento central ----------------
 
         public static ValidationResult ValidarImplemento(ImplementoDto imp)
