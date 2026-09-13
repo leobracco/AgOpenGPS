@@ -101,8 +101,11 @@ namespace AgroParallel.Services
             // cada diez segundos. Y como el announcement es retained, al
             // arrancar PilotX el nodo aparece online en 0 % aunque esté apagado.
             //
-            // El molde correcto es LineXLiveService.cs:82, no StormXLiveService
-            // (que no tiene el guard y arrastra este mismo bug).
+            // Este guard lo tienen los cinco live services MQTT: LineX y FlowX
+            // (que despacha por subtopic con un switch) lo traían de fábrica;
+            // LibraX, StormX y VistaX se corrigieron el 2026-09-13 al descubrir
+            // el bug acá. Si agregás un live service nuevo, este guard no es
+            // opcional.
             if (!string.Equals(subtopic, "status_live", StringComparison.OrdinalIgnoreCase))
                 return;
 
