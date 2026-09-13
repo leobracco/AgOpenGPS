@@ -565,6 +565,23 @@ namespace AgroParallel.Services
         // "sensores" y calcula SPM por cable. También actualiza _nodosVistos.
         protected override void OnPayload(string uid, string subtopic, string[] topicParts, JsonElement root)
         {
+            // GUARD OBLIGATORIO. La base filtra por prefijo de topic y por
+            // cantidad de partes, NO por subtopic — hoy es LATENTE porque
+            // TopicPrefix="vistax/" (legacy) no matchea "agp/vistax/.../
+            // announcement" del firmware, pero TelemetriaTopic (vistaX.json,
+            // default "vistax/nodos/telemetria") es CONFIGURABLE: si alguien
+            // lo pone en "vistax/#" o "vistax/nodos/+", el broker empieza a
+            // entregar acá vistax/nodos/heartbeat, vistax/nodos/registro,
+            // vistax/nodos/ack y vistax/debug/<uid> — todos con 3 partes y
+            // prefijo "vistax/", pasan los dos filtros de la base y sin este
+            // guard se parsean como telemetría: pisan la lectura con ceros y
+            // un LastTs fresco (mismo bug ya cerrado en LibraXLiveService y
+            // StormXLiveService). Los dos topics legítimos de telemetría
+            // ("vistax/<uid>/telemetria" y "vistax/nodos/telemetria") tienen
+            // 3 partes → ExtractSubtopic cae al último elemento, "telemetria".
+            if (!string.Equals(subtopic, "telemetria", StringComparison.OrdinalIgnoreCase))
+                return;
+
             DateTime now = DateTime.UtcNow;
             lock (_lock) _nodosVistos[uid] = now;
 
