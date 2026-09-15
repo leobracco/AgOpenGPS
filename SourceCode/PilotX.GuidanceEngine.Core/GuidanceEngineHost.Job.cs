@@ -66,19 +66,24 @@ namespace AgOpenGPS
             ApagarSecciones();
             ABLineField.abHeading = 0.0;
 
+            // El Clear va ANTES del Load: estaba después, así que si el Load
+            // tiraba (TrackLines.txt / Boundary.txt corrupto) las guías y el
+            // lindero del lote ANTERIOR quedaban vivos sobre el lote nuevo.
+            // CloseField normalmente ya limpió, pero no hay que depender de eso
+            // para no mostrar datos de otro lote.
+            Trk.gArr.Clear();
+            Trk.idx = -1;
             try
             {
                 var tracks = TrackFiles.Load(dir);
-                Trk.gArr.Clear();
                 Trk.gArr.AddRange(tracks);
-                Trk.idx = -1;
             }
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: TrackLines.txt: " + ex.Message); }
 
+            Bnd.bndList.Clear();
             try
             {
                 var boundaries = BoundaryFiles.Load(dir);
-                Bnd.bndList.Clear();
                 Bnd.bndList.AddRange(boundaries);
                 Bnd.BuildTurnLines();
             }
