@@ -51,9 +51,22 @@ namespace PilotX.Cockpit.Bars
         private const double CmNaranja  = 15.0;
         private const double CmRojo     = 25.0;
 
+        // Más de esto no es un desvío de trabajo real: es basura. CABCurve.cs
+        // manda un centinela (distanceFromCurrentLinePivot = 32000, en
+        // milímetros del lado del host) cuando la curva quedó vacía pero
+        // sigue marcada válida, y hay un camino ("really really lost") que
+        // deja el XTE congelado de un frame viejo. Sin este tope, ese valor
+        // saturaba las 7 luces de un lado: de reojo es INDISTINGUIBLE de un
+        // desvío real enorme, y en una sembradora eso es una orden falsa de
+        // "corregí fuerte para allá". Mejor no mostrar nada.
+        public const double XteMaximoMetros = 100.0;
+
         public static LecturaDesvio Leer(double xteMetros, double cmPorLuz)
         {
             if (double.IsNaN(xteMetros) || double.IsInfinity(xteMetros))
+                return new LecturaDesvio(0, false, NivelDesvio.Verde, 0.0, false);
+
+            if (Math.Abs(xteMetros) > XteMaximoMetros)
                 return new LecturaDesvio(0, false, NivelDesvio.Verde, 0.0, false);
 
             // Un valor inválido guardado en Settings no puede dividir por cero

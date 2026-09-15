@@ -110,6 +110,58 @@ namespace PilotX.Cockpit.Bars.Tests
             Assert.That(EscalaDesvio.Leer(0.10, Cm5).HayDato, Is.True);
         }
 
+        // --- rango físico (centinela / valor colgado) ---
+        //
+        // CABCurve.cs manda distanceFromCurrentLinePivot = 32000 (mm, del lado
+        // del host) cuando la curva quedó vacía pero sigue "válida"; acá el
+        // XTE llega en metros, así que usamos un valor bien fuera de rango
+        // (320 m) en vez del centinela real convertido, para no atarnos a la
+        // conversión de unidades del host.
+
+        [Test]
+        public void Xte320m_FueraDeRangoFisico_SinDatoYCeroLuces()
+        {
+            var r = EscalaDesvio.Leer(320.0, Cm5);
+
+            Assert.That(r.HayDato, Is.False);
+            Assert.That(r.LucesEncendidas, Is.EqualTo(0));
+        }
+
+        // El umbral es "más de 100 m" (estrictamente mayor): 100 m exactos
+        // todavía se procesa como un dato normal (y satura a 7 luces).
+        [Test]
+        public void Xte100mExacto_EnElLimite_SigueSiendoDatoValido()
+        {
+            Assert.That(EscalaDesvio.Leer(100.0, Cm5).HayDato, Is.True);
+        }
+
+        [Test]
+        public void XteUnPocoMenosDe100m_EsDatoValido()
+        {
+            Assert.That(EscalaDesvio.Leer(99.9, Cm5).HayDato, Is.True);
+        }
+
+        [Test]
+        public void XteUnPocoMasDe100m_YaEsSinDato()
+        {
+            Assert.That(EscalaDesvio.Leer(100.1, Cm5).HayDato, Is.False);
+        }
+
+        [Test]
+        public void XteInfinito_SinDato()
+        {
+            var r = EscalaDesvio.Leer(double.PositiveInfinity, Cm5);
+
+            Assert.That(r.HayDato, Is.False);
+            Assert.That(r.LucesEncendidas, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CmPorLuzNaN_CaeAlDefault()
+        {
+            Assert.That(EscalaDesvio.Leer(0.20, double.NaN).LucesEncendidas, Is.EqualTo(4));
+        }
+
         // Un cm-por-luz inválido guardado en Settings no puede dividir por cero
         // ni dejar la barra muerta: cae al default.
         [TestCase(0.0)]
