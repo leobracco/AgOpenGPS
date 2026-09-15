@@ -134,7 +134,7 @@
   var MOTIVOS = {
     ya_existe:               'Ya existe un lote con ese nombre',
     nombre_invalido:         'Ese nombre no se puede usar',
-    sin_directorio_de_lotes: 'No esta configurada la carpeta de lotes',
+    sin_directorio_de_lotes: 'No está configurada la carpeta de lotes',
     error:                   'No se pudo crear el lote'
   };
 
@@ -144,7 +144,7 @@
 
     var name = $('inpNewName').value.trim();
     if (!name) {
-      msg.textContent = 'Pone un nombre para el lote';
+      msg.textContent = 'Poné un nombre para el lote';
       msg.style.display = 'block';
       return;
     }

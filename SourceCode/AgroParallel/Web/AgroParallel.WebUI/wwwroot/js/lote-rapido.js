@@ -6,6 +6,15 @@
   var $ = function (id) { return document.getElementById(id); };
   var state = { all: [], current: null, busy: false };
 
+  // Mismos textos que MOTIVOS en lote.js. No se comparte módulo entre los dos
+  // widgets (no tienen infraestructura común hoy) así que se duplica acá.
+  var MOTIVOS_CREAR = {
+    ya_existe:               'Ya existe un lote con ese nombre',
+    nombre_invalido:         'Ese nombre no se puede usar',
+    sin_directorio_de_lotes: 'No está configurada la carpeta de lotes',
+    error:                   'No se pudo crear el lote'
+  };
+
   function setMsg(t, cls) {
     var m = $('msg'); m.textContent = t || ''; m.className = 'lr-msg' + (cls ? ' ' + cls : '');
   }
@@ -162,7 +171,7 @@
     setMsg('Creando "' + nm + '"…');
     try {
       var d = await post('/api/lotes/create?name=' + encodeURIComponent(nm));
-      setMsg(d && d.ok ? '✓ Creado y abierto: ' + nm : '✕ No se pudo crear (¿nombre repetido?).', d && d.ok ? 'ok' : 'err');
+      setMsg(d && d.ok ? '✓ Creado y abierto: ' + nm : '✕ ' + (MOTIVOS_CREAR[(d && d.motivo) || 'error'] || MOTIVOS_CREAR.error), d && d.ok ? 'ok' : 'err');
       if (d && d.ok) $('newName').value = '';
       await refresh();
     } catch (e) { setMsg('✕ ' + e.message, 'err'); }
