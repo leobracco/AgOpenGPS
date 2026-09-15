@@ -439,7 +439,10 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using PilotX.Cockpit.Bars;
 
-namespace PilotX.UI.Views;
+// OJO con el namespace: este proyecto tiene AssemblyName = PilotX.UI pero
+// RootNamespace = PilotX.Desktop (está documentado en el .csproj; el rename
+// quedó diferido). Los 65 archivos de Views/ usan PilotX.Desktop.Views.
+namespace PilotX.Desktop.Views;
 
 public sealed class LucesBanderillero : Border
 {
@@ -644,7 +647,7 @@ En `MainWindow.axaml.cs`, junto a `private Border? _pilotoCluster;` (línea ~98)
 
 ```csharp
     private ContentControl? _lucesHost;
-    private PilotX.UI.Views.LucesBanderillero? _luces;
+    private PilotX.Desktop.Views.LucesBanderillero? _luces;
 ```
 
 Y junto a `_pilotoCluster = this.FindControl<Border>("PilotoCluster");` (línea ~493):
@@ -653,7 +656,7 @@ Y junto a `_pilotoCluster = this.FindControl<Border>("PilotoCluster");` (línea 
         _lucesHost = this.FindControl<ContentControl>("LucesHost");
         if (_lucesHost != null)
         {
-            _luces = new PilotX.UI.Views.LucesBanderillero();
+            _luces = new PilotX.Desktop.Views.LucesBanderillero();
             _lucesHost.Content = _luces;
         }
 ```
