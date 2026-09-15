@@ -23,7 +23,11 @@ namespace AgOpenGPS.Properties
         public bool setWindow_Minimized = false;
         public bool setMenu_isMetric = true;
         public bool setMenu_isGridOn = true;
-        public bool setMenu_isLightbarOn = true;
+        // Luces de banderillero APAGADAS de fábrica: mientras están puestas
+        // reemplazan al recuadro "A LA LÍNEA", y nadie que actualiza pidió que
+        // le cambien la pantalla. El que las quiere las tilda una vez en
+        // Dirección › Pantalla y quedan (decisión del usuario, 2026-09-15).
+        public bool setMenu_isLightbarOn = false;
         public string setF_CurrentDir = "";
         public bool setF_isWorkSwitchEnabled = false;
         // ToolX: aceptar el switch de trabajo inalámbrico (PGN 253 origen 0x7C). Ver CModuleComm.
