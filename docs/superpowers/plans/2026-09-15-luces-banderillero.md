@@ -453,7 +453,25 @@ public sealed class LucesBanderillero : Border
     private static readonly IBrush Apagada = new SolidColorBrush(Color.Parse("#2A3329"));
     private static readonly IBrush BordeLuz = new SolidColorBrush(Color.Parse("#66FFFFFF"));
 
-    // Índice 0 = la más lejana al centro. Se prenden de adentro hacia afuera.
+    // Los 4 brushes de la escala, cacheados. Actualizar() corre a la frecuencia
+    // del GPS: parsear el string de color y crear un SolidColorBrush por frame
+    // es basura de GC gratis, y la carpeta ya usa brushes estáticos.
+    private static readonly IBrush BrushVerde    = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(NivelDesvio.Verde)));
+    private static readonly IBrush BrushAmarillo = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(NivelDesvio.Amarillo)));
+    private static readonly IBrush BrushNaranja  = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(NivelDesvio.Naranja)));
+    private static readonly IBrush BrushRojo     = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(NivelDesvio.Rojo)));
+
+    private static IBrush BrushDe(NivelDesvio nivel) => nivel switch
+    {
+        NivelDesvio.Verde    => BrushVerde,
+        NivelDesvio.Amarillo => BrushAmarillo,
+        NivelDesvio.Naranja  => BrushNaranja,
+        _                    => BrushRojo,
+    };
+
+    // Índice 0 = la luz MÁS CERCANA AL CENTRO, en los dos arreglos. Ver la
+    // nota del constructor: es lo que permite que `i < LucesEncendidas` valga
+    // igual para los dos lados.
     private readonly Border[] _izquierda = new Border[EscalaDesvio.LucesPorLado];
     private readonly Border[] _derecha = new Border[EscalaDesvio.LucesPorLado];
     private readonly Border _central;
@@ -561,10 +579,15 @@ public sealed class LucesBanderillero : Border
         if (!l.HayDato) { IsVisible = false; return; }
         IsVisible = true;
 
-        var encendida = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(l.Nivel)));
+        var encendida = BrushDe(l.Nivel);
 
-        // La central sólo vive cuando no hay ninguna lateral prendida.
-        _central.Background = l.LucesEncendidas == 0 ? encendida : Apagada;
+        // La central sólo vive cuando no hay ninguna lateral prendida, y va
+        // SIEMPRE en verde — no en el color del nivel. Las luces y el nivel son
+        // ejes independientes a propósito (uno sale de cm/cmPorLuz, el otro de
+        // los cm crudos), así que con un cmPorLuz distinto del default se puede
+        // dar 0 luces con nivel Amarillo: ahí la central tiene que decir "estás
+        // en la línea", no pintarse de amarillo.
+        _central.Background = l.LucesEncendidas == 0 ? BrushDe(NivelDesvio.Verde) : Apagada;
 
         for (int i = 0; i < EscalaDesvio.LucesPorLado; i++)
         {
