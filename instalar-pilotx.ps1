@@ -345,7 +345,12 @@ if ($SinFirewall) {
 } else {
     $bat = Join-Path $Instalacion "setup_pilotx_lan.bat"
     if (Test-Path $bat) {
-        & cmd /c "`"$bat`"" | Out-Null
+        # El .bat termina con `pause` porque tambien se corre a mano haciendo
+        # doble clic. Llamado desde aca, con la salida a Out-Null, ese pause
+        # dejaba el instalador esperando una tecla SIN mostrar el cartel: la
+        # pantalla parecia colgada en "Abriendo los puertos del firewall"
+        # (Carrano, 2026-09-15). Le damos un Enter por stdin y sigue de largo.
+        & cmd /c "echo. | `"$bat`"" | Out-Null
         Bien "puertos abiertos (UDP 9999 del ToolX, TCP 5180 y 5181)"
     } else {
         Write-Host "    AVISO: no vino setup_pilotx_lan.bat en el paquete." -ForegroundColor Yellow
