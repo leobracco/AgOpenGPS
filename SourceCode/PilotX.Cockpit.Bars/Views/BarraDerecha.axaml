@@ -11,11 +11,19 @@
   <UserControl.Styles>
     <!-- Botón con título: el ícono solo no alcanzaba para saber qué hacía
          cada uno (pedido usuario 2026-08-04). -->
+    <!-- 9 px con #535E54 sobre fondo claro era lo MENOS legible de la cabina
+         (pedido del usuario 2026-09-14). El contraste sube igual que en el dock
+         (#2A3329, ~11:1), pero el tamaño va a 11 y no a 12: esta barra mide 56
+         px de ancho y "Hidráulico" a 12 px no entra. Para igualarlos hay que
+         ensanchar la barra, que le come ancho al mapa — decisión aparte.
+         TextWrapping por si alguna etiqueta futura no entra: antes se cortaba. -->
     <Style Selector="TextBlock.cap">
-      <Setter Property="FontSize" Value="9"/>
-      <Setter Property="Foreground" Value="#535E54"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#2A3329"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
       <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="Margin" Value="0,1,0,0"/>
     </Style>
     <!-- Estos botones son ÍCONO: sin atenuarlo se ven igual de vivos estando

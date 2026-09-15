@@ -285,9 +285,18 @@
                     <Style Selector="Button:disabled Image">
                       <Setter Property="Opacity" Value="0.35"/>
                     </Style>
+                    <!-- Los rótulos del dock se leen con sol de frente y la
+                         cabina moviéndose. Estaban en 10 px con #535E54 sobre
+                         #F5F7F4: eso da ~4,9:1, el mínimo justo, y a ese tamaño
+                         no se leen (pedido del usuario 2026-09-14, "las letras
+                         están chicas y algunos no ven"). Lo que más pesa no es
+                         el tamaño sino el CONTRASTE — #2A3329 lo lleva a ~11:1.
+                         La geometría no cambia: el botón mide 64x56 y el
+                         contenido pasa de 26+14 a 26+16 px. -->
                     <Style Selector="TextBlock.cap">
-                      <Setter Property="FontSize" Value="10"/>
-                      <Setter Property="Foreground" Value="#535E54"/>
+                      <Setter Property="FontSize" Value="12"/>
+                      <Setter Property="FontWeight" Value="SemiBold"/>
+                      <Setter Property="Foreground" Value="#2A3329"/>
                       <Setter Property="HorizontalAlignment" Value="Center"/>
                     </Style>
 
@@ -561,7 +570,7 @@
                          El triangulito indica hacia dónde corregir (lado opuesto
                          al desvío, mismo criterio que el lightbar). -->
                     <StackPanel VerticalAlignment="Center" MinWidth="120">
-                        <TextBlock Text="A LA LÍNEA" FontSize="10" Foreground="#C5CFC5"
+                        <TextBlock Text="A LA LÍNEA" FontSize="12" Foreground="#C5CFC5"
                                    HorizontalAlignment="Center"/>
                         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                             <TextBlock Name="PcXteFlecha" Text="" FontSize="22" FontWeight="Bold" Foreground="#F5F7F4"
@@ -585,7 +594,7 @@
 
                     <!-- Cuántas guías saltea el giro (0 = va a la contigua). -->
                     <StackPanel Name="PcGrupoSalteo" VerticalAlignment="Center" IsVisible="False">
-                        <TextBlock Text="SALTEA" FontSize="10" Foreground="#C5CFC5"
+                        <TextBlock Text="SALTEA" FontSize="12" Foreground="#C5CFC5"
                                    HorizontalAlignment="Center"/>
                         <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
                             <Button Name="PcSkipMenos" Width="40" Height="44" Padding="0" FontSize="20"
@@ -936,7 +945,7 @@
                             Background="Transparent" BorderThickness="0"
                             ToolTip.Tip="Tocá para cambiar el lado del giro">
                         <StackPanel VerticalAlignment="Center" Spacing="0">
-                            <TextBlock Name="PcGiroSentidoTitulo" Text="GIRO" FontSize="11" Foreground="#C5CFC5"
+                            <TextBlock Name="PcGiroSentidoTitulo" Text="GIRO" FontSize="12" Foreground="#C5CFC5"
                                        HorizontalAlignment="Center"/>
                             <TextBlock Name="PcGiroSentidoFlecha" Text="↱" FontSize="52" FontWeight="Bold"
                                        Foreground="#F5F7F4" HorizontalAlignment="Center" Margin="0,-4,0,-6"/>
