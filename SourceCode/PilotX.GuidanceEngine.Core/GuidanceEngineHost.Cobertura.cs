@@ -408,25 +408,30 @@ namespace AgOpenGPS
             // Lineas de cabecera (las A/B trazadas sobre el borde).
             CargarLineasDeCabecera();
 
+            // El Clear va ANTES del Load (mismo criterio que OpenField en
+            // GuidanceEngineHost.Job.cs): si el Load tira por un Tram.txt
+            // corrupto, el tram del lote ANTERIOR no puede quedar vivo sobre
+            // el lote recién abierto.
+            Tram.tramBndOuterArr.Clear();
+            Tram.tramBndInnerArr.Clear();
+            Tram.tramList.Clear();
             try
             {
                 var t = TramFiles.Load(dir);
                 if (t != null)
                 {
-                    Tram.tramBndOuterArr.Clear();
                     Tram.tramBndOuterArr.AddRange(t.Outer);
-                    Tram.tramBndInnerArr.Clear();
                     Tram.tramBndInnerArr.AddRange(t.Inner);
-                    Tram.tramList.Clear();
                     Tram.tramList.AddRange(t.Lines);
                 }
             }
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: Tram.txt: " + ex.Message); }
 
+            // Mismo criterio: Clear antes del Load.
+            RecPath.recList.Clear();
             try
             {
                 var rec = RecPathFiles.Load(dir);
-                RecPath.recList.Clear();
                 if (rec != null) RecPath.recList.AddRange(rec);
             }
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: RecPath.txt: " + ex.Message); }
