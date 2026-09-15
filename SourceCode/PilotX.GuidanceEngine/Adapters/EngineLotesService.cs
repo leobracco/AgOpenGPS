@@ -439,23 +439,33 @@ namespace PilotX.GuidanceEngine.Adapters
         /// reemplaza el lindero solo si cambió el KML.
         /// Ya existe pero es del operario → NO se toca: el lote del cloud entra
         /// como "&lt;nombre&gt; (OrbitX)".
-        /// Lote ABIERTO → false (el caller avisa).
+        /// Lote ABIERTO → null (el caller avisa).
+        /// Devuelve el nombre de la carpeta REALMENTE usada (puede diferir del
+        /// nombre pedido si hubo colisión, ver "entra como" arriba) — el
+        /// caller lo necesita para saber dónde cae el .kml de backup: SIEMPRE
+        /// en la carpeta resuelta, nunca en la del nombre pedido, o el boundary.kml
+        /// (que se declara SOBERANO más abajo) terminaría en la carpeta del
+        /// operario cuando hubo colisión de nombres.
         /// </summary>
-        public bool CrearLoteDesdeKmlSinAbrir(string nombre, string kmlContenido)
+        public string CrearLoteDesdeKmlSinAbrir(string nombre, string kmlContenido)
         {
             try
             {
                 string clean = CleanName(nombre);
-                if (string.IsNullOrEmpty(clean)) return false;
+                if (string.IsNullOrEmpty(clean)) return null;
+                // Guard rápido contra el NOMBRE PEDIDO (salida en limpio antes de
+                // leer el KML). NO cubre colisión de nombres — ver el segundo
+                // guard más abajo, contra destino.NombreCarpeta, que es el único
+                // que sirve para eso. No unificar estos dos guards.
                 if (_host.IsJobStarted &&
                     string.Equals(_host.currentFieldDirectory, clean, StringComparison.OrdinalIgnoreCase))
-                    return false;   // abierto: no pisar bajo los pies del operario
+                    return null;   // abierto: no pisar bajo los pies del operario
 
                 var anillos = AgOpenGPS.IO.KmlBoundaryReader.ReadRings(kmlContenido);
-                if (anillos.Count == 0 || anillos[0].Count < 3) return false;
+                if (anillos.Count == 0 || anillos[0].Count < 3) return null;
 
                 string root = RegistrySettings.fieldsDirectory;
-                if (string.IsNullOrEmpty(root)) return false;
+                if (string.IsNullOrEmpty(root)) return null;
 
                 // El destino lo decide el resolutor: si la carpeta con ese nombre
                 // es de un lote del operario, el del cloud entra aparte. Nunca se
@@ -466,20 +476,22 @@ namespace PilotX.GuidanceEngine.Adapters
                 if (destino.Accion == AccionLoteCloud.SinLugar)
                 {
                     Log.EventWriter($"GuidanceEngine: lote '{nombre}' de OrbitX sin lugar (20 sufijos ocupados)");
-                    return false;
+                    return null;
                 }
 
                 if (destino.Accion == AccionLoteCloud.SinCambios)
                 {
-                    Log.EventWriter($"GuidanceEngine: lote '{destino.NombreCarpeta}' de OrbitX ya al dia (mismo KML)");
-                    return true;
+                    Log.EventWriter($"GuidanceEngine: lote '{destino.NombreCarpeta}' de OrbitX ya está al día (mismo KML)");
+                    return destino.NombreCarpeta;
                 }
 
                 // El guard de "lote abierto" se revalida contra el destino REAL:
-                // el de arriba miro el nombre pedido, no el resuelto.
+                // el de arriba mira el nombre pedido, no el resuelto — es el
+                // único que cubre el caso de tener abierto "Lote 12 (OrbitX)"
+                // cuando el cloud manda "Lote 12": el guard de arriba no matchea ahí.
                 if (_host.IsJobStarted &&
                     string.Equals(_host.currentFieldDirectory, destino.NombreCarpeta, StringComparison.OrdinalIgnoreCase))
-                    return false;
+                    return null;
 
                 string dir = destino.Directorio;
 
@@ -488,7 +500,7 @@ namespace PilotX.GuidanceEngine.Adapters
                     File.Exists(Path.Combine(dir, "Field.txt")))
                 {
                     // Espejo ya existente: se conserva SU origen; pisarlo
-                    // desfasaria guias y cobertura locales.
+                    // desfasaría guías y cobertura locales.
                     origen = AgOpenGPS.IO.FieldPlaneFiles.LoadOrigin(dir);
                 }
                 else
@@ -516,15 +528,15 @@ namespace PilotX.GuidanceEngine.Adapters
                 ResolutorLoteCloud.EscribirMarcador(dir, nombre, sha);
 
                 if (!string.Equals(destino.NombreCarpeta, nombre, StringComparison.Ordinal))
-                    Log.EventWriter($"GuidanceEngine: '{nombre}' de OrbitX entro como '{destino.NombreCarpeta}' (ya habia un lote con ese nombre)");
+                    Log.EventWriter($"GuidanceEngine: '{nombre}' de OrbitX entró como '{destino.NombreCarpeta}' (ya había un lote con ese nombre)");
                 else
                     Log.EventWriter($"GuidanceEngine: lote '{destino.NombreCarpeta}' desde OrbitX ({lista.Count} anillos, sin abrir)");
-                return true;
+                return destino.NombreCarpeta;
             }
             catch (Exception ex)
             {
-                Log.EventWriter("GuidanceEngine: lote desde OrbitX fallo: " + ex.Message);
-                return false;
+                Log.EventWriter("GuidanceEngine: lote desde OrbitX falló: " + ex.Message);
+                return null;
             }
         }
 

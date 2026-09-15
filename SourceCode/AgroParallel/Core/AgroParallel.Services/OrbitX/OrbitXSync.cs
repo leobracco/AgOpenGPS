@@ -937,9 +937,13 @@ namespace AgroParallel.OrbitX
         /// </summary>
         /// <summary>Importador de lote desde KML que inyecta el HOST (el motor
         /// implementa crear/actualizar el lote SIN abrirlo, con sus writers).
-        /// (nombreLote, contenidoKml) → ok. Sin esto los lotes del cloud solo
-        /// dejan el .kml crudo en el directorio del lote.</summary>
-        public Func<string, string, bool> ImportarLoteDesdeKml;
+        /// (nombreLote, contenidoKml) → nombre de la carpeta REALMENTE usada, o
+        /// null/vacío si no se pudo importar. Sin esto los lotes del cloud solo
+        /// dejan el .kml crudo en el directorio del lote. El nombre resuelto
+        /// puede diferir del pedido (colisión con un lote del operario → entra
+        /// como "&lt;nombre&gt; (OrbitX)"): el .kml de backup tiene que caer en
+        /// esa carpeta, nunca en la del nombre pedido.</summary>
+        public Func<string, string, string> ImportarLoteDesdeKml;
 
         private bool GuardarArchivoDeLote(string rutaRel, string contenido)
         {
@@ -986,17 +990,29 @@ namespace AgroParallel.OrbitX
                 // readers del motor no los digieren: el lote "no abría").
                 if (archivo.EndsWith(".kml", StringComparison.OrdinalIgnoreCase))
                 {
+                    // rel = "<loteCloud>/<archivo>" — el nombre SIN resolver. Si
+                    // hubo colisión con un lote del operario, ImportarLoteDesdeKml
+                    // ya mandó el lindero a "<loteCloud> (OrbitX)"; el .kml de
+                    // backup tiene que ir a la MISMA carpeta resuelta, nunca a la
+                    // del nombre pedido — si no, el backup cae en la carpeta del
+                    // operario (huérfano hoy, pero el boundary.kml es SOBERANO:
+                    // el día que se lea de nuevo, le mete el lindero del cloud).
                     var importar = ImportarLoteDesdeKml;
+                    string carpetaResuelta = lote;
                     if (importar != null)
                     {
-                        bool ok = importar(lote, contenido);
+                        carpetaResuelta = importar(lote, contenido);
+                        bool ok = !string.IsNullOrEmpty(carpetaResuelta);
                         Trace(ok
-                            ? "[LOTE] '" + lote + "' importado desde el KML del cloud (lindero listo)"
+                            ? "[LOTE] '" + lote + "' importado desde el KML del cloud (lindero listo, carpeta '" + carpetaResuelta + "')"
                             : "[LOTE] no se pudo importar '" + lote + "' desde el KML");
                         if (!ok) return false;
                     }
-                    // El .kml crudo se guarda igual, como referencia/backup.
-                    string destinoKml = Path.Combine(fieldsDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                    // El .kml crudo se guarda igual, como referencia/backup — en
+                    // la carpeta resuelta, no en la del nombre pedido.
+                    string restoRel = rel.Substring(lote.Length);   // "/archivo.kml" (con lo que venga después)
+                    string relResuelto = carpetaResuelta + restoRel;
+                    string destinoKml = Path.Combine(fieldsDir, relResuelto.Replace('/', Path.DirectorySeparatorChar));
                     Directory.CreateDirectory(Path.GetDirectoryName(destinoKml));
                     File.WriteAllText(destinoKml, contenido);
                     FilesSynced++;
