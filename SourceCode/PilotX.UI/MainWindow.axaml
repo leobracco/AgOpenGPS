@@ -575,8 +575,11 @@
 
                     <!-- Distancia a la línea: el número que se mira todo el tiempo.
                          El triangulito indica hacia dónde corregir (lado opuesto
-                         al desvío, mismo criterio que el lightbar). -->
-                    <StackPanel VerticalAlignment="Center" MinWidth="120">
+                         al desvío, mismo criterio que el lightbar). Este sub-bloque
+                         (y sólo éste) se esconde con el tilde de luces puesto: las
+                         luces reemplazan el RECUADRO de distancia, no el giro manual
+                         ni el salteo, que siguen en el Border de afuera. -->
+                    <StackPanel Name="PcALaLinea" VerticalAlignment="Center" MinWidth="120">
                         <TextBlock Text="A LA LÍNEA" FontSize="12" Foreground="#C5CFC5"
                                    HorizontalAlignment="Center"/>
                         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">

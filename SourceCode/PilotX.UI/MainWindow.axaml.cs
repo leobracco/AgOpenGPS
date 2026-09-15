@@ -96,6 +96,10 @@ public partial class MainWindow : Window
     // Cluster del piloto (giro / salteo / distancia a la línea, arriba-centro
     // del mapa con el piloto activo).
     private Border? _pilotoCluster;
+    // Sub-bloque "A LA LÍNEA" dentro de _pilotoCluster: es lo ÚNICO que el
+    // tilde de luces reemplaza. El Border de afuera (giro manual + salteo)
+    // sigue visible con el piloto puesto, tilde o no.
+    private StackPanel? _pcALaLinea;
     private ContentControl? _lucesHost;
     private PilotX.Desktop.Views.LucesBanderillero? _luces;
     private Button? _pcGiroIzq, _pcGiroDer, _pcSkipMenos, _pcSkipMas;
@@ -493,6 +497,7 @@ public partial class MainWindow : Window
 
         // Cluster del piloto: giro / salteo / distancia a la línea.
         _pilotoCluster = this.FindControl<Border>("PilotoCluster");
+        _pcALaLinea = this.FindControl<StackPanel>("PcALaLinea");
         _lucesHost = this.FindControl<ContentControl>("LucesHost");
         if (_lucesHost != null)
         {
@@ -6804,14 +6809,19 @@ public partial class MainWindow : Window
         // Hay guía = el poller de guidance trae XTE (NaN sin guía activa).
         bool hayGuia = !double.IsNaN(_lastXteMeters);
 
-        // El tilde manda: con las luces puestas se muestran ELLAS y el cluster
-        // se esconde. Los dos dibujan el mismo dato y tenerlos juntos sólo
-        // genera dudas de dónde mirar. NO se mira el estado del piloto: si el
-        // operario quiere las luces con el piloto puesto, las tiene.
+        // El tilde manda: con las luces puestas se muestran ELLAS y se esconde
+        // el RECUADRO de distancia ("A LA LÍNEA"). Los dos dibujan el mismo
+        // dato y tenerlos juntos sólo genera dudas de dónde mirar. NO se mira
+        // el estado del piloto: si el operario quiere las luces con el piloto
+        // puesto, las tiene. El tilde NO esconde el Border entero: giro manual
+        // (PcGiroIzq/PcGiroDer) y salteo (PcGrupoSalteo) no tienen otro control
+        // en toda la UI y tienen que seguir disponibles con el piloto puesto,
+        // que es justo cuando hacen falta.
         bool luces = s.MostrarLuces && hayGuia;
         bool cluster = hayGuia && !luces;
 
-        _pilotoCluster.IsVisible = cluster;
+        _pilotoCluster.IsVisible = hayGuia;
+        if (_pcALaLinea != null) _pcALaLinea.IsVisible = cluster;
         if (_luces != null)
         {
             if (luces) _luces.Actualizar(_lastXteMeters, s.LucesCmPorLuz);
