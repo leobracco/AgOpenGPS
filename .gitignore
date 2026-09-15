@@ -493,6 +493,11 @@ PilotX-*.zip
 PilotX-*.zip.sha256
 PilotX_*.zip
 PilotX_*.zip.sha256
+# Los parches de build-parche.ps1 salen SIN separador ("PilotXParche_v1.0.60"),
+# así que ninguno de los patrones de arriba los agarraba y quedaban sueltos
+# ensuciando el git status de todas las sesiones.
+PilotXParche_*.zip
+PilotXParche_*.zip.sha256
 
 # Capturas sueltas de UI/diagnóstico que quedan en root (no son del repo).
 corex_*.png
