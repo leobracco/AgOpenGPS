@@ -36,7 +36,27 @@ public sealed class LucesBanderillero : Border
     private static readonly IBrush Apagada = new SolidColorBrush(Color.Parse("#2A3329"));
     private static readonly IBrush BordeLuz = new SolidColorBrush(Color.Parse("#66FFFFFF"));
 
-    // Índice 0 = la más lejana al centro. Se prenden de adentro hacia afuera.
+    // Un brush por nivel, cacheados una sola vez: Actualizar() corre a la
+    // frecuencia del GPS y no puede andar creando SolidColorBrush por frame
+    // para sólo 4 colores posibles. El color sigue saliendo de
+    // EscalaDesvio.ColorHex(), acá sólo se cachea.
+    private static readonly IBrush BrushVerde = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(NivelDesvio.Verde)));
+    private static readonly IBrush BrushAmarillo = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(NivelDesvio.Amarillo)));
+    private static readonly IBrush BrushNaranja = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(NivelDesvio.Naranja)));
+    private static readonly IBrush BrushRojo = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(NivelDesvio.Rojo)));
+
+    private static IBrush BrushDeNivel(NivelDesvio nivel) => nivel switch
+    {
+        NivelDesvio.Verde => BrushVerde,
+        NivelDesvio.Amarillo => BrushAmarillo,
+        NivelDesvio.Naranja => BrushNaranja,
+        NivelDesvio.Rojo => BrushRojo,
+        _ => BrushVerde,
+    };
+
+    // Índice 0 = la más CERCANA al centro, en los dos arreglos. Así
+    // `i < LucesEncendidas` vale igual para los dos lados en Actualizar()
+    // (ver la convención completa más abajo, en el constructor).
     private readonly Border[] _izquierda = new Border[EscalaDesvio.LucesPorLado];
     private readonly Border[] _derecha = new Border[EscalaDesvio.LucesPorLado];
     private readonly Border _central;
@@ -144,10 +164,15 @@ public sealed class LucesBanderillero : Border
         if (!l.HayDato) { IsVisible = false; return; }
         IsVisible = true;
 
-        var encendida = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(l.Nivel)));
+        var encendida = BrushDeNivel(l.Nivel);
 
-        // La central sólo vive cuando no hay ninguna lateral prendida.
-        _central.Background = l.LucesEncendidas == 0 ? encendida : Apagada;
+        // LucesEncendidas y Nivel son ejes independientes a propósito:
+        // LucesEncendidas sale de cm / cmPorLuz, Nivel sale de los cm crudos
+        // (cortes fijos en 5/15/25). Con cmPorLuz alto puede haber Nivel !=
+        // Verde con 0 luces encendidas, así que la central NO puede reusar
+        // "encendida": siempre es verde cuando no hay ninguna lateral
+        // prendida, sea cual sea el nivel — es la señal de "estás en la línea".
+        _central.Background = l.LucesEncendidas == 0 ? BrushVerde : Apagada;
 
         for (int i = 0; i < EscalaDesvio.LucesPorLado; i++)
         {
