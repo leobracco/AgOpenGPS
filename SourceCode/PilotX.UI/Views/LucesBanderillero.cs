@@ -45,13 +45,16 @@ public sealed class LucesBanderillero : Border
     private static readonly IBrush BrushNaranja = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(NivelDesvio.Naranja)));
     private static readonly IBrush BrushRojo = new SolidColorBrush(Color.Parse(EscalaDesvio.ColorHex(NivelDesvio.Rojo)));
 
+    // Un nivel desconocido cae a ROJO, no a verde: en una máquina que siembra
+    // el color por defecto de "no sé qué nivel es esto" no puede ser el mismo
+    // que "estás en la línea" (mismo criterio que EscalaDesvio.ColorHex).
     private static IBrush BrushDeNivel(NivelDesvio nivel) => nivel switch
     {
         NivelDesvio.Verde => BrushVerde,
         NivelDesvio.Amarillo => BrushAmarillo,
         NivelDesvio.Naranja => BrushNaranja,
         NivelDesvio.Rojo => BrushRojo,
-        _ => BrushVerde,
+        _ => BrushRojo,
     };
 
     // Índice 0 = la más CERCANA al centro, en los dos arreglos. Así
