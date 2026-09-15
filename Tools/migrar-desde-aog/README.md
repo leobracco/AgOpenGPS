@@ -5,7 +5,8 @@ quedar con PilotX, conservando los lotes del cliente y su perfil de vehículo.
 
 Pensado para trabajar **por RustDesk**, con el técnico mirando la pantalla.
 
-> **Equipo de esta migración:** Carrano e Hijos SRL — CUIT **30718026616**.
+Sirve para cualquier cliente que venga de AOG. Al final está el registro de las
+migraciones ya hechas.
 
 ## Por qué se puede migrar copiando
 
@@ -102,11 +103,9 @@ secciones. **Eso es lo que hay que comparar contra la máquina real.**
 
 ### 5. Dar de alta el equipo en OrbitX
 
-Cliente: **Carrano e Hijos SRL — CUIT 30718026616**.
-
 1. Panel `https://orbitx.agroparallel.com` con superadmin → nueva organización
    (o `POST /api/admin/establecimiento` con
-   `{ "nombre": "Carrano e Hijos", "slug": "carrano-e-hijos", ... }`).
+   `{ "nombre": "<Razón social>", "slug": "<razon-social>", ... }`).
 2. Equipo → Invitar al dueño por email, rol owner.
 3. En PilotX: **Vincular por código**. Los equipos nunca se dan de alta a mano.
 4. Dejar el CUIT en `C:\PilotX\cliente.json` (la org todavía no tiene campo
@@ -127,3 +126,22 @@ Cliente: **Carrano e Hijos SRL — CUIT 30718026616**.
   versión del `AgOpenGPS.exe` que encontró.
 - No borra nada de la pantalla vieja. El AOG original queda instalado; sacarlo
   es una decisión aparte, y conviene recién después de validar PilotX en campo.
+
+## Los dos archivos de pantalla embebida
+
+Van aparte porque **solo aplican a las pantallas que arrancan sin escritorio**
+(las que tienen PilotX como shell de Windows). En una PC normal no se tocan.
+
+| Archivo | Qué es | Dónde va |
+|---|---|---|
+| `launcher-modo-embebido.bat` | Shell de Windows: levanta el escritorio remoto y después PilotX, y lo supervisa en un bucle. **No lleva `exit`**: si termina, la pantalla queda en negro. | `HKLM\...\Winlogon\Shell` |
+| `widget-config.ejemplo.json` | Plantilla del widget de accesos (brillo, apps). Se copia y se ajusta `apps[]` según lo que tenga que lanzar esa pantalla. | Junto al widget, en `C:\PilotX\` |
+
+Los dos traen rutas `C:\PilotX\...`: si la instalación quedó en otro lado, hay
+que editarlas.
+
+## Migraciones hechas
+
+| Fecha | Cliente | Notas |
+|---|---|---|
+| 2026-09-15 | Carrano e Hijos SRL (CUIT 30718026616) | Primera migración con este kit. Pantalla en modo embebido; el AOG viejo quedó instalado en `C:\AgroParallel` sin iniciarse. |

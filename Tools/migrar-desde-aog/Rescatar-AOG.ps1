@@ -60,8 +60,10 @@ Anotar ""
 Titulo "[1] Version de AgOpenGPS instalada"
 
 $exes = @()
-# C:\AgroParallel va en la lista porque asi quedo instalado en la pantalla de
-# Carrano: el instalador de AOG deja elegir carpeta y nadie respeta la default.
+# La lista es larga a proposito: el instalador de AOG deja elegir carpeta y casi
+# nadie respeta la default, asi que el exe aparece en cualquier lado.
+# C:\AgroParallel esta porque ya se lo encontro instalado ahi (Carrano, 2026-09-15).
+# Si aparece una ruta nueva en otra migracion, agregala aca.
 foreach ($raiz in @("C:\Program Files\AgOpenGPS", "C:\Program Files (x86)\AgOpenGPS",
                     "C:\AgOpenGPS", "C:\AgroParallel", "C:\PilotX",
                     "$env:LOCALAPPDATA\Programs\AgOpenGPS")) {

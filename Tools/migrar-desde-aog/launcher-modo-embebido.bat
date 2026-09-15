@@ -6,9 +6,15 @@
 :: si este script termina, la pantalla queda en negro. Por eso NO lleva exit
 :: y termina en un bucle que supervisa PilotX.
 ::
-:: 2026-09-15 (Carrano e Hijos): se reemplazo AgOpenGPS por PilotX. El AOG
-:: viejo sigue instalado en C:\AgroParallel pero YA NO SE INICIA. Para
-:: levantarlo a mano en una emergencia: C:\AgroParallel\AgOpenGPS.exe
+:: PLANTILLA: copiar a la pantalla y ajustar las rutas de abajo si la
+:: instalacion no quedo en C:\PilotX.
+::
+:: En una pantalla que venia con AgOpenGPS, el AOG viejo queda instalado pero
+:: YA NO SE INICIA (este launcher arranca PilotX en su lugar). Para levantarlo
+:: a mano en una emergencia hay que ir a su carpeta y correr AgOpenGPS.exe:
+:: suele estar en C:\AgroParallel o C:\Program Files\AgOpenGPS, pero el
+:: instalador de AOG deja elegir, asi que confirmalo antes de prometerselo al
+:: cliente. Rescatar-AOG.ps1 lo reporta en el informe del paso 1.
 :: ============================================================================
 
 title MODO EMBEBIDO - AGRO PARALLEL
