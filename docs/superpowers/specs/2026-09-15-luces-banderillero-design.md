@@ -113,15 +113,15 @@ Cuatro bandas. Con la escala por defecto (5 cm por luz) los cortes caen justo
 | Desvío | Laterales prendidas | Color | Hex |
 |---|---|---|---|
 | 0-5 cm | ninguna (sólo la central) | Verde | `#4ABA3E` |
-| 5-15 cm | 1 a 3 | Amarillo | `#E8C81E` |
-| 15-25 cm | 4 a 5 | Naranja | `#F07E12` |
-| +25 cm | 6 a 7 | Rojo | `#ED4848` |
+| 5-15 cm | 1 a 2 | Amarillo | `#E8C81E` |
+| 15-25 cm | 3 a 4 | Naranja | `#F07E12` |
+| +25 cm | 5 a 7 | Rojo | `#ED4848` |
 
 Cantidad de laterales = `min(7, floor(|cm| / cmPorLuz))`. Con el default de
-5 cm por luz, los cortes de color caen en 1, 4 y 6 laterales. Si el operario
-cambia los cm por luz, **los cortes de color siguen expresados en centímetros**
-(5/15/25), no en número de luces: el color dice cuánto te fuiste de verdad, y no
-cambia de significado al reconfigurar la escala.
+5 cm por luz, los cortes de color caen al prenderse la luz 1, la 3 y la 5.
+Si el operario cambia los cm por luz, **los cortes de color siguen expresados en
+centímetros** (5/15/25), no en número de luces: el color dice cuánto te fuiste de
+verdad, y no cambia de significado al reconfigurar la escala.
 
 El verde y el rojo son los que ya usa el cluster. El amarillo se corre de
 `#D9A916` (que tira a mostaza) a `#E8C81E`, más limpio, para separarlo del
