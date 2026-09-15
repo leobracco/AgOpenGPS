@@ -96,6 +96,8 @@ public partial class MainWindow : Window
     // Cluster del piloto (giro / salteo / distancia a la línea, arriba-centro
     // del mapa con el piloto activo).
     private Border? _pilotoCluster;
+    private ContentControl? _lucesHost;
+    private PilotX.Desktop.Views.LucesBanderillero? _luces;
     private Button? _pcGiroIzq, _pcGiroDer, _pcSkipMenos, _pcSkipMas;
     private TextBlock? _pcXte, _pcXteFlecha, _pcXteUnidad, _pcSkip;
     private int _pcSalteadas;          // lo que muestra el cluster (0..9)
@@ -491,6 +493,12 @@ public partial class MainWindow : Window
 
         // Cluster del piloto: giro / salteo / distancia a la línea.
         _pilotoCluster = this.FindControl<Border>("PilotoCluster");
+        _lucesHost = this.FindControl<ContentControl>("LucesHost");
+        if (_lucesHost != null)
+        {
+            _luces = new PilotX.Desktop.Views.LucesBanderillero();
+            _lucesHost.Content = _luces;
+        }
         _pcGiroIzq     = this.FindControl<Button>("PcGiroIzq");
         _pcGiroDer     = this.FindControl<Button>("PcGiroDer");
         _pcSkipMenos   = this.FindControl<Button>("PcSkipMenos");
@@ -6794,16 +6802,23 @@ public partial class MainWindow : Window
         if (_pilotoCluster == null) return;
 
         // Hay guía = el poller de guidance trae XTE (NaN sin guía activa).
-        // Con eso ALCANZA: exigir además lote abierto escondía el cluster en
-        // estados válidos (el motor mantiene la guía aunque el lote se cierre,
-        // y el operario espera seguir viendo la distancia).
         bool hayGuia = !double.IsNaN(_lastXteMeters);
-        bool visible = hayGuia;
-        _pilotoCluster.IsVisible = visible;
-        // El cluster tapa la franja del lightbar GL y muestra el mismo dato:
-        // uno de los dos, nunca ambos.
-        _mapHost?.SetLightbarVisible(!visible);
-        if (!visible)
+
+        // El tilde manda: con las luces puestas se muestran ELLAS y el cluster
+        // se esconde. Los dos dibujan el mismo dato y tenerlos juntos sólo
+        // genera dudas de dónde mirar. NO se mira el estado del piloto: si el
+        // operario quiere las luces con el piloto puesto, las tiene.
+        bool luces = s.MostrarLuces && hayGuia;
+        bool cluster = hayGuia && !luces;
+
+        _pilotoCluster.IsVisible = cluster;
+        if (_luces != null)
+        {
+            if (luces) _luces.Actualizar(_lastXteMeters, s.LucesCmPorLuz);
+            else _luces.IsVisible = false;
+        }
+
+        if (!cluster)
         {
             if (_pcGiroSentido != null) _pcGiroSentido.IsVisible = false;
             return;
@@ -6933,8 +6948,10 @@ public partial class MainWindow : Window
                 _pcXte.Text = (cm / 100.0).ToString("0.0", CultureInfo.InvariantCulture);
                 _pcXteUnidad.Text = "m";
             }
-            // Mismos umbrales que el lightbar: verde centrado, amarillo, rojo.
-            var brush = cm < 5 ? "#4ABA3E" : (cm < 20 ? "#D9A916" : "#ED4848");
+            // Los MISMOS cuatro cortes que las luces (EscalaDesvio). Si no, el
+            // mismo desvío cambiaría de color al tildar o destildar las luces.
+            var brush = PilotX.Cockpit.Bars.EscalaDesvio.ColorHex(
+                PilotX.Cockpit.Bars.EscalaDesvio.Leer(xte, s.LucesCmPorLuz).Nivel);
             _pcXte.Foreground = new global::Avalonia.Media.SolidColorBrush(
                 global::Avalonia.Media.Color.Parse(brush));
         }

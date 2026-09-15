@@ -544,6 +544,13 @@
                  (ver CockpitBarsHost, más abajo): flotaba suelto sobre el mapa
                  y tapaba lo que el operario estaba mirando. -->
 
+            <!-- Luces de banderillero: van en el MISMO lugar que el cluster
+                 (arriba-centro, debajo de la barra superior de 52 px). Los dos
+                 nunca se ven juntos: manda el tilde. -->
+            <ContentControl Name="LucesHost" Grid.Row="2"
+                            VerticalAlignment="Top" HorizontalAlignment="Center"
+                            Margin="0,64,0,0"/>
+
             <!-- =================== CLUSTER DEL PILOTO =================== -->
             <!--
                 Arriba-centro del mapa (debajo de la barra superior del
