@@ -52,6 +52,8 @@ public sealed class LotePanel : Border
     private static readonly IBrush TextoMuted = new SolidColorBrush(Color.Parse("#535E54"));
     private static readonly IBrush Verde      = new SolidColorBrush(Color.Parse("#4ABA3E"));
     private static readonly IBrush RojoTexto  = new SolidColorBrush(Color.Parse("#C0504A"));
+    private static readonly IBrush BgError    = new SolidColorBrush(Color.Parse("#FBECEC"));
+    private static readonly IBrush TextoError = new SolidColorBrush(Color.Parse("#B33F3A"));
 
     private HttpClient? _http;
     private string _base = "";
@@ -79,6 +81,8 @@ public sealed class LotePanel : Border
     private readonly TextBlock _listaTitulo;
     private readonly TextBox _txtNombre;
     private readonly TextBlock _nombreLbl;
+    private readonly Border _avisoBox;         // banner de aviso (Border + IsVisible, NUNCA modal)
+    private readonly TextBlock _avisoTxt;
 
     // La lista sirve para dos cosas; el modo decide qué hace el toque.
     private string _modoLista = "abrir";      // "abrir" | "plantilla"
@@ -103,7 +107,7 @@ public sealed class LotePanel : Border
 
         _scMenu   = ArmarMenu(out _pie, out _btnCerrarLote);
         _scLista  = ArmarLista(out _listaTitulo, out _listaFilas);
-        _scNombre = ArmarNombre(out _nombreLbl, out _txtNombre);
+        _scNombre = ArmarNombre(out _nombreLbl, out _txtNombre, out _avisoBox, out _avisoTxt);
 
         var stage = new Panel();
         stage.Children.Add(_scMenu);
@@ -378,7 +382,7 @@ public sealed class LotePanel : Border
     }
 
     // ---- NOMBRE (nuevo lote, o nombre del clon) ----------------------------
-    private StackPanel ArmarNombre(out TextBlock lbl, out TextBox txt)
+    private StackPanel ArmarNombre(out TextBlock lbl, out TextBox txt, out Border avisoBox, out TextBlock avisoTxt)
     {
         var p = new StackPanel { Spacing = 10, IsVisible = false };
 
@@ -393,6 +397,20 @@ public sealed class LotePanel : Border
         txt.GotFocus  += (_, __) => _ = TecladoAsync(true);
         txt.LostFocus += (_, __) => _ = TecladoAsync(false);
         p.Children.Add(txt);
+
+        // ---------- banner de aviso (Border + IsVisible: NADA de Flyout sobre el mapa GL) ----------
+        avisoTxt = new TextBlock
+        {
+            Text = "", FontSize = 13, FontWeight = FontWeight.SemiBold,
+            Foreground = TextoError, TextWrapping = TextWrapping.Wrap,
+        };
+        avisoBox = new Border
+        {
+            Child = avisoTxt, Background = BgError, BorderBrush = RojoTexto,
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(8, 6, 8, 6), IsVisible = false,
+        };
+        p.Children.Add(avisoBox);
 
         var pie = new StackPanel
         {
@@ -428,21 +446,60 @@ public sealed class LotePanel : Border
             ? PilotX.Cockpit.Bars.Traductor.T("Nombre del lote nuevo (clonado de") + " " + _plantilla + ")"
             : PilotX.Cockpit.Bars.Traductor.T("Nombre del lote");
         if (!paraPlantilla) _plantilla = "";
+        OcultarAviso();
         Mostrar("nombre");
         _txtNombre.Focus();
     }
 
+    private void MostrarAviso(string texto)
+    {
+        _avisoTxt.Text = texto;
+        _avisoBox.IsVisible = true;
+    }
+
+    private void OcultarAviso()
+    {
+        _avisoTxt.Text = "";
+        _avisoBox.IsVisible = false;
+    }
+
+    /// <summary>
+    /// Código del wire → texto que el operario entiende. Mismos motivos y
+    /// mismos textos que MOTIVOS en lote.js (la UI web) — /api/lotes/create
+    /// devuelve { ok, motivo }; /api/lotes/from-existing hoy sólo manda
+    /// { ok } (sin motivo), así que cae en el texto genérico de "error".
+    /// </summary>
+    private static string Motivo(string? code) => code switch
+    {
+        "ya_existe"               => PilotX.Cockpit.Bars.Traductor.T("Ya existe un lote con ese nombre"),
+        "nombre_invalido"         => PilotX.Cockpit.Bars.Traductor.T("Ese nombre no se puede usar"),
+        "sin_directorio_de_lotes" => PilotX.Cockpit.Bars.Traductor.T("No está configurada la carpeta de lotes"),
+        _                         => PilotX.Cockpit.Bars.Traductor.T("No se pudo crear el lote"),
+    };
+
+    private static bool EsOk(JsonElement? r) =>
+        r != null && r.Value.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True;
+
+    private static string? LeerMotivo(JsonElement? r) =>
+        (r != null && r.Value.TryGetProperty("motivo", out var m) && m.ValueKind == JsonValueKind.String)
+            ? m.GetString() : null;
+
     private async Task CrearAsync()
     {
         string nombre = (_txtNombre.Text ?? "").Trim();
-        if (nombre.Length == 0) return;
+        if (nombre.Length == 0)
+        {
+            MostrarAviso(PilotX.Cockpit.Bars.Traductor.T("Poné un nombre para el lote"));
+            return;
+        }
 
+        JsonElement? resp;
         if (_plantilla.Length > 0)
         {
             // Clonar: lindero + guías + cabecera + banderas del lote plantilla.
             // La cobertura pintada NO (applied=false): es trabajo del lote viejo,
             // arrastrarla haría que el anti-solape saltee lo "ya sembrado".
-            await PostAsync("/api/lotes/from-existing", new
+            resp = await PostAsync("/api/lotes/from-existing", new
             {
                 template = _plantilla, name = nombre,
                 applied = false, flags = true, guidance = true, headland = true
@@ -450,9 +507,19 @@ public sealed class LotePanel : Border
         }
         else
         {
-            await PostAsync("/api/lotes/create?name=" + Uri.EscapeDataString(nombre));
+            resp = await PostAsync("/api/lotes/create?name=" + Uri.EscapeDataString(nombre));
         }
-        Cerrar();
+
+        // Mirar el ok NO es opcional: si el lote ya existe el backend no crea
+        // nada, y cerrar la ventana igual dejaba al operario creyendo que
+        // había creado su lote cuando en realidad quedaba el que bajó de
+        // OrbitX con ese nombre — con el lindero de OrbitX (reporte 2026-09-12).
+        if (EsOk(resp))
+        {
+            Cerrar();
+            return;
+        }
+        MostrarAviso(Motivo(LeerMotivo(resp)));
     }
 
     // =========================================================================
@@ -525,17 +592,19 @@ public sealed class LotePanel : Border
         catch { return null; }
     }
 
-    private async Task PostAsync(string ruta, object? body = null)
+    private async Task<JsonElement?> PostAsync(string ruta, object? body = null)
     {
-        if (_http == null) return;
+        if (_http == null) return null;
         try
         {
             using var contenido = new StringContent(
                 body == null ? "{}" : JsonSerializer.Serialize(body),
                 Encoding.UTF8, "application/json");
-            using var _ = await _http.PostAsync(_base + ruta, contenido);
+            using var resp = await _http.PostAsync(_base + ruta, contenido);
+            var json = await resp.Content.ReadAsStringAsync();
+            return JsonDocument.Parse(json).RootElement.Clone();
         }
-        catch { /* si el POST no salió, el efecto no ocurre y se ve en el mapa */ }
+        catch { return null; /* si el POST no salió, el efecto no ocurre y se ve en el mapa */ }
     }
 
     private async Task TecladoAsync(bool abrir)
