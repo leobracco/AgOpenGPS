@@ -57,6 +57,12 @@ public sealed class HudSnapshot
     public int YouTurnSkipWidth { get; set; }
     /// <summary>Desvío respecto de la guía (m). 0 exacto suele ser "sin guía".</summary>
     public double CrossTrackErrorM { get; set; }
+    // ---- Luces de banderillero -----------------------------------------
+    // Las prende el tilde de Configuración › Dirección › Barra guía. Llegan por
+    // el MISMO /api/aog/state que el resto; SnakeCaseLower las mapea desde
+    // mostrar_luces / luces_cm_por_luz.
+    public bool MostrarLuces { get; set; }
+    public double LucesCmPorLuz { get; set; }
     /// <summary>Cantidad de guías del lote (tracks_total). El host la usa para
     /// cerrar el diálogo de Guías cuando aparece una nueva — la página no
     /// puede avisar (ver OnDialogNavigated en MainWindow).</summary>

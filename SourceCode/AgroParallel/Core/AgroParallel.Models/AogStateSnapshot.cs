@@ -366,6 +366,14 @@ namespace AgroParallel.Models
         /// el updater descarta el giro en curso y vuelve a empezar.</summary>
         public double CrossTrackErrorM { get; set; }
 
+        /// <summary>Tilde "Mostrar barra en pantalla" (setMenu_isLightbarOn).
+        /// Prende las luces de banderillero. No depende del piloto.</summary>
+        public bool MostrarLuces { get; set; }
+
+        /// <summary>Centímetros que representa cada luz
+        /// (setDisplay_lightbarCmPerPixel). 0 o negativo = usar el default.</summary>
+        public double LucesCmPorLuz { get; set; }
+
         /// <summary>Fase interna del U-turn (10 = camino ya construido).</summary>
         public int YouTurnPhase { get; set; }
 
