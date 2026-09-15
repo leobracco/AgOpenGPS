@@ -52,10 +52,13 @@ namespace PilotX.Cockpit.Bars
         private const double CmRojo     = 25.0;
 
         // Más de esto no es un desvío de trabajo real: es basura. CABCurve.cs
-        // manda un centinela (distanceFromCurrentLinePivot = 32000, en
-        // milímetros del lado del host) cuando la curva quedó vacía pero
-        // sigue marcada válida, y hay un camino ("really really lost") que
-        // deja el XTE congelado de un frame viejo. Sin este tope, ese valor
+        // (línea ~1064) manda un centinela (distanceFromCurrentLinePivot =
+        // 32000) cuando la curva quedó vacía pero sigue marcada válida, y hay
+        // un camino ("really really lost") que deja el XTE congelado de un
+        // frame viejo. EngineGuidanceCalculator.cs (líneas 65-67) copia ese
+        // 32000 CRUDO a XteMeters, en la MISMA escala que el resto de los
+        // metros: NO son milímetros, la conversión ×1000 es de otro campo
+        // (GuidanceLineDistanceOff, el del PGN). Sin este tope, ese valor
         // saturaba las 7 luces de un lado: de reojo es INDISTINGUIBLE de un
         // desvío real enorme, y en una sembradora eso es una orden falsa de
         // "corregí fuerte para allá". Mejor no mostrar nada.

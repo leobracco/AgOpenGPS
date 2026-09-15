@@ -6965,8 +6965,15 @@ public partial class MainWindow : Window
             }
             // Los MISMOS cuatro cortes que las luces (EscalaDesvio). Si no, el
             // mismo desvío cambiaría de color al tildar o destildar las luces.
-            var brush = PilotX.Cockpit.Bars.EscalaDesvio.ColorHex(
-                PilotX.Cockpit.Bars.EscalaDesvio.Leer(xte, s.LucesCmPorLuz).Nivel);
+            var lecturaColor = PilotX.Cockpit.Bars.EscalaDesvio.Leer(xte, s.LucesCmPorLuz);
+            // Sin HayDato, Leer() devuelve Nivel=Verde por default (no es "todo
+            // bien", es "no sé"). Mismo criterio que LucesBanderillero.cs: un
+            // nivel desconocido NO puede pintarse del color de "estás en la
+            // línea". Failsafe a rojo, igual que la escala.
+            var nivelColor = lecturaColor.HayDato
+                ? lecturaColor.Nivel
+                : PilotX.Cockpit.Bars.NivelDesvio.Rojo;
+            var brush = PilotX.Cockpit.Bars.EscalaDesvio.ColorHex(nivelColor);
             _pcXte.Foreground = new global::Avalonia.Media.SolidColorBrush(
                 global::Avalonia.Media.Color.Parse(brush));
         }

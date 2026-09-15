@@ -544,88 +544,97 @@
                  (ver CockpitBarsHost, más abajo): flotaba suelto sobre el mapa
                  y tapaba lo que el operario estaba mirando. -->
 
-            <!-- Luces de banderillero: van en el MISMO lugar que el cluster
-                 (arriba-centro, debajo de la barra superior de 52 px). Los dos
-                 nunca se ven juntos: manda el tilde. -->
-            <ContentControl Name="LucesHost" Grid.Row="2"
-                            VerticalAlignment="Top" HorizontalAlignment="Center"
-                            Margin="0,64,0,0"/>
+            <!-- Luces de banderillero + cluster del piloto: van APILADOS en el
+                 mismo lugar (arriba-centro, debajo de la barra superior de
+                 52 px). Antes competían por el mismo Grid.Row/anchor y el
+                 Border del cluster (declarado después) dibujaba encima de
+                 las luces, tapándolas casi por completo. Un StackPanel
+                 colapsa solo a los hijos invisibles: sin luces, el cluster
+                 queda donde está hoy; con luces, baja solo y no tapa nada.
+                 Las luces van arriba porque se miran de reojo; el giro y el
+                 salteo son botones que se tocan. -->
+            <StackPanel Grid.Row="2" Orientation="Vertical" Spacing="8"
+                        VerticalAlignment="Top" HorizontalAlignment="Center"
+                        Margin="0,64,0,0">
+                <ContentControl Name="LucesHost" HorizontalAlignment="Center"/>
 
-            <!-- =================== CLUSTER DEL PILOTO =================== -->
-            <!--
-                Arriba-centro del mapa (debajo de la barra superior del
-                cockpit, que mide 52px y tiene ZIndex 50 — por eso el margen):
-                · DISTANCIA a la línea: visible siempre que haya guía.
-                · GIRO manual (↰/↱) y SALTEO: aparecen al activar el piloto.
-            -->
-            <!-- Fondo OSCURO translúcido (pedido del usuario): sobre el piso
-                 texturado el panel blanco lavaba los textos; en oscuro el
-                 número de distancia, el GIRANDO y las flechas resaltan. -->
-            <Border Name="PilotoCluster" Grid.Row="2" IsVisible="False"
-                    VerticalAlignment="Top" HorizontalAlignment="Center"
-                    Margin="0,64,0,0"
-                    Background="#D9101612" BorderBrush="#66FFFFFF" BorderThickness="1"
-                    CornerRadius="12" Padding="10,6">
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <Button Name="PcGiroIzq" Width="64" Height="56" Padding="0" IsVisible="False"
-                            ToolTip.Tip="Girar ahora a la izquierda">
-                        <TextBlock Text="↰" FontSize="30" FontWeight="Bold"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
+                <!-- =================== CLUSTER DEL PILOTO =================== -->
+                <!--
+                    Arriba-centro del mapa (debajo de la barra superior del
+                    cockpit, que mide 52px y tiene ZIndex 50 — por eso el margen
+                    del StackPanel que lo contiene):
+                    · DISTANCIA a la línea: visible siempre que haya guía.
+                    · GIRO manual (↰/↱) y SALTEO: aparecen al activar el piloto.
+                -->
+                <!-- Fondo OSCURO translúcido (pedido del usuario): sobre el piso
+                     texturado el panel blanco lavaba los textos; en oscuro el
+                     número de distancia, el GIRANDO y las flechas resaltan. -->
+                <Border Name="PilotoCluster" IsVisible="False"
+                        HorizontalAlignment="Center"
+                        Background="#D9101612" BorderBrush="#66FFFFFF" BorderThickness="1"
+                        CornerRadius="12" Padding="10,6">
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <Button Name="PcGiroIzq" Width="64" Height="56" Padding="0" IsVisible="False"
+                                ToolTip.Tip="Girar ahora a la izquierda">
+                            <TextBlock Text="↰" FontSize="30" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
 
-                    <!-- Distancia a la línea: el número que se mira todo el tiempo.
-                         El triangulito indica hacia dónde corregir (lado opuesto
-                         al desvío, mismo criterio que el lightbar). Este sub-bloque
-                         (y sólo éste) se esconde con el tilde de luces puesto: las
-                         luces reemplazan el RECUADRO de distancia, no el giro manual
-                         ni el salteo, que siguen en el Border de afuera. -->
-                    <StackPanel Name="PcALaLinea" VerticalAlignment="Center" MinWidth="120">
-                        <TextBlock Text="A LA LÍNEA" FontSize="12" Foreground="#C5CFC5"
-                                   HorizontalAlignment="Center"/>
-                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                            <TextBlock Name="PcXteFlecha" Text="" FontSize="22" FontWeight="Bold" Foreground="#F5F7F4"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Name="PcXte" Text="—" FontSize="30" FontWeight="Bold" Foreground="#F5F7F4"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Name="PcXteUnidad" Text="cm" FontSize="13" Foreground="#C5CFC5"
-                                       VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+                        <!-- Distancia a la línea: el número que se mira todo el tiempo.
+                             El triangulito indica hacia dónde corregir (lado opuesto
+                             al desvío, mismo criterio que el lightbar). Este sub-bloque
+                             (y sólo éste) se esconde con el tilde de luces puesto: las
+                             luces reemplazan el RECUADRO de distancia, no el giro manual
+                             ni el salteo, que siguen en el Border de afuera, apilados
+                             debajo de las luces. -->
+                        <StackPanel Name="PcALaLinea" VerticalAlignment="Center" MinWidth="120">
+                            <TextBlock Text="A LA LÍNEA" FontSize="12" Foreground="#C5CFC5"
+                                       HorizontalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                <TextBlock Name="PcXteFlecha" Text="" FontSize="22" FontWeight="Bold" Foreground="#F5F7F4"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Name="PcXte" Text="—" FontSize="30" FontWeight="Bold" Foreground="#F5F7F4"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Name="PcXteUnidad" Text="cm" FontSize="13" Foreground="#C5CFC5"
+                                           VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+                            </StackPanel>
+                            <!-- Estado del giro en cabecera (réplica 6.8.5): la
+                                 distancia al punto de giro cuando está armado,
+                                 "GIRANDO" en violeta durante el giro, aviso si el
+                                 camino cae fuera del lote. TOCARLO invierte el
+                                 lado del giro armado (SwapDirection del nativo);
+                                 girando, lo aborta. -->
+                            <TextBlock Name="PcGiroInfo" Text="" FontSize="12" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" IsVisible="False"
+                                       Cursor="Hand"
+                                       ToolTip.Tip="Tocá para cambiar el lado del giro"/>
                         </StackPanel>
-                        <!-- Estado del giro en cabecera (réplica 6.8.5): la
-                             distancia al punto de giro cuando está armado,
-                             "GIRANDO" en violeta durante el giro, aviso si el
-                             camino cae fuera del lote. TOCARLO invierte el
-                             lado del giro armado (SwapDirection del nativo);
-                             girando, lo aborta. -->
-                        <TextBlock Name="PcGiroInfo" Text="" FontSize="12" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" IsVisible="False"
-                                   Cursor="Hand"
-                                   ToolTip.Tip="Tocá para cambiar el lado del giro"/>
-                    </StackPanel>
 
-                    <!-- Cuántas guías saltea el giro (0 = va a la contigua). -->
-                    <StackPanel Name="PcGrupoSalteo" VerticalAlignment="Center" IsVisible="False">
-                        <TextBlock Text="SALTEA" FontSize="12" Foreground="#C5CFC5"
-                                   HorizontalAlignment="Center"/>
-                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
-                            <Button Name="PcSkipMenos" Width="40" Height="44" Padding="0" FontSize="20"
-                                    Content="−" ToolTip.Tip="Saltear una guía menos"/>
-                            <Border Width="44" Height="44" Background="#EAF6E8"
-                                    BorderBrush="#4ABA3E" BorderThickness="1" CornerRadius="8">
-                                <TextBlock Name="PcSkip" Text="0" FontSize="24" FontWeight="Bold"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <Button Name="PcSkipMas" Width="40" Height="44" Padding="0" FontSize="20"
-                                    Content="+" ToolTip.Tip="Saltear una guía más"/>
+                        <!-- Cuántas guías saltea el giro (0 = va a la contigua). -->
+                        <StackPanel Name="PcGrupoSalteo" VerticalAlignment="Center" IsVisible="False">
+                            <TextBlock Text="SALTEA" FontSize="12" Foreground="#C5CFC5"
+                                       HorizontalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                                <Button Name="PcSkipMenos" Width="40" Height="44" Padding="0" FontSize="20"
+                                        Content="−" ToolTip.Tip="Saltear una guía menos"/>
+                                <Border Width="44" Height="44" Background="#EAF6E8"
+                                        BorderBrush="#4ABA3E" BorderThickness="1" CornerRadius="8">
+                                    <TextBlock Name="PcSkip" Text="0" FontSize="24" FontWeight="Bold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <Button Name="PcSkipMas" Width="40" Height="44" Padding="0" FontSize="20"
+                                        Content="+" ToolTip.Tip="Saltear una guía más"/>
+                            </StackPanel>
                         </StackPanel>
-                    </StackPanel>
 
-                    <Button Name="PcGiroDer" Width="64" Height="56" Padding="0" IsVisible="False"
-                            ToolTip.Tip="Girar ahora a la derecha">
-                        <TextBlock Text="↱" FontSize="30" FontWeight="Bold"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
-                </StackPanel>
-            </Border>
+                        <Button Name="PcGiroDer" Width="64" Height="56" Padding="0" IsVisible="False"
+                                ToolTip.Tip="Girar ahora a la derecha">
+                            <TextBlock Text="↱" FontSize="30" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
 
             <!-- =================== FIELD DATA (overlay nativo) =================== -->
             <!--

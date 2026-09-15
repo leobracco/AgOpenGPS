@@ -127,6 +127,22 @@ namespace PilotX.Cockpit.Bars.Tests
             Assert.That(r.LucesEncendidas, Is.EqualTo(0));
         }
 
+        // El centinela REAL, sin convertir: CABCurve.cs (línea ~1064) asigna
+        // distanceFromCurrentLinePivot = 32000 cuando la curva quedó vacía
+        // pero sigue "válida", y EngineGuidanceCalculator.cs (líneas 65-67) lo
+        // copia crudo a XteMeters, en la misma escala que los metros (no hay
+        // conversión de unidades de por medio). Este es el valor que de verdad
+        // llega a Leer() en producción, a diferencia del test de 320 m de
+        // arriba, que usa un valor arbitrario fuera de rango.
+        [Test]
+        public void Xte32000_CentinelaDeCurvaInvalida_SinDatoYCeroLuces()
+        {
+            var r = EscalaDesvio.Leer(32000.0, Cm5);
+
+            Assert.That(r.HayDato, Is.False);
+            Assert.That(r.LucesEncendidas, Is.EqualTo(0));
+        }
+
         // El umbral es "más de 100 m" (estrictamente mayor): 100 m exactos
         // todavía se procesa como un dato normal (y satura a 7 luces).
         [Test]
