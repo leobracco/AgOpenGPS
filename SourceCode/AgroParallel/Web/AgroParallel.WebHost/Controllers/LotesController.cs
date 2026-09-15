@@ -5,7 +5,7 @@
 //   GET  /api/lotes/current      → { name: string|null }
 //   POST /api/lotes/open?name=…  → { ok: bool }
 //   POST /api/lotes/close        → { ok: bool }
-//   POST /api/lotes/create?name= → { ok: bool }
+//   POST /api/lotes/create?name= → { ok: bool, motivo: string }
 //   POST /api/lotes/from-existing {template,name,applied,flags,guidance,headland}
 //   POST /api/lotes/import-kml    → diálogo nativo KML     (ex FormJob)
 //   POST /api/lotes/import-isoxml → diálogo nativo ISO-XML (ex FormJob)
@@ -59,8 +59,13 @@ namespace AgroParallel.WebHost.Controllers
         [Route(HttpVerbs.Post, "/lotes/create")]
         public async Task Create([QueryField] string name)
         {
-            bool ok = _lotes != null && await _lotes.CreateFieldAsync(name);
-            await WriteJsonAsync(new { ok });
+            if (_lotes == null)
+            {
+                await WriteJsonAsync(new { ok = false, motivo = "error" });
+                return;
+            }
+            var r = await _lotes.CreateFieldAsync(name);
+            await WriteJsonAsync(new { ok = r.Ok, motivo = r.MotivoTexto() });
         }
 
         [Route(HttpVerbs.Post, "/lotes/delete")]

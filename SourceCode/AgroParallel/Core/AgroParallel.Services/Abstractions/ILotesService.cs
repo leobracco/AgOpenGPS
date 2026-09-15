@@ -25,8 +25,10 @@ namespace AgroParallel.Services.Abstractions
         /// <summary>Cierra el lote actual, guardando todo (boundary/sections/contour/tracks).</summary>
         Task<bool> CloseFieldAsync();
 
-        /// <summary>Crea un lote nuevo con <paramref name="name"/> y lo deja abierto.</summary>
-        Task<bool> CreateFieldAsync(string name);
+        /// <summary>Crea un lote nuevo con <paramref name="name"/> y lo deja
+        /// abierto. El resultado dice POR QUÉ falló: la pantalla de lote
+        /// necesita distinguir "ya existe" de "error" para poder avisar.</summary>
+        Task<ResultadoCrearLote> CreateFieldAsync(string name);
 
         /// <summary>Borra la carpeta del lote <paramref name="name"/>. No borra
         /// el lote que está abierto (hay que cerrarlo antes). false si no existe

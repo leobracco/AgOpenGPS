@@ -38,7 +38,12 @@
 
   // ---- helpers HTTP ----
   async function jget(url) { try { var r = await fetch(url, { cache: 'no-store' }); return await r.json(); } catch (e) { return null; } }
-  async function jpost(url) { try { var r = await fetch(url, { method: 'POST' }); return await r.json ? await r.json() : null; } catch (e) { return null; } }
+  async function jpost(url) {
+    try {
+      var r = await fetch(url, { method: 'POST' });
+      return await r.json();
+    } catch (e) { return null; }
+  }
 
   // Abrir un lote y volver al mapa SIN esperar.
   //
@@ -101,7 +106,11 @@
   // ---- botones principales (FormJob) ----
   $('btnClose').onclick = async function () { await jpost('/api/lotes/close'); closeWin(); };
   $('btnOpen').onclick = function () { show('open'); };
-  $('btnNew').onclick = function () { $('inpNewName').value = ''; show('new'); };
+  $('btnNew').onclick = function () {
+    $('inpNewName').value = '';
+    $('ltNewMsg').style.display = 'none';
+    show('new');
+  };
   $('btnResume').onclick = function () {
     // Continuar: abrir el último lote. El backend resuelve "Resume".
     abrirLoteYCerrar(current || '__resume__');
@@ -118,11 +127,33 @@
   $('btnFromISOXML').onclick = async function () { await jpost('/api/lotes/import-isoxml'); closeWin(); };
 
   // ---- crear nuevo lote ----
+  // Mirar el ok NO es opcional: si el lote ya existe el backend no crea nada, y
+  // cerrar la ventana igual dejaba al operario creyendo que habia creado su
+  // lote cuando en realidad quedaba el que bajo de OrbitX con ese nombre — con
+  // el lindero de OrbitX (reporte 2026-09-12).
+  var MOTIVOS = {
+    ya_existe:               'Ya existe un lote con ese nombre',
+    nombre_invalido:         'Ese nombre no se puede usar',
+    sin_directorio_de_lotes: 'No esta configurada la carpeta de lotes',
+    error:                   'No se pudo crear el lote'
+  };
+
   $('btnCreate').onclick = async function () {
+    var msg = $('ltNewMsg');
+    msg.style.display = 'none';
+
     var name = $('inpNewName').value.trim();
-    if (!name) return;
-    await jpost('/api/lotes/create?name=' + encodeURIComponent(name));
-    closeWin();
+    if (!name) {
+      msg.textContent = 'Pone un nombre para el lote';
+      msg.style.display = 'block';
+      return;
+    }
+
+    var r = await jpost('/api/lotes/create?name=' + encodeURIComponent(name));
+    if (r && r.ok) { closeWin(); return; }
+
+    msg.textContent = MOTIVOS[(r && r.motivo) || 'error'] || MOTIVOS.error;
+    msg.style.display = 'block';
   };
 
   // Teclado virtual para el nombre

@@ -172,16 +172,20 @@ namespace PilotX.GuidanceEngine.Adapters
         // origen = posición GPS actual, y lo abre. Mismo flujo que
         // FormGpsLotesService.CreateFieldAsync / FormGPS.FileCreateField, pero
         // sin WinForms (usa FieldPlaneFiles.Save + GuidanceEngineHost.OpenField).
-        public Task<bool> CreateFieldAsync(string name)
+        public Task<ResultadoCrearLote> CreateFieldAsync(string name)
         {
-            if (string.IsNullOrWhiteSpace(name)) return Task.FromResult(false);
+            if (string.IsNullOrWhiteSpace(name))
+                return Task.FromResult(ResultadoCrearLote.Falla(MotivoCrearLote.NombreInvalido));
             string clean = CleanName(name);
-            if (string.IsNullOrEmpty(clean)) return Task.FromResult(false);
+            if (string.IsNullOrEmpty(clean))
+                return Task.FromResult(ResultadoCrearLote.Falla(MotivoCrearLote.NombreInvalido));
 
             string root = RegistrySettings.fieldsDirectory;
-            if (string.IsNullOrEmpty(root)) return Task.FromResult(false);
+            if (string.IsNullOrEmpty(root))
+                return Task.FromResult(ResultadoCrearLote.Falla(MotivoCrearLote.SinDirectorioDeLotes));
             string dir = Path.Combine(root, clean);
-            if (Directory.Exists(dir)) return Task.FromResult(false);
+            if (Directory.Exists(dir))
+                return Task.FromResult(ResultadoCrearLote.Falla(MotivoCrearLote.YaExiste));
 
             try
             {
@@ -195,13 +199,15 @@ namespace PilotX.GuidanceEngine.Adapters
                 AgOpenGPS.IO.FieldPlaneFiles.Save(dir, DateTime.Now, origin);
 
                 // Abrir el lote recién creado (define plano local, IsJobStarted=true).
-                return Task.FromResult(_host.OpenField(clean));
+                return Task.FromResult(_host.OpenField(clean)
+                    ? ResultadoCrearLote.Bien()
+                    : ResultadoCrearLote.Falla(MotivoCrearLote.Error));
             }
             catch
             {
                 // Limpieza best-effort si quedó a medio crear.
                 try { if (Directory.Exists(dir) && Directory.GetFiles(dir).Length == 0) Directory.Delete(dir); } catch { }
-                return Task.FromResult(false);
+                return Task.FromResult(ResultadoCrearLote.Falla(MotivoCrearLote.Error));
             }
         }
 
