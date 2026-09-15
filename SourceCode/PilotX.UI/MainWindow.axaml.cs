@@ -6818,7 +6818,12 @@ public partial class MainWindow : Window
             else _luces.IsVisible = false;
         }
 
-        if (!cluster)
+        // OJO: el gate de acá para abajo es la GUÍA, no "cluster". El tilde de
+        // luces sólo elige qué widget muestra el desvío (cluster vs. luces);
+        // no puede esconder _pcGiroSentido, que es el botón para invertir o
+        // ABORTAR el giro automático y tiene que seguir visible con el U-turn
+        // en curso, tilde puesto o no.
+        if (!hayGuia)
         {
             if (_pcGiroSentido != null) _pcGiroSentido.IsVisible = false;
             return;
