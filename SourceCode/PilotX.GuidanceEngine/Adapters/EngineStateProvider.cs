@@ -155,7 +155,7 @@ namespace PilotX.GuidanceEngine.Adapters
                 // Las luces de banderillero se prenden con el tilde y nada más:
                 // NO se mira isBtnAutoSteerOn. El operario que las quiere con el
                 // piloto puesto las tiene.
-                snap.MostrarLuces  = global::AgOpenGPS.Properties.Settings.Default.setMenu_isLightbarOn;
+                snap.MostrarLuces = global::AgOpenGPS.Properties.Settings.Default.setMenu_isLightbarOn;
                 snap.LucesCmPorLuz = global::AgOpenGPS.Properties.Settings.Default.setDisplay_lightbarCmPerPixel;
                 if (_host.Ct != null)
                 {
