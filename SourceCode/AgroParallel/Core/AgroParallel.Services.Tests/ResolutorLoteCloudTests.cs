@@ -64,11 +64,30 @@ namespace AgroParallel.Services.Tests
         {
             string dir = Path.Combine(_root, "Lote 12");
             Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, "Boundary.txt"), "$Boundary\n");
             ResolutorLoteCloud.EscribirMarcador(dir, "Lote 12", "sha-a");
 
             var d = ResolutorLoteCloud.Resolver(_root, "Lote 12", "sha-a");
 
             Assert.That(d.Accion, Is.EqualTo(AccionLoteCloud.SinCambios));
+            Assert.That(d.Directorio, Is.EqualTo(dir));
+        }
+
+        // El marcador dice "mismo SHA" pero el Boundary.txt del espejo
+        // desapareció (borrado a mano, sync anterior interrumpido, etc.): sin
+        // este chequeo, "SinCambios" dejaría el lote sin lindero PARA SIEMPRE,
+        // porque ni un re-push del cloud lo trae de vuelta (el SHA no cambia).
+        [Test]
+        public void EspejoConMismoShaPeroSinBoundaryTxt_SeReescribe()
+        {
+            string dir = Path.Combine(_root, "Lote 12");
+            Directory.CreateDirectory(dir);
+            ResolutorLoteCloud.EscribirMarcador(dir, "Lote 12", "sha-a");
+            // Sin Boundary.txt: el marcador quedó huérfano.
+
+            var d = ResolutorLoteCloud.Resolver(_root, "Lote 12", "sha-a");
+
+            Assert.That(d.Accion, Is.EqualTo(AccionLoteCloud.ActualizarEspejo));
             Assert.That(d.Directorio, Is.EqualTo(dir));
         }
 
@@ -106,6 +125,7 @@ namespace AgroParallel.Services.Tests
 
             var primera = ResolutorLoteCloud.Resolver(_root, "Lote 12", "sha-a");
             Directory.CreateDirectory(primera.Directorio);
+            File.WriteAllText(Path.Combine(primera.Directorio, "Boundary.txt"), "$Boundary\n");
             ResolutorLoteCloud.EscribirMarcador(primera.Directorio, "Lote 12", "sha-a");
 
             var segunda = ResolutorLoteCloud.Resolver(_root, "Lote 12", "sha-a");
@@ -154,10 +174,12 @@ namespace AgroParallel.Services.Tests
         [Test]
         public void ShaEsEstableYDistingueContenido()
         {
-            Assert.That(ResolutorLoteCloud.CalcularSha("hola"),
-                        Is.EqualTo(ResolutorLoteCloud.CalcularSha("hola")));
-            Assert.That(ResolutorLoteCloud.CalcularSha("hola"),
-                        Is.Not.EqualTo(ResolutorLoteCloud.CalcularSha("chau")));
+            var h1 = ResolutorLoteCloud.CalcularSha("hola");
+            var h2 = ResolutorLoteCloud.CalcularSha("hola");
+            Assert.That(h1, Is.EqualTo(h2));
+
+            var h3 = ResolutorLoteCloud.CalcularSha("chau");
+            Assert.That(h1, Is.Not.EqualTo(h3));
         }
 
         // Sin literal esperado: los caracteres inválidos de nombre de archivo

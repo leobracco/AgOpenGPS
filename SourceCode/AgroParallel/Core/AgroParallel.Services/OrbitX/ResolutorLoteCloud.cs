@@ -76,11 +76,19 @@ namespace AgroParallel.Services.OrbitX
 
                 if (esEspejoDeEsteLote)
                 {
+                    // No basta con que el marcador diga "mismo SHA": si el
+                    // Boundary.txt del espejo desapareció (se borró a mano, un
+                    // sync anterior murió a mitad de camino, etc.) el marcador
+                    // queda huérfano y "SinCambios" dejaría el lindero perdido
+                    // PARA SIEMPRE — ni un re-push del cloud lo trae de vuelta,
+                    // porque el SHA sigue siendo el mismo. Sin el archivo, se
+                    // reescribe igual aunque el SHA no haya cambiado.
+                    bool boundaryExiste = File.Exists(Path.Combine(dir, "Boundary.txt"));
                     return new DestinoLoteCloud
                     {
                         Directorio = dir,
                         NombreCarpeta = candidato,
-                        Accion = string.Equals(marcador.ShaKml, shaKml, StringComparison.Ordinal)
+                        Accion = (boundaryExiste && string.Equals(marcador.ShaKml, shaKml, StringComparison.Ordinal))
                             ? AccionLoteCloud.SinCambios
                             : AccionLoteCloud.ActualizarEspejo,
                     };
