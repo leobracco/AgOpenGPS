@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 using AgLibrary.Logging;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
+using AgroParallel.Services.OrbitX;
 
 namespace PilotX.GuidanceEngine.Adapters
 {
@@ -428,9 +429,11 @@ namespace PilotX.GuidanceEngine.Adapters
         /// boundary.kml, que es soberano.
         ///
         /// Lote nuevo → Field.txt con origen en el primer punto + Boundary.
-        /// Lote existente → se conserva SU origen (pisarlo desfasaría guías y
-        /// cobertura ya locales) y solo se reemplaza el lindero, convertido al
-        /// plano existente. Lote ABIERTO → false (el caller avisa).
+        /// Ya existe y es espejo de ESTE lote cloud → se conserva su origen y se
+        /// reemplaza el lindero solo si cambió el KML.
+        /// Ya existe pero es del operario → NO se toca: el lote del cloud entra
+        /// como "&lt;nombre&gt; (OrbitX)".
+        /// Lote ABIERTO → false (el caller avisa).
         /// </summary>
         public bool CrearLoteDesdeKmlSinAbrir(string nombre, string kmlContenido)
         {
@@ -447,11 +450,39 @@ namespace PilotX.GuidanceEngine.Adapters
 
                 string root = RegistrySettings.fieldsDirectory;
                 if (string.IsNullOrEmpty(root)) return false;
-                string dir = Path.Combine(root, clean);
+
+                // El destino lo decide el resolutor: si la carpeta con ese nombre
+                // es de un lote del operario, el del cloud entra aparte. Nunca se
+                // pisa un lindero que no sea espejo de este mismo lote cloud.
+                string sha = ResolutorLoteCloud.CalcularSha(kmlContenido);
+                var destino = ResolutorLoteCloud.Resolver(root, nombre, sha);
+
+                if (destino.Accion == AccionLoteCloud.SinLugar)
+                {
+                    Log.EventWriter($"GuidanceEngine: lote '{nombre}' de OrbitX sin lugar (20 sufijos ocupados)");
+                    return false;
+                }
+
+                if (destino.Accion == AccionLoteCloud.SinCambios)
+                {
+                    Log.EventWriter($"GuidanceEngine: lote '{destino.NombreCarpeta}' de OrbitX ya al dia (mismo KML)");
+                    return true;
+                }
+
+                // El guard de "lote abierto" se revalida contra el destino REAL:
+                // el de arriba miro el nombre pedido, no el resuelto.
+                if (_host.IsJobStarted &&
+                    string.Equals(_host.currentFieldDirectory, destino.NombreCarpeta, StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                string dir = destino.Directorio;
 
                 AgOpenGPS.Core.Models.Wgs84 origen;
-                if (Directory.Exists(dir) && File.Exists(Path.Combine(dir, "Field.txt")))
+                if (destino.Accion == AccionLoteCloud.ActualizarEspejo &&
+                    File.Exists(Path.Combine(dir, "Field.txt")))
                 {
+                    // Espejo ya existente: se conserva SU origen; pisarlo
+                    // desfasaria guias y cobertura locales.
                     origen = AgOpenGPS.IO.FieldPlaneFiles.LoadOrigin(dir);
                 }
                 else
@@ -476,7 +507,12 @@ namespace PilotX.GuidanceEngine.Adapters
                 }
 
                 AgOpenGPS.IO.BoundaryFiles.Save(dir, lista);
-                Log.EventWriter($"GuidanceEngine: lote '{clean}' desde OrbitX ({lista.Count} anillos, sin abrir)");
+                ResolutorLoteCloud.EscribirMarcador(dir, nombre, sha);
+
+                if (!string.Equals(destino.NombreCarpeta, nombre, StringComparison.Ordinal))
+                    Log.EventWriter($"GuidanceEngine: '{nombre}' de OrbitX entro como '{destino.NombreCarpeta}' (ya habia un lote con ese nombre)");
+                else
+                    Log.EventWriter($"GuidanceEngine: lote '{destino.NombreCarpeta}' desde OrbitX ({lista.Count} anillos, sin abrir)");
                 return true;
             }
             catch (Exception ex)
