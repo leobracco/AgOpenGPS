@@ -6213,6 +6213,10 @@ public partial class MainWindow : Window
         _vmDer = new BarraDerechaViewModel(_cockpitCmd);
         _vmAba = new BarraAbajoViewModel(_cockpitCmd);
         _vmIzq = new MenuIzquierdaViewModel(_cockpitCmd);
+        // Única ventana que dibuja la barra de luces y el recuadro "A LA
+        // LÍNEA" (ver ActualizarClusterPiloto): acá sí tiene sentido mostrar
+        // el par Banderillero/Piloto del menú izquierdo.
+        _vmIzq.MuestraModoDesvio = true;
 
         if (_barSuperior != null) _barSuperior.DataContext = _vmSup;
 
@@ -6821,6 +6825,16 @@ public partial class MainWindow : Window
         // que es justo cuando hacen falta.
         bool luces = s.MostrarLuces && hayGuia;
         bool cluster = hayGuia && !luces;
+
+        // Qué botón del menú izquierdo (Banderillero/Piloto) se marca como
+        // activo: el valor REAL que reporta el motor, no un eco optimista
+        // del último toque — así no puede quedar mintiendo si el modo
+        // cambia por otro camino (otro cliente, restart, etc.).
+        if (_vmIzq != null)
+        {
+            _vmIzq.ModoBanderillero = s.MostrarLuces;
+            _vmIzq.ModoPiloto = !s.MostrarLuces;
+        }
 
         _pilotoCluster.IsVisible = hayGuia;
         if (_pcALaLinea != null) _pcALaLinea.IsVisible = cluster;

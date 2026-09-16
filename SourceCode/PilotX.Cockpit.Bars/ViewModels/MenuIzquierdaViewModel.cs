@@ -34,6 +34,20 @@ public sealed partial class MenuIzquierdaViewModel : BarViewModelBase
     // no ocupar lugar del mapa cuando el operario no lo necesita.
     [ObservableProperty] private bool _isCollapsed;
 
+    // Los botones de modo solo tienen sentido donde algo dibuja el desvío
+    // (hoy: la ventana de cabina de PC). En el head de Android y en las barras
+    // sueltas no se dibuja ni la barra de luces ni el recuadro "A LA LÍNEA",
+    // así que el par se esconde en vez de quedar de adorno: un botón que no
+    // hace nada visible es peor que uno que no está.
+    [ObservableProperty] private bool _muestraModoDesvio;
+
+    // Qué modo está puesto, para que el par de botones lo muestre. Los alimenta
+    // el host que sí recibe el snapshot (MainWindow) con el valor REAL de
+    // mostrar_luces — no es un eco optimista del último toque, así que no puede
+    // quedar mintiendo si el modo cambia por otro camino.
+    [ObservableProperty] private bool _modoBanderillero;
+    [ObservableProperty] private bool _modoPiloto;
+
     [RelayCommand]
     private void ToggleSubmenu(string name)
     {

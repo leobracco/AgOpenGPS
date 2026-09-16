@@ -72,6 +72,12 @@
       <Setter Property="Background" Value="#F0F4F0"/>
       <Setter Property="BorderBrush" Value="#C8D1C8"/>
     </Style>
+    <!-- Mismo tratamiento "seleccionado" que Button.mbtn.active, para el par
+         Banderillero/Piloto: cuál de los dos modos está puesto en el motor. -->
+    <Style Selector="Button.sbtn.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#EAF6E7"/>
+      <Setter Property="BorderBrush" Value="#4ABA3E"/>
+    </Style>
 
     <Style Selector="Image.mico">
       <Setter Property="Width" Value="28"/>
@@ -248,18 +254,35 @@
                    pantalla. Antes era un tilde llamado "Mostrar barra en
                    pantalla", enterrado entre la distancia de enganche y el
                    grosor de línea.
-                   Los botones NO se marcan como activos a propósito: el VM de
-                   este menú no recibe snapshots (Apply es no-op) y se instancia
-                   en tres hosts, dos de ellos con HudSnapshot en vez de
-                   CockpitSnapshot. El indicador de qué modo está puesto son las
-                   luces en el mapa, que se ven o no se ven. -->
-              <TextBlock Classes="subtitle" Margin="2,12,0,6" Text="CÓMO LEER EL DESVÍO"/>
-              <UniformGrid Columns="2" VerticalAlignment="Top">
-                <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="modo_banderillero"><StackPanel><Image Classes="sico" Source="/Assets/menu/FlagRed.png"/><TextBlock Classes="slbl" Text="Banderillero"/></StackPanel></Button>
-                <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="modo_piloto"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoSteerOn.png"/><TextBlock Classes="slbl" Text="Piloto"/></StackPanel></Button>
-              </UniformGrid>
-              <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#6F786F" Margin="2,8,2,0"
-                         Text="Banderillero: barra de luces para manejar a mano. Piloto: el número de centímetros. El piloto automático se engancha igual en los dos."/>
+                   El bloque entero se esconde donde nada dibuja el desvío
+                   (Android/Hub, barras sueltas): ver MuestraModoDesvio en el
+                   ViewModel. Donde sí se muestra (cabina de PC), los botones
+                   reflejan el modo REAL que llega en el snapshot del motor
+                   (ModoBanderillero/ModoPiloto), no un eco optimista del
+                   último toque. -->
+              <StackPanel IsVisible="{Binding MuestraModoDesvio}">
+                <TextBlock Classes="subtitle" Margin="2,12,0,6" Text="CÓMO LEER EL DESVÍO"/>
+                <UniformGrid Columns="2" VerticalAlignment="Top">
+                  <Button Classes="sbtn" Classes.active="{Binding ModoBanderillero}"
+                          Command="{Binding SendCommand}" CommandParameter="modo_banderillero">
+                    <StackPanel><Image Classes="sico" Source="/Assets/menu/FlagRed.png"/><TextBlock Classes="slbl" Text="Banderillero"/></StackPanel>
+                  </Button>
+                  <!-- NO usar un ícono de volante (AutoSteerOn.png y familia):
+                       es el mismo dibujo que el botón real de enganche del
+                       piloto automático en la barra derecha. Este botón no
+                       engancha nada, solo cambia qué se muestra — un volante
+                       verde acá invita a pensar que se rompió el autopiloto
+                       cuando no arranca. Se usa el glyph de gráfico de barras
+                       (mismo que "Gráfico XTE" en Herramientas): lee como
+                       lectura, no como comando de manejo. -->
+                  <Button Classes="sbtn" Classes.active="{Binding ModoPiloto}"
+                          Command="{Binding SendCommand}" CommandParameter="modo_piloto">
+                    <StackPanel><Image Classes="sico" Source="/Assets/menu/AutoManualIsAuto.png"/><TextBlock Classes="slbl" Text="Piloto"/></StackPanel>
+                  </Button>
+                </UniformGrid>
+                <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#6F786F" Margin="2,8,2,0"
+                           Text="Banderillero: barra de luces para manejar a mano. Piloto: el número de centímetros. El piloto automático se engancha igual en los dos."/>
+              </StackPanel>
             </StackPanel>
           </ScrollViewer>
         </DockPanel>
