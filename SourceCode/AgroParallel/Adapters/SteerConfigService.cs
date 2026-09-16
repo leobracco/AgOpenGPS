@@ -180,8 +180,15 @@ namespace AgroParallel.Adapters
             S.setAS_snapDistance = c.SnapDistance;
             S.setAS_guidanceLookAheadTime = c.GuidanceLookAhead;
             S.setDisplay_lightbarCmPerPixel = c.CmPerPixel;
-            S.setMenu_isLightbarNotSteerBar = !string.Equals(c.GuidanceBar, "steerbar", StringComparison.OrdinalIgnoreCase);
-            S.setMenu_isLightbarOn = c.DisplayLightbar;
+
+            // NO escribir acá setMenu_isLightbarNotSteerBar ni setMenu_isLightbarOn:
+            // el modo (Menú izquierdo › Pantalla › Banderillero / Piloto) es su
+            // único escritor legítimo. La pantalla Dirección ya no tiene el tilde
+            // que los llenaba, así que el DTO llega con estos dos campos "vacíos"
+            // (false / null) en cada Guardar — pisarlos acá apaga el modo elegido
+            // cada vez que se guarda algo de dirección, incluso por el autoguardado
+            // al cerrar el panel. Get() los sigue devolviendo de solo lectura, eso
+            // es inofensivo.
 
             // ---- PGN 251 (config del módulo): bits de setting0/setting1 ----
             // Los 3 sensores de fin de giro son excluyentes (mismo criterio que

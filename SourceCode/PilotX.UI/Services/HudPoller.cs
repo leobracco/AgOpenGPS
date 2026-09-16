@@ -58,7 +58,7 @@ public sealed class HudSnapshot
     /// <summary>Desvío respecto de la guía (m). 0 exacto suele ser "sin guía".</summary>
     public double CrossTrackErrorM { get; set; }
     // ---- Luces de banderillero -----------------------------------------
-    // Las prende el tilde de Configuración › Dirección › Barra guía. Llegan por
+    // Las prende el modo (Menú izquierdo › Pantalla › Banderillero / Piloto). Llegan por
     // el MISMO /api/aog/state que el resto; SnakeCaseLower las mapea desde
     // mostrar_luces / luces_cm_por_luz.
     public bool MostrarLuces { get; set; }

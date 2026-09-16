@@ -366,8 +366,9 @@ namespace AgroParallel.Models
         /// el updater descarta el giro en curso y vuelve a empezar.</summary>
         public double CrossTrackErrorM { get; set; }
 
-        /// <summary>Tilde "Mostrar barra en pantalla" (setMenu_isLightbarOn).
-        /// Prende las luces de banderillero. No depende del piloto.</summary>
+        /// <summary>setMenu_isLightbarOn, que fija el modo (Menú izquierdo ›
+        /// Pantalla › Banderillero / Piloto). Prende las luces de banderillero.
+        /// No depende del piloto.</summary>
         public bool MostrarLuces { get; set; }
 
         /// <summary>Centímetros que representa cada luz

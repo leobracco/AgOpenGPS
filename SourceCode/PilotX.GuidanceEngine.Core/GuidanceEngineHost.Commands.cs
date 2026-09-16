@@ -389,12 +389,12 @@ namespace AgOpenGPS
                 case "modo_banderillero":
                     AgOpenGPS.Properties.Settings.Default.setMenu_isLightbarOn = true;
                     AgOpenGPS.Properties.Settings.Default.Save();
-                    Log.EventWriter("PilotX: modo de lectura = banderillero (luces)");
+                    Log.EventWriter("GuidanceEngine: modo de lectura = banderillero (luces)");
                     return true;
                 case "modo_piloto":
                     AgOpenGPS.Properties.Settings.Default.setMenu_isLightbarOn = false;
                     AgOpenGPS.Properties.Settings.Default.Save();
-                    Log.EventWriter("PilotX: modo de lectura = piloto (numero)");
+                    Log.EventWriter("GuidanceEngine: modo de lectura = piloto (numero)");
                     return true;
                 default:
                     return false;

@@ -97,8 +97,9 @@ public partial class MainWindow : Window
     // del mapa con el piloto activo).
     private Border? _pilotoCluster;
     // Sub-bloque "A LA LÍNEA" dentro de _pilotoCluster: es lo ÚNICO que el
-    // tilde de luces reemplaza. El Border de afuera (giro manual + salteo)
-    // sigue visible con el piloto puesto, tilde o no.
+    // modo Banderillero (Menú izquierdo › Pantalla › Banderillero / Piloto)
+    // reemplaza. El Border de afuera (giro manual + salteo) sigue visible con
+    // el piloto puesto, sea cual sea el modo elegido.
     private StackPanel? _pcALaLinea;
     private ContentControl? _lucesHost;
     private PilotX.Desktop.Views.LucesBanderillero? _luces;
@@ -6809,11 +6810,12 @@ public partial class MainWindow : Window
         // Hay guía = el poller de guidance trae XTE (NaN sin guía activa).
         bool hayGuia = !double.IsNaN(_lastXteMeters);
 
-        // El tilde manda: con las luces puestas se muestran ELLAS y se esconde
-        // el RECUADRO de distancia ("A LA LÍNEA"). Los dos dibujan el mismo
-        // dato y tenerlos juntos sólo genera dudas de dónde mirar. NO se mira
-        // el estado del piloto: si el operario quiere las luces con el piloto
-        // puesto, las tiene. El tilde NO esconde el Border entero: giro manual
+        // El modo (Menú izquierdo › Pantalla › Banderillero / Piloto) manda: con
+        // Banderillero elegido se muestran las luces y se esconde el RECUADRO de
+        // distancia ("A LA LÍNEA"). Los dos dibujan el mismo dato y tenerlos
+        // juntos sólo genera dudas de dónde mirar. NO se mira el estado del
+        // piloto: si el operario quiere las luces con el piloto puesto, las
+        // tiene. El modo NO esconde el Border entero: giro manual
         // (PcGiroIzq/PcGiroDer) y salteo (PcGrupoSalteo) no tienen otro control
         // en toda la UI y tienen que seguir disponibles con el piloto puesto,
         // que es justo cuando hacen falta.
@@ -6828,11 +6830,12 @@ public partial class MainWindow : Window
             else _luces.IsVisible = false;
         }
 
-        // OJO: el gate de acá para abajo es la GUÍA, no "cluster". El tilde de
-        // luces sólo elige qué widget muestra el desvío (cluster vs. luces);
-        // no puede esconder _pcGiroSentido, que es el botón para invertir o
-        // ABORTAR el giro automático y tiene que seguir visible con el U-turn
-        // en curso, tilde puesto o no.
+        // OJO: el gate de acá para abajo es la GUÍA, no "cluster". El modo
+        // (Menú izquierdo › Pantalla › Banderillero / Piloto) sólo elige qué
+        // widget muestra el desvío (cluster vs. luces); no puede esconder
+        // _pcGiroSentido, que es el botón para invertir o ABORTAR el giro
+        // automático y tiene que seguir visible con el U-turn en curso, sea
+        // cual sea el modo elegido.
         if (!hayGuia)
         {
             if (_pcGiroSentido != null) _pcGiroSentido.IsVisible = false;
