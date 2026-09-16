@@ -242,6 +242,19 @@ namespace PilotX.GuidanceEngine.Adapters
         /// hallazgo 2026-09-16). EsCarpetaDeLoteBorrable exige además que la
         /// hoja resuelta coincida con el nombre pedido, así que "Campo.." (que
         /// Windows resuelve a "Campo") tampoco cuela disfrazado.
+        ///
+        /// Además, "clean" tiene que ser IGUAL a "name" (comparación exacta,
+        /// sin indulgencia): CleanName hace .Trim(), y con "Fields/ Campo"
+        /// (espacio inicial) y "Fields/Campo" conviviendo, pedir borrar
+        /// " Campo" limpia a "Campo" — la guarda de contención de más abajo
+        /// pasa igual, porque la hoja resuelta "Campo" coincide con "clean" —
+        /// y se borraba el lote del OPERARIO ("Campo") dejando " Campo"
+        /// intacto (repro real, hallazgo 2026-09-16). El nombre que llega acá
+        /// siempre sale de GET /api/lotes (el nombre de carpeta tal cual está
+        /// en disco), así que no hace falta saneo indulgente: exigir
+        /// coincidencia exacta cierra de una vez toda la familia (espacio
+        /// inicial, espacio final, "Campo:x", etc.), no sólo el caso del
+        /// espacio.
         /// </summary>
         public Task<bool> DeleteFieldAsync(string name)
         {
@@ -250,6 +263,7 @@ namespace PilotX.GuidanceEngine.Adapters
                 if (string.IsNullOrWhiteSpace(name)) return Task.FromResult(false);
                 string clean = CleanName(name);
                 if (string.IsNullOrEmpty(clean)) return Task.FromResult(false);
+                if (!string.Equals(clean, name, StringComparison.Ordinal)) return Task.FromResult(false);
 
                 string root = RegistrySettings.fieldsDirectory;
                 if (string.IsNullOrEmpty(root)) return Task.FromResult(false);
