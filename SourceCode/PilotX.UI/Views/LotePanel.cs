@@ -153,7 +153,16 @@ public sealed class LotePanel : Border
         // una confirmación a medio dar (hay que volver a pedirla con un
         // toque) en vez de dejar la puerta abierta a un borrado invisible.
         // El Post corre DESPUÉS del Aplicar global de MainWindow.
-        PilotX.Cockpit.Bars.Traductor.IdiomaCambio += () => Dispatcher.UIThread.Post(CancelarConfirmacionesBorrado);
+        //
+        // Mismo Aplicar() también le pisa el Text a _avisoListaTxt (arranca en
+        // "" y ese "" queda cacheado como "original" — ver el comentario de
+        // _avisoListaPendiente): sin repintarlo acá, un cambio de idioma con el
+        // cartel de aviso visible ("Lote borrado: X", etc.) lo deja en blanco.
+        PilotX.Cockpit.Bars.Traductor.IdiomaCambio += () => Dispatcher.UIThread.Post(() =>
+        {
+            CancelarConfirmacionesBorrado();
+            RepintarAvisoListaPendiente();
+        });
     }
 
     public void Attach(HttpClient http, string baseUrl)
