@@ -1158,9 +1158,15 @@ namespace AgroParallel.OrbitX
                 }
                 catch (Exception ex)
                 {
-                    // Sin señal: se reintenta en el próximo tick, sin contar
-                    // como fallo permanente.
+                    // Sin señal: no tiene sentido intentar los pendientes que
+                    // quedan en este mismo tick — cada POST son otros 30s de
+                    // _http.Timeout, y "Borrar todos" puede dejar cientos de
+                    // avisos en cola. Mismo criterio que la cola de subida más
+                    // abajo en SyncTick ("sin red, insistir con los demás solo
+                    // suma timeouts"): se corta acá, sin contar como fallo
+                    // permanente, y se reintenta TODO en el próximo tick.
                     Trace("[LOTE] no se pudo avisar el borrado de '" + lote + "': " + ex.Message);
+                    break;
                 }
             }
         }
