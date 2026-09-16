@@ -225,22 +225,42 @@
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="PANTALLA"/>
           <ScrollViewer>
-            <UniformGrid Columns="2" VerticalAlignment="Top">
-              <!-- "2D/3D/Norte 2D/Inclinar +/−" sacados (2026-07-29, pedido del
-                   usuario): el pitch de cámara y el heading-up/north-up toggle
-                   quedan afuera del menú. SetHeadingUp/SetPitchDeg/TiltBy
-                   siguen vivos en MapGlSurface/MapPanel + el wiring en
-                   RouteCockpitCommand, por si se los vuelve a colgar de un
-                   botón más adelante — mismo criterio que "Grilla". -->
-              <!-- "Grilla" sacado (2026-07-28): el cuadriculado de fondo se
-                   quitó del mapa a pedido del usuario (no marcaba referencias
-                   y se redibujaba entero cada frame) — el botón quedaba sin
-                   ningún efecto. DrawGrid/_gridOn siguen vivos en MapGlSurface
-                   por si algún día hace falta volver a colgarlo de un toggle. -->
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="dia_noche"><StackPanel><Image Classes="sico" Source="/Assets/menu/WindowNightMode.png"/><TextBlock Classes="slbl" Text="Día / Noche"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="brillo_up"><StackPanel><Image Classes="sico" Source="/Assets/menu/BrightnessUp.png"/><TextBlock Classes="slbl" Text="Brillo +"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="brillo_dn"><StackPanel><Image Classes="sico" Source="/Assets/menu/BrightnessDn.png"/><TextBlock Classes="slbl" Text="Brillo −"/></StackPanel></Button>
-            </UniformGrid>
+            <StackPanel>
+              <UniformGrid Columns="2" VerticalAlignment="Top">
+                <!-- "2D/3D/Norte 2D/Inclinar +/−" sacados (2026-07-29, pedido del
+                     usuario): el pitch de cámara y el heading-up/north-up toggle
+                     quedan afuera del menú. SetHeadingUp/SetPitchDeg/TiltBy
+                     siguen vivos en MapGlSurface/MapPanel + el wiring en
+                     RouteCockpitCommand, por si se los vuelve a colgar de un
+                     botón más adelante — mismo criterio que "Grilla". -->
+                <!-- "Grilla" sacado (2026-07-28): el cuadriculado de fondo se
+                     quitó del mapa a pedido del usuario (no marcaba referencias
+                     y se redibujaba entero cada frame) — el botón quedaba sin
+                     ningún efecto. DrawGrid/_gridOn siguen vivos en MapGlSurface
+                     por si algún día hace falta volver a colgarlo de un toggle. -->
+                <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="dia_noche"><StackPanel><Image Classes="sico" Source="/Assets/menu/WindowNightMode.png"/><TextBlock Classes="slbl" Text="Día / Noche"/></StackPanel></Button>
+                <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="brillo_up"><StackPanel><Image Classes="sico" Source="/Assets/menu/BrightnessUp.png"/><TextBlock Classes="slbl" Text="Brillo +"/></StackPanel></Button>
+                <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="brillo_dn"><StackPanel><Image Classes="sico" Source="/Assets/menu/BrightnessDn.png"/><TextBlock Classes="slbl" Text="Brillo −"/></StackPanel></Button>
+              </UniformGrid>
+
+              <!-- Cómo leer el desvío. Va acá y no en Configuración porque es de
+                   la misma familia que día/noche y brillo: cómo se ve la
+                   pantalla. Antes era un tilde llamado "Mostrar barra en
+                   pantalla", enterrado entre la distancia de enganche y el
+                   grosor de línea.
+                   Los botones NO se marcan como activos a propósito: el VM de
+                   este menú no recibe snapshots (Apply es no-op) y se instancia
+                   en tres hosts, dos de ellos con HudSnapshot en vez de
+                   CockpitSnapshot. El indicador de qué modo está puesto son las
+                   luces en el mapa, que se ven o no se ven. -->
+              <TextBlock Classes="subtitle" Margin="2,12,0,6" Text="CÓMO LEER EL DESVÍO"/>
+              <UniformGrid Columns="2" VerticalAlignment="Top">
+                <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="modo_banderillero"><StackPanel><Image Classes="sico" Source="/Assets/menu/FlagRed.png"/><TextBlock Classes="slbl" Text="Banderillero"/></StackPanel></Button>
+                <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="modo_piloto"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoSteerOn.png"/><TextBlock Classes="slbl" Text="Piloto"/></StackPanel></Button>
+              </UniformGrid>
+              <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#6F786F" Margin="2,8,2,0"
+                         Text="Banderillero: barra de luces para manejar a mano. Piloto: el número de centímetros. El piloto automático se engancha igual en los dos."/>
+            </StackPanel>
           </ScrollViewer>
         </DockPanel>
       </Border>
