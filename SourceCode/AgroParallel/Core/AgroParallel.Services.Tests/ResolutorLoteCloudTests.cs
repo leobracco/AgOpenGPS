@@ -230,59 +230,66 @@ namespace AgroParallel.Services.Tests
         }
 
         // ------------------------------------------------------------------
-        // QuedaDentroDeRoot — chequeo de contención para el borrado (arreglo 5):
-        // un nombre con ".." no tiene caracteres inválidos de archivo, así que
-        // LimpiarNombre solo no alcanza para bloquearlo.
+        // Arreglo 1 (2026-09-16) — EngineLotesService.DeleteFieldAsync exige
+        // que "clean" (salida de CleanName, saneo indulgente que sólo saca
+        // caracteres inválidos de archivo y hace .Trim()) sea EXACTAMENTE
+        // igual al "name" pedido, o rechaza el borrado. Esa comparación vive
+        // en PilotX.GuidanceEngine (sin suite de tests propia — no hay
+        // AgroParallel.Services referenciándolo desde ahí) así que no es
+        // testeable directo desde acá. LimpiarNombre implementa el MISMO
+        // criterio de saneo que CleanName (ver su propio comentario), así que
+        // estos tests documentan la premisa del arreglo: un nombre con
+        // espacio inicial o final SÍ cambia al pasar por el saneo indulgente
+        // (por eso hace falta la comparación exacta), y uno normal no cambia
+        // (por eso la comparación exacta no rompe el camino feliz). El
+        // repro real de EngineLotesService.DeleteFieldAsync está en el
+        // reporte de esta ronda.
         // ------------------------------------------------------------------
 
         [Test]
-        public void QuedaDentroDeRoot_CarpetaDentro_DevuelveTrue()
+        public void LimpiarNombre_ConEspacioInicial_DifiereDelNombrePedido()
         {
-            string candidato = Path.Combine(_root, "Campo Norte");
+            string name = " Campo";
+            string clean = ResolutorLoteCloud.LimpiarNombre(name);
 
-            Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, candidato), Is.True);
+            Assert.That(clean, Is.EqualTo("Campo"));
+            Assert.That(clean, Is.Not.EqualTo(name));
         }
 
         [Test]
-        public void QuedaDentroDeRoot_ConPuntoPuntoHaciaAfuera_DevuelveFalse()
+        public void LimpiarNombre_ConEspacioFinal_DifiereDelNombrePedido()
         {
-            string candidato = Path.Combine(_root, "..", "..", "algo_fuera_de_fields");
+            string name = "Campo ";
+            string clean = ResolutorLoteCloud.LimpiarNombre(name);
 
-            Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, candidato), Is.False);
-        }
-
-        // QuedaDentroDeRoot es un chequeo GENÉRICO de pertenencia al árbol (lo
-        // sigue usando quien necesite eso); a propósito, el propio root cuenta
-        // como "dentro de root". Esto NO es la guarda de borrado — esa es
-        // EsCarpetaDeLoteBorrable, más abajo, que rechaza el root explícitamente.
-        // Antes este test se llamaba "...DevuelveTrue" a secas y quedaba leyendo
-        // como si legitimara borrar el root: se renombra para dejar clara la
-        // diferencia (hallazgo 2026-09-16).
-        [Test]
-        public void QuedaDentroDeRoot_ElPropioRoot_EstaDentroDelArbol_PeroNoEsGuardaDeBorrado()
-        {
-            Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, _root), Is.True);
+            Assert.That(clean, Is.EqualTo("Campo"));
+            Assert.That(clean, Is.Not.EqualTo(name));
         }
 
         [Test]
-        public void QuedaDentroDeRoot_CarpetaHermanaConPrefijoParecido_DevuelveFalse()
+        public void LimpiarNombre_NombreNormal_CoincideConElNombrePedido()
         {
-            // "_root2" empieza con la misma cadena que "_root" pero NO es un
-            // subdirectorio: un chequeo ingenuo con StartsWith(root) sin la
-            // barra separadora lo dejaría pasar.
-            string hermana = _root + "2";
+            string name = "Campo Norte";
+            string clean = ResolutorLoteCloud.LimpiarNombre(name);
 
-            Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, hermana), Is.False);
+            // El camino feliz no se rompe: un nombre sin espacios de sobra ni
+            // caracteres inválidos sale IGUAL al pedido, así que la
+            // comparación exacta del arreglo 1 lo deja pasar.
+            Assert.That(clean, Is.EqualTo(name));
         }
 
         // ------------------------------------------------------------------
         // EsCarpetaDeLoteBorrable — guarda REAL de borrado (arreglo 2026-09-16,
-        // hallazgo crítico con repro ejecutado: QuedaDentroDeRoot solo no
-        // alcanza). Tabla completa del reporte: "." y "..." resuelven al
-        // propio root (Windows colapsa los puntos finales); "Campo.." y
-        // "Campo." resuelven a "Campo" pero con hoja distinta del nombre
-        // pedido. Todos tienen que rechazarse; un nombre normal tiene que
-        // pasar.
+        // hallazgo crítico con repro ejecutado). Tabla completa del reporte:
+        // "." y "..." resuelven al propio root (Windows colapsa los puntos
+        // finales); "Campo.." y "Campo." resuelven a "Campo" pero con hoja
+        // distinta del nombre pedido. Todos tienen que rechazarse; un nombre
+        // normal tiene que pasar.
+        //
+        // (QuedaDentroDeRoot, la guarda genérica de contención que precedió a
+        // ésta, se sacó del código de producción y de estos tests: desde que
+        // la contención real vive acá, quedó sin ningún caller — hallazgo
+        // 2026-09-16, limpieza.)
         // ------------------------------------------------------------------
 
         [Test]
@@ -312,12 +319,17 @@ namespace AgroParallel.Services.Tests
         }
 
         [Test]
-        public void EsCarpetaDeLoteBorrable_PuntoConEspacios_TrasCleanNameQuedaEnPunto_Rechaza()
+        public void EsCarpetaDeLoteBorrable_PuntoConEspacios_TrasLimpiarNombreQuedaEnPunto_Rechaza()
         {
             // El controller/adaptador aplica CleanName/LimpiarNombre ANTES de
-            // llamar acá, y "  .  " limpia a ".". Se prueba directo con "."
-            // porque es el valor que de verdad le llega a esta función.
-            Assert.That(ResolutorLoteCloud.EsCarpetaDeLoteBorrable(_root, ".", out _), Is.False);
+            // llamar acá (mismo criterio de saneo en las dos clases — ver el
+            // comentario de LimpiarNombre), y "  .  " limpia a ".". Se pasa
+            // "  .  " por el propio LimpiarNombre para probar la premisa del
+            // test (no repetir el caso de "." a secas, ya cubierto arriba).
+            string limpio = ResolutorLoteCloud.LimpiarNombre("  .  ");
+            Assert.That(limpio, Is.EqualTo("."));
+
+            Assert.That(ResolutorLoteCloud.EsCarpetaDeLoteBorrable(_root, limpio, out _), Is.False);
         }
 
         [Test]
@@ -407,21 +419,30 @@ namespace AgroParallel.Services.Tests
         }
 
         [Test]
-        public void NombresATombstonear_EraEspejoYAdemasHayHermanoQueReclamaSuPropioNombre_SoloEncolaElCloud()
+        public void NombresATombstonear_EraEspejoYHermanoVivoReclamaEseMismoCloud_NoEncolaElCloud()
         {
-            // La carpeta borrada era ella misma un espejo ("X (OrbitX)" con
-            // lote_cloud="X"), y además hay un hermano ("X (OrbitX 2)") que
-            // por lo que sea también dice lote_cloud="X" (marcador viejo,
-            // por ejemplo). El nombre propio de la carpeta borrada
-            // ("X (OrbitX)") no lo reclama nadie más, así que igual se encola;
-            // "X" se encola una sola vez (ya viene por loteCloudDelPropioMarcador).
+            // Caso exacto del arreglo 2 (residuo simétrico del arreglo 2 de
+            // más arriba, hallazgo 2026-09-16): la carpeta borrada era ella
+            // misma un espejo ("X (OrbitX)" con lote_cloud="X"), y además
+            // sigue vivo un hermano ("X (OrbitX 2)") que TAMBIÉN reclama
+            // lote_cloud="X". Antes del arreglo, la guarda
+            // ExisteHermanoQueReclamaEseNombreCloud sólo se aplicaba a la
+            // rama de "nombreCarpetaBorrada", no a la de
+            // "loteCloudDelPropioMarcador": "X" se encolaba igual y el
+            // hermano vivo quedaba congelado esperando un sync que el
+            // tombstone bloqueaba — el mismo bug que el arreglo 2 original
+            // vino a cerrar, pero en la otra rama. Con la guarda aplicada a
+            // las dos ramas, "X" no se encola (el hermano lo sigue
+            // necesitando); el nombre propio de la carpeta borrada
+            // ("X (OrbitX)") no lo reclama nadie más, así que ESE sí se
+            // encola.
             string hermano = Path.Combine(_root, "X (OrbitX 2)");
             Directory.CreateDirectory(hermano);
             ResolutorLoteCloud.EscribirMarcador(hermano, "X", "sha-a");
 
             var r = ResolutorLoteCloud.NombresATombstonearTrasBorrar(_root, "X (OrbitX)", "X");
 
-            Assert.That(r, Is.EquivalentTo(new[] { "X (OrbitX)", "X" }));
+            Assert.That(r, Is.EquivalentTo(new[] { "X (OrbitX)" }));
         }
     }
 }

@@ -174,39 +174,7 @@ namespace AgroParallel.Services.OrbitX
             => LeerMarcador(directorio)?.LoteCloud;
 
         /// <summary>
-        /// True si "candidato" queda DENTRO del árbol de "root" (ambos resueltos
-        /// con GetFullPath), INCLUYENDO al propio root — es un chequeo genérico
-        /// de pertenencia al árbol, no una guarda de borrado. LimpiarNombre saca
-        /// caracteres inválidos de archivo, pero ".." no es uno de ellos — un
-        /// Path.Combine(root, "../../algo") sigue resolviendo hacia AFUERA de
-        /// root sin que LimpiarNombre lo note.
-        ///
-        /// OJO: para decidir si una carpeta se puede BORRAR no alcanza con esto
-        /// — el propio root "queda dentro de root" y Directory.Delete(root, true)
-        /// borraría TODOS los lotes (hallazgo 2026-09-16, repro real). Esa guarda,
-        /// más estricta, es <see cref="EsCarpetaDeLoteBorrable"/>.
-        /// </summary>
-        public static bool QuedaDentroDeRoot(string root, string candidato)
-        {
-            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(candidato)) return false;
-            try
-            {
-                string fullRoot = Path.GetFullPath(root)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                string fullCand = Path.GetFullPath(candidato);
-                return fullCand.Equals(fullRoot, StringComparison.OrdinalIgnoreCase)
-                    || fullCand.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                // Ruta ilegible (chars raros, etc.): del lado seguro, no está adentro.
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Guarda real para BORRAR una carpeta de lote — más estricta que
-        /// <see cref="QuedaDentroDeRoot"/>. Exige DOS cosas del resuelto
+        /// Guarda real para BORRAR una carpeta de lote. Exige DOS cosas del resuelto
         /// (Path.GetFullPath) de root+nombreLimpio:
         ///   1) el padre resuelto es EXACTAMENTE el root (no el root mismo, ni
         ///      dos niveles adentro por un separador raro).
@@ -267,9 +235,13 @@ namespace AgroParallel.Services.OrbitX
         ///     tombstonearlo dejaría a ese espejo congelado para siempre
         ///     esperando un sync que el tombstone bloquea.
         ///   · el lote_cloud del propio marcador de la carpeta borrada
-        ///     (loteCloudDelPropioMarcador), si tenía uno y era distinto de su
+        ///     (loteCloudDelPropioMarcador), si tenía uno, era distinto de su
         ///     nombre de carpeta — o sea, si la carpeta borrada era ELLA MISMA
-        ///     el espejo de otro nombre cloud.
+        ///     el espejo de otro nombre cloud — Y ningún hermano VIVO reclama
+        ///     ese mismo lote_cloud (misma guarda que la rama de arriba,
+        ///     arreglo 2026-09-16: sin ella, borrar "X (OrbitX)" con "X
+        ///     (OrbitX 2)" vivo y reclamando el mismo "X" tombstonea "X" y
+        ///     congela al hermano que nadie borró).
         /// </summary>
         public static IReadOnlyList<string> NombresATombstonearTrasBorrar(
             string fieldsRoot, string nombreCarpetaBorrada, string loteCloudDelPropioMarcador)
@@ -281,7 +253,8 @@ namespace AgroParallel.Services.OrbitX
                 resultado.Add(nombreCarpetaBorrada);
 
             if (!string.IsNullOrEmpty(loteCloudDelPropioMarcador) &&
-                !string.Equals(loteCloudDelPropioMarcador, nombreCarpetaBorrada, StringComparison.OrdinalIgnoreCase))
+                !string.Equals(loteCloudDelPropioMarcador, nombreCarpetaBorrada, StringComparison.OrdinalIgnoreCase) &&
+                !ExisteHermanoQueReclamaEseNombreCloud(fieldsRoot, loteCloudDelPropioMarcador))
             {
                 resultado.Add(loteCloudDelPropioMarcador);
             }
