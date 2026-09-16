@@ -342,6 +342,7 @@ namespace AgOpenGPS
                 // Lotes del cloud: el KML se importa con los writers del motor
                 // (crear/actualizar el lindero SIN abrir el lote).
                 _orbitxSync.ImportarLoteDesdeKml = lotes.CrearLoteDesdeKmlSinAbrir;
+                lotes.AlBorrarLote = nombre => _orbitxSync.LotesBorrados.Encolar(nombre);
                 // Nodos (uid, tipo, firmware, online) para que OrbitX los muestre en Dispositivos.
                 _orbitxSync.NodosProvider = () => _nodos?.GetAll();
                 _orbitxSync.Start();
@@ -480,6 +481,7 @@ namespace AgOpenGPS
                     try { _orbitxSync?.Dispose(); } catch { }
                     _orbitxSync = new AgroParallel.OrbitX.OrbitXSync(state, cfg);
                     _orbitxSync.ImportarLoteDesdeKml = lotes.CrearLoteDesdeKmlSinAbrir;
+                    lotes.AlBorrarLote = nombre => _orbitxSync.LotesBorrados.Encolar(nombre);
                     // Nodos (uid, tipo, firmware, online) para que OrbitX los muestre en Dispositivos.
                     _orbitxSync.NodosProvider = () => _nodos?.GetAll();
                     _orbitxSync.Start();

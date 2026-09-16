@@ -37,6 +37,11 @@ namespace PilotX.GuidanceEngine.Adapters
             _host = host ?? throw new ArgumentNullException(nameof(host));
         }
 
+        /// <summary>Se llama al borrar un lote, para que el sync le avise al
+        /// cloud. Lo inyecta el host; si no está cableado, el borrado es sólo
+        /// local (que es el comportamiento de antes).</summary>
+        public Action<string> AlBorrarLote;
+
         // Cache del cálculo de boundary por lote. Sin esto, ListFields releía el
         // Boundary.txt completo y recalculaba el área de CADA lote en CADA
         // request: con ~185 lotes en una pantalla de CPU floja eso tardaba
@@ -238,6 +243,16 @@ namespace PilotX.GuidanceEngine.Adapters
                     string.Equals(_host.currentFieldDirectory, name, StringComparison.OrdinalIgnoreCase))
                     return Task.FromResult(false);
                 Directory.Delete(dir, true);
+
+                // Avisarle al sync para que lo propague al cloud. Va DESPUÉS del
+                // borrado real: si el Delete tira, no hay nada que avisar.
+                try { AlBorrarLote?.Invoke(name); } catch { /* el aviso no puede tumbar el borrado */ }
+
+                // La entrada cacheada del lote borrado queda colgada si no se
+                // saca: ListFields la seguiría usando para un directorio que ya
+                // no existe.
+                lock (_boundaryCacheLock) { _boundaryCache.Remove(dir); }
+
                 return Task.FromResult(true);
             }
             catch { return Task.FromResult(false); }
