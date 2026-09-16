@@ -133,6 +133,17 @@ public sealed class LotePanel : Border
         root.Children.Add(_titulo);
         root.Children.Add(stage);
         Child = root;
+
+        // Traductor.Aplicar() cachea el PRIMER Content de cada botón y lo
+        // vuelve a escribir en cada pasada, IGNORANDO el texto actual: un
+        // cambio de idioma con una confirmación de borrado armada ("¿Seguro?"
+        // en una fila, o "Confirmar borrado" en Borrar todos) le devuelve al
+        // botón su texto original SIN desarmar el flag — el próximo toque
+        // borraría sin ningún aviso visible. Ante la duda, desarmar: se pierde
+        // una confirmación a medio dar (hay que volver a pedirla con un
+        // toque) en vez de dejar la puerta abierta a un borrado invisible.
+        // El Post corre DESPUÉS del Aplicar global de MainWindow.
+        PilotX.Cockpit.Bars.Traductor.IdiomaCambio += () => Dispatcher.UIThread.Post(CancelarConfirmacionesBorrado);
     }
 
     public void Attach(HttpClient http, string baseUrl)
