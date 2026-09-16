@@ -212,6 +212,31 @@
         </StackPanel>
       </Button>
 
+      <!-- Marcar giro: el operario marca ACÁ dónde tiene que doblar el giro
+           automático (línea perpendicular a la guía). Sin lindero es la única
+           forma de que el U-turn funcione; con lindero acerca la cabecera.
+           "Borrar" aparece solo cuando hay marcas puestas.
+           Bajado del dock el 2026-09-16 (pedido del usuario: agrandar el dock y
+           sacar Marcar). Viene ACÁ y no se elimina porque era el ÚNICO acceso a
+           marcar_giro en todo el producto: sacarlo dejaba el comando del motor
+           sin forma de dispararse. Queda junto a "Por medio" y las dos de
+           cabecera, que son la misma familia del giro automático. -->
+      <Button Command="{Binding SendCommand}" CommandParameter="marcar_giro"
+              ToolTip.Tip="Marcar giro: línea perpendicular a la guía acá, el giro automático dobla ahí">
+        <StackPanel>
+          <Image Source="/Assets/barra-derecha/YouTurnU.png"/>
+          <TextBlock Classes="cap" Text="Marcar"/>
+        </StackPanel>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="giro_borrar_marcas"
+              IsVisible="{Binding HayMarcasGiro}"
+              ToolTip.Tip="Borrar las marcas de giro">
+        <StackPanel>
+          <Image Source="/Assets/barra-derecha/YouTurnU.png" Opacity="0.5"/>
+          <TextBlock Classes="cap" Text="Borrar"/>
+        </StackPanel>
+      </Button>
+
       <!-- Bajados de la barra de abajo (pedido usuario 2026-08-04): enderezar
            implemento, bandera y crear guías. Son acciones puntuales, no de la
            pasada, y acá quedan al alcance sin competir con las secciones. -->

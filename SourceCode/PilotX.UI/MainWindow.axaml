@@ -276,7 +276,7 @@
                      mismos verbos que mandaba la barra. -->
                 <Border x:Name="NudgeOverlay" IsVisible="True"
                         x:DataType="barsvm:BarraDerechaViewModel"
-                        Background="#EEF5F7F4" BorderBrush="#C5CFC5" BorderThickness="1"
+                        Background="#F5F7F4" BorderBrush="#7E907E" BorderThickness="2"
                         CornerRadius="10" Padding="6">
                   <Border.Styles>
                     <!-- Ícono apagado cuando el botón no aplica: sin esto se ven
@@ -286,17 +286,38 @@
                       <Setter Property="Opacity" Value="0.35"/>
                     </Style>
                     <!-- Los rótulos del dock se leen con sol de frente y la
-                         cabina moviéndose. Estaban en 10 px con #535E54 sobre
-                         #F5F7F4: eso da ~4,9:1, el mínimo justo, y a ese tamaño
-                         no se leen (pedido del usuario 2026-09-14, "las letras
-                         están chicas y algunos no ven"). Lo que más pesa no es
-                         el tamaño sino el CONTRASTE — #2A3329 lo lleva a ~11:1.
-                         La geometría no cambia: el botón mide 64x56 y el
-                         contenido pasa de 26+14 a 26+16 px. -->
+                         cabina moviéndose. Empezaron en 10 px con #535E54 sobre
+                         #F5F7F4 (~4,9:1, el mínimo justo) y pasaron a 12 px con
+                         #2A3329 (~11:1) el 2026-09-14.
+                         Segunda vuelta el 2026-09-16, mismo pedido del usuario
+                         ("hacelo más grande para los que no ven bien... dale un
+                         poco más de contraste"): el botón crece de 64x56 a
+                         82x68, el ícono de 26 a 32 px y la palabra de 12 a 16.
+                         El texto va a #1C241B (~13:1) y el panel dejó de ser
+                         93% opaco — con #EE el mapa oscuro se filtraba por
+                         detrás y le comía contraste a TODO el dock, que es lo
+                         que más se notaba. El borde sube a 2 px #7E907E para
+                         que el panel se recorte contra el terreno.
+                         Los rótulos largos se acortaron (Automático→Auto,
+                         Manual→Man, Herram.→Herr., pedido del usuario): NO es
+                         cosmético, es lo que permite subir la letra a 16 sin
+                         ensanchar el dock. "Automático" a 16 px pedía ~88 px de
+                         botón; "Auto" entra en 82, y ahora los 12 botones miden
+                         todos igual — antes había dos anchos distintos.
+                         El rótulo más largo que queda es "Activar"/"Lindero"/"Centrar"
+                         (7 letras). "Cabecera" (8) NO entraba y salió cortada como
+                         "Cabecer" en la primera prueba: por eso quedó "Cabec.".
+                         7 letras es el TECHO a 16 px en un botón de 82. Si hace
+                         falta una palabra más larga hay que ensanchar el botón, NO
+                         achicar la letra — el dock no tiene TextWrapping y se
+                         corta sin avisar ni romper el build.
+                         El ancho total queda en ~1075 px: entra cómodo de 1280
+                         para arriba. Si alguna cabina tiene pantalla más
+                         angosta, hay que achicar acá. -->
                     <Style Selector="TextBlock.cap">
-                      <Setter Property="FontSize" Value="12"/>
+                      <Setter Property="FontSize" Value="16"/>
                       <Setter Property="FontWeight" Value="SemiBold"/>
-                      <Setter Property="Foreground" Value="#2A3329"/>
+                      <Setter Property="Foreground" Value="#1C241B"/>
                       <Setter Property="HorizontalAlignment" Value="Center"/>
                     </Style>
 
@@ -381,53 +402,31 @@
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <!-- Guías (selector de líneas): elegir la guía es parte
                          del flujo de la pasada, no de la barra lateral. -->
-                    <Button x:Name="BtnOvGuias" Width="64" Height="56"
+                    <Button x:Name="BtnOvGuias" Width="82" Height="68"
                             Command="{Binding SendCommand}" CommandParameter="pick"
                             ToolTip.Tip="Guías">
                       <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/TrackOn.png" Height="26"/>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/TrackOn.png" Height="32"/>
                         <TextBlock Classes="cap" Text="Guías"/>
-                      </StackPanel>
-                    </Button>
-                    <!-- Marcar giro: el operario marca ACÁ dónde tiene que
-                         doblar el giro automático (línea perpendicular a la
-                         guía). Sin lindero es la única forma de que el U-turn
-                         funcione; con lindero acerca la cabecera. "Borrar"
-                         aparece solo cuando hay marcas puestas. -->
-                    <Button x:Name="BtnOvMarcarGiro" Width="64" Height="56"
-                            Command="{Binding SendCommand}" CommandParameter="marcar_giro"
-                            ToolTip.Tip="Marcar giro: línea perpendicular a la guía acá, el giro automático dobla ahí">
-                      <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-derecha/YouTurnU.png" Height="26"/>
-                        <TextBlock Classes="cap" Text="Marcar"/>
-                      </StackPanel>
-                    </Button>
-                    <Button x:Name="BtnOvBorrarMarcas" Width="64" Height="56"
-                            Command="{Binding SendCommand}" CommandParameter="giro_borrar_marcas"
-                            IsVisible="{Binding HayMarcasGiro}"
-                            ToolTip.Tip="Borrar las marcas de giro">
-                      <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-derecha/YouTurnU.png" Height="26" Opacity="0.5"/>
-                        <TextBlock Classes="cap" Text="Borrar"/>
                       </StackPanel>
                     </Button>
                     <!-- Lindero y Cabecera junto a Guías: los tres definen la
                          GEOMETRÍA de la pasada — guía por dónde, lindero hasta
                          dónde, cabecera dónde doblar. -->
-                    <Button x:Name="BtnOvLindero" Width="64" Height="56"
+                    <Button x:Name="BtnOvLindero" Width="82" Height="68"
                             Command="{Binding SendCommand}" CommandParameter="lindero"
                             ToolTip.Tip="Lindero del lote">
                       <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/Boundary.png" Height="26"/>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/Boundary.png" Height="32"/>
                         <TextBlock Classes="cap" Text="Lindero"/>
                       </StackPanel>
                     </Button>
-                    <Button x:Name="BtnOvCabecera" Width="64" Height="56"
+                    <Button x:Name="BtnOvCabecera" Width="82" Height="68"
                             Command="{Binding SendCommand}" CommandParameter="cabecera"
                             ToolTip.Tip="Cabecera">
                       <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/HeadlandBuild.png" Height="26"/>
-                        <TextBlock Classes="cap" Text="Cabecera"/>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/HeadlandBuild.png" Height="32"/>
+                        <TextBlock Classes="cap" Text="Cabec."/>
                       </StackPanel>
                     </Button>
                     <!-- Activar/desactivar el corte por cabecera, al lado de
@@ -435,13 +434,13 @@
                          botón que vive en la barra derecha (mismo comando y
                          mismo ícono de estado); allá queda también, para el
                          que lo tiene de memoria. Gris sin cabecera hecha. -->
-                    <Button x:Name="BtnOvCabeceraOnOff" Width="64" Height="56"
+                    <Button x:Name="BtnOvCabeceraOnOff" Width="82" Height="68"
                             IsEnabled="{Binding HeadlandVisible}"
                             Classes.on="{Binding HeadlandOn}"
                             Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"
                             ToolTip.Tip="Corte por cabecera: activar">
                       <StackPanel>
-                        <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}" Height="32"/>
                         <TextBlock Classes="cap" Text="Activar"/>
                       </StackPanel>
                     </Button>
@@ -449,24 +448,24 @@
                     <Rectangle Classes="sep"/>
 
                     <!-- Corrección lateral: sin guía no hay a qué corregirse. -->
-                    <Button x:Name="BtnNudgeIzq" Width="64" Height="56"
+                    <Button x:Name="BtnNudgeIzq" Width="82" Height="68"
                             IsEnabled="{Binding NudgeVisible}" ToolTip.Tip="Corregir a la izquierda">
                       <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapLeft.png" Height="26"/>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapLeft.png" Height="32"/>
                         <TextBlock Classes="cap" Text="Izq"/>
                       </StackPanel>
                     </Button>
-                    <Button x:Name="BtnNudgeCentro" Width="64" Height="56"
+                    <Button x:Name="BtnNudgeCentro" Width="82" Height="68"
                             IsEnabled="{Binding NudgeVisible}" ToolTip.Tip="Centrar sobre la línea">
                       <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapToPivot.png" Height="26"/>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapToPivot.png" Height="32"/>
                         <TextBlock Classes="cap" Text="Centrar"/>
                       </StackPanel>
                     </Button>
-                    <Button x:Name="BtnNudgeDer" Width="64" Height="56"
+                    <Button x:Name="BtnNudgeDer" Width="82" Height="68"
                             IsEnabled="{Binding NudgeVisible}" ToolTip.Tip="Corregir a la derecha">
                       <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapRight.png" Height="26"/>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapRight.png" Height="32"/>
                         <TextBlock Classes="cap" Text="Der"/>
                       </StackPanel>
                     </Button>
@@ -474,13 +473,13 @@
                     <Rectangle Classes="sep"/>
 
                     <!-- Giro en cabecera: pide guía + lindero y sin contorno. -->
-                    <Button x:Name="BtnOvGiro" Width="64" Height="56"
+                    <Button x:Name="BtnOvGiro" Width="82" Height="68"
                             IsEnabled="{Binding UturnVisible}"
                             Classes.on="{Binding UturnOn}"
                             Command="{Binding SendCommand}" CommandParameter="uturn"
                             ToolTip.Tip="Giro automático en cabecera">
                       <StackPanel>
-                        <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}" Height="32"/>
                         <TextBlock Classes="cap" Text="Giro"/>
                       </StackPanel>
                     </Button>
@@ -488,22 +487,22 @@
                     <!-- Secciones: siempre disponibles, con o sin guía. Más
                          anchos que el resto porque "Automático" no entra en
                          64 px y cortado no se lee. -->
-                    <Button x:Name="BtnOvSecAuto" Width="80" Height="56"
+                    <Button x:Name="BtnOvSecAuto" Width="82" Height="68"
                             Classes.on="{Binding SecAutoOn}"
                             Command="{Binding SendCommand}" CommandParameter="sec_auto"
                             ToolTip.Tip="Secciones en automático">
                       <StackPanel>
-                        <Image Source="{Binding SecAutoImg, Converter={StaticResource Asset}}" Height="26"/>
-                        <TextBlock Classes="cap" Text="Automático"/>
+                        <Image Source="{Binding SecAutoImg, Converter={StaticResource Asset}}" Height="32"/>
+                        <TextBlock Classes="cap" Text="Auto"/>
                       </StackPanel>
                     </Button>
-                    <Button x:Name="BtnOvSecManual" Width="80" Height="56"
+                    <Button x:Name="BtnOvSecManual" Width="82" Height="68"
                             Classes.on="{Binding SecManualOn}"
                             Command="{Binding SendCommand}" CommandParameter="sec_manual"
                             ToolTip.Tip="Secciones en manual">
                       <StackPanel>
-                        <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}" Height="26"/>
-                        <TextBlock Classes="cap" Text="Manual"/>
+                        <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}" Height="32"/>
+                        <TextBlock Classes="cap" Text="Man"/>
                       </StackPanel>
                     </Button>
 
@@ -513,12 +512,12 @@
                          desplegar el menú lateral (pedido 2026-08-06 — se usa
                          desde la pantalla principal, manejando). Panel propio,
                          NO Flyout (ver la nota del menú SISTEMA). -->
-                    <Button x:Name="BtnOvHerramientas" Width="64" Height="56"
+                    <Button x:Name="BtnOvHerramientas" Width="82" Height="68"
                             Command="{Binding SendCommand}" CommandParameter="herramientas_menu"
                             ToolTip.Tip="Herramientas">
                       <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/SpecialFunctions.png" Height="26"/>
-                        <TextBlock Classes="cap" Text="Herram."/>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/SpecialFunctions.png" Height="32"/>
+                        <TextBlock Classes="cap" Text="Herr."/>
                       </StackPanel>
                     </Button>
 
@@ -526,13 +525,13 @@
 
                     <!-- Piloto EN LA PUNTA derecha: es el botón que más se
                          toca, va donde la mano llega sin mirar. -->
-                    <Button x:Name="BtnOvPiloto" Width="64" Height="56"
+                    <Button x:Name="BtnOvPiloto" Width="82" Height="68"
                             IsEnabled="{Binding PilotoEnabled}"
                             Classes.on="{Binding PilotoOn}"
                             Command="{Binding SendCommand}" CommandParameter="autosteer"
                             ToolTip.Tip="Piloto automático">
                       <StackPanel>
-                        <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}" Height="32"/>
                         <TextBlock Classes="cap" Text="Piloto"/>
                       </StackPanel>
                     </Button>
