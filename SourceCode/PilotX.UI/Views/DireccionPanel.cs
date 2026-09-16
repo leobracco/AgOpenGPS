@@ -473,20 +473,14 @@ public sealed class DireccionPanel : Border
         _scPantalla.Children.Add(FilaAjusteD("Límite de funciones de guiado", "guidance_speed_limit", 1, 1, 40, 0, "km/h",
             "Techo general de las funciones de guiado — incluye el manejo libre de la pestaña Probar. Subilo solo si la máquina trabaja a esa velocidad."));
         _scPantalla.Children.Add(SubTituloSep("Barra de guiado"));
-        _scPantalla.Children.Add(FilaSeg("Tipo de barra", "guidance_bar",
-            new[] { ("lightbar", "Lightbar"), ("steerbar", "Steer Bar") },
-            "Lightbar: luces de desvío clásicas (a cuántos cm estás de la línea). Steer Bar: muestra " +
-            "además el ángulo que el piloto está pidiendo."));
-        _scPantalla.Children.Add(FilaToggle("Mostrar barra en pantalla", "display_lightbar",
-            "Muestra u oculta la barra de guiado arriba del mapa."));
         _scPantalla.Children.Add(FilaAjuste("Grosor de línea", "line_width", 1, 8, 1, 0, "px",
             "Grosor de la línea de guiado dibujada en el mapa."));
         _scPantalla.Children.Add(FilaAjusteD("Distancia de enganche", "snap_distance", 1, 1, 100, 0, "",
             "A menos de esta distancia de la guía, el piloto la engancha de un salto."));
         _scPantalla.Children.Add(FilaAjusteD("Mirada de la barra", "guidance_look_ahead", 0.1, 0.1, 5, 1, "s",
             "Cuántos segundos adelante calcula la barra el desvío que muestra."));
-        _scPantalla.Children.Add(FilaAjuste("Sensibilidad de la barra", "cm_per_pixel", 2, 20, 1, 0, "cm/px",
-            "Cuántos cm de desvío representa cada pixel de la barra. Menos = barra más sensible."));
+        _scPantalla.Children.Add(FilaAjuste("Centímetros por luz", "cm_per_pixel", 2, 20, 1, 0, "cm",
+            "Cuántos centímetros de desvío representa cada luz de la barra del modo Banderillero. Menos = barra más sensible."));
 
         // ---------- banner de ayuda contextual (los "?" de cada control) ----------
         _tipTitulo = new TextBlock

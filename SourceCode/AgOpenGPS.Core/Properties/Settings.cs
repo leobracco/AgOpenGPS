@@ -258,6 +258,11 @@ namespace AgOpenGPS.Properties
         public int setGPS_jumpFixAlarmDistance = 0;
         public int setAS_deadZoneDistance = 1;
         public int setAS_deadZoneHeading = 10;
+        // SIN USO desde 2026-09-16: el selector "Tipo de barra" se saco de la UI
+        // porque no hacia nada (solo se leia y se escribia a si mismo, via
+        // SteerConfigService). Se conserva el campo para no romper los settings
+        // ya guardados en equipos reales. Si algun dia se implementa Steer Bar,
+        // aca esta el flag.
         public bool setMenu_isLightbarNotSteerBar = false;
         public bool setTool_isDirectionMarkers = true;
         public int setAS_numGuideLines = 10;
