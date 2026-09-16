@@ -8,6 +8,7 @@
 // ============================================================================
 
 using System.IO;
+using AgroParallel.Common;
 using AgroParallel.Services.OrbitX;
 using NUnit.Framework;
 
@@ -156,6 +157,27 @@ namespace AgroParallel.Services.Tests
             c.Encolar(null);
 
             Assert.That(c.Pendientes(), Is.Empty);
+        }
+
+        // AtomicJson deja el .bak con la versión anterior recién en el SEGUNDO
+        // guardado (el primero crea el archivo, no hay nada previo que
+        // respaldar). Con el principal corrupto pero el .bak sano, la cola se
+        // recupera del respaldo en vez de arrancar vacía y perder el tombstone.
+        [Test]
+        public void ArchivoPrincipalCorrupto_SeRecuperaDelBackup()
+        {
+            var c = new ColaLotesBorrados(_archivo);
+            c.Encolar("Lote 12"); // 1er guardado: crea el archivo, sin .bak todavía
+            c.Encolar("Lote 13"); // 2do guardado: File.Replace deja el .bak = versión anterior (Lote 12)
+
+            string bak = _archivo + AtomicJson.BakSuffix;
+            Assert.That(File.Exists(bak), Is.True, "AtomicJson debería haber dejado el .bak en el 2do guardado");
+
+            File.WriteAllText(_archivo, "{ esto no es json"); // corrompemos el principal a mano
+
+            var recuperada = new ColaLotesBorrados(_archivo);
+
+            Assert.That(recuperada.EstaBorrado("Lote 12"), Is.True);
         }
     }
 }

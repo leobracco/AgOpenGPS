@@ -18,6 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using AgroParallel.Common;
 
 namespace AgroParallel.Services.OrbitX
 {
@@ -75,16 +76,21 @@ namespace AgroParallel.Services.OrbitX
         {
             try
             {
-                if (!File.Exists(_rutaArchivo)) return;
-                var leidos = JsonSerializer.Deserialize<List<string>>(File.ReadAllText(_rutaArchivo));
+                // AtomicJson.Read cae solo al .bak si el principal está roto: acá
+                // eso importa doble, porque este archivo es el tombstone y
+                // perderlo repone TODOS los lotes que el operario había borrado.
+                var leidos = AtomicJson.Read<List<string>>(_rutaArchivo, null);
                 if (leidos == null) return;
                 foreach (var n in leidos)
                     if (!string.IsNullOrWhiteSpace(n)) _pendientes.Add(n.Trim());
             }
-            catch
+            catch (Exception ex)
             {
-                // Archivo roto: se arranca con la cola vacía. Es preferible
-                // perder avisos pendientes a dejar a PilotX sin poder borrar.
+                // Archivo roto (y sin .bak recuperable): se arranca con la cola
+                // vacía. Es preferible perder avisos pendientes a dejar a
+                // PilotX sin poder borrar. Se loguea para poder diagnosticar en
+                // campo por qué se perdió el tombstone.
+                AgpLog.Warn("ColaLotesBorrados", "cargando cola de lotes borrados", ex);
             }
         }
 
@@ -92,14 +98,18 @@ namespace AgroParallel.Services.OrbitX
         {
             try
             {
-                string dir = Path.GetDirectoryName(_rutaArchivo);
-                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-                File.WriteAllText(_rutaArchivo, JsonSerializer.Serialize(new List<string>(_pendientes)));
+                // Escritura atómica a propósito (ver cabecera del archivo): con
+                // File.WriteAllText, un apagado de golpe en cabina puede truncar
+                // el archivo y hacer que Cargar() lo trate como vacío, perdiendo
+                // el tombstone entero de una sola vez.
+                AtomicJson.Write(_rutaArchivo, JsonSerializer.Serialize(new List<string>(_pendientes)));
             }
-            catch
+            catch (Exception ex)
             {
                 // Si no se puede escribir, la cola sigue viva en memoria hasta
-                // el próximo reinicio. No vale frenar el borrado por esto.
+                // el próximo reinicio. No vale frenar el borrado por esto, pero
+                // se loguea para poder diagnosticar en campo.
+                AgpLog.Warn("ColaLotesBorrados", "guardando cola de lotes borrados", ex);
             }
         }
     }
