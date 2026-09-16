@@ -232,11 +232,16 @@ namespace PilotX.GuidanceEngine.Adapters
         /// cerrarlo antes, si no se estaría borrando el piso mientras se trabaja.
         ///
         /// El nombre se sanea igual que CreateFieldAsync (CleanName) y, además,
-        /// se verifica que la carpeta resultante quede DENTRO de Fields/ antes
-        /// de tocar el disco: CleanName saca caracteres inválidos de archivo,
-        /// pero ".." no es uno de ellos, y este endpoint no tiene auth propia
-        /// en toda la LAN — sin el chequeo de contención, un "../.." se podría
-        /// usar para borrar cualquier carpeta fuera de Fields/.
+        /// se exige <see cref="ResolutorLoteCloud.EsCarpetaDeLoteBorrable"/>
+        /// antes de tocar el disco: CleanName saca caracteres inválidos de
+        /// archivo, pero ni ".." ni los puntos finales ("Campo..", ".", "...")
+        /// son uno de ellos, y este endpoint no tiene auth propia en toda la
+        /// LAN. QuedaDentroDeRoot (usada acá antes) NO alcanza: considera al
+        /// propio root "dentro de root", y nombre="." resuelve justo al root —
+        /// Directory.Delete(root, true) borraría TODOS los lotes (repro real,
+        /// hallazgo 2026-09-16). EsCarpetaDeLoteBorrable exige además que la
+        /// hoja resuelta coincida con el nombre pedido, así que "Campo.." (que
+        /// Windows resuelve a "Campo") tampoco cuela disfrazado.
         /// </summary>
         public Task<bool> DeleteFieldAsync(string name)
         {
@@ -248,12 +253,19 @@ namespace PilotX.GuidanceEngine.Adapters
 
                 string root = RegistrySettings.fieldsDirectory;
                 if (string.IsNullOrEmpty(root)) return Task.FromResult(false);
-                string dir = Path.Combine(root, clean);
-                if (!ResolutorLoteCloud.QuedaDentroDeRoot(root, dir)) return Task.FromResult(false);
+                if (!ResolutorLoteCloud.EsCarpetaDeLoteBorrable(root, clean, out string dir))
+                    return Task.FromResult(false);
+
+                // La guarda del lote abierto compara contra el nombre RESUELTO
+                // (nombreResuelto), no contra "clean" crudo: EsCarpetaDeLoteBorrable
+                // ya garantiza que coinciden, pero dejarlo explícito evita que un
+                // futuro cambio en esa función reabra el agujero de "Campo.."
+                // saltando esta guarda por comparar contra el nombre sin resolver.
+                string nombreResuelto = Path.GetFileName(dir);
 
                 if (!Directory.Exists(dir)) return Task.FromResult(false);
                 if (_host.IsJobStarted &&
-                    string.Equals(_host.currentFieldDirectory, clean, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(_host.currentFieldDirectory, nombreResuelto, StringComparison.OrdinalIgnoreCase))
                     return Task.FromResult(false);
 
                 // Si esta carpeta es el ESPEJO de un lote cloud (marcador .orbitx
@@ -266,21 +278,22 @@ namespace PilotX.GuidanceEngine.Adapters
                 // y el próximo sync repone el lote recién borrado. Se lee el
                 // marcador ANTES de borrar, porque después ya no está.
                 string loteCloudEspejo = ResolutorLoteCloud.LeerLoteCloud(dir);
-                if (string.Equals(loteCloudEspejo, clean, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(loteCloudEspejo, nombreResuelto, StringComparison.OrdinalIgnoreCase))
                     loteCloudEspejo = null; // no había colisión: el nombre de carpeta YA es el del cloud
 
                 Directory.Delete(dir, true);
 
                 // Avisarle al sync para que lo propague al cloud. Va DESPUÉS del
                 // borrado real: si el Delete tira, no hay nada que avisar.
+                // Qué nombres van y cuáles no lo decide NombresATombstonearTrasBorrar
+                // (ResolutorLoteCloud): si el nombre recién borrado le pertenece en
+                // realidad a un HERMANO vivo (marcador .orbitx cuyo lote_cloud es
+                // ESE nombre), no se encola — eso bloquearía para siempre al espejo
+                // ajeno, que el operario no borró (arreglo 2026-09-16).
                 try
                 {
-                    AlBorrarLote?.Invoke(clean);
-                    // Sólo cuando ESTA carpeta era el espejo: si el operario borró
-                    // SU PROPIO lote (sin marcador), no hay que encolar ningún
-                    // nombre extra — eso bloquearía para siempre al espejo ajeno
-                    // "<nombre> (OrbitX)", que el operario no borró.
-                    if (loteCloudEspejo != null) AlBorrarLote?.Invoke(loteCloudEspejo);
+                    var aEncolar = ResolutorLoteCloud.NombresATombstonearTrasBorrar(root, nombreResuelto, loteCloudEspejo);
+                    foreach (var n in aEncolar) AlBorrarLote?.Invoke(n);
                 }
                 catch { /* el aviso no puede tumbar el borrado */ }
 

@@ -251,8 +251,15 @@ namespace AgroParallel.Services.Tests
             Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, candidato), Is.False);
         }
 
+        // QuedaDentroDeRoot es un chequeo GENÉRICO de pertenencia al árbol (lo
+        // sigue usando quien necesite eso); a propósito, el propio root cuenta
+        // como "dentro de root". Esto NO es la guarda de borrado — esa es
+        // EsCarpetaDeLoteBorrable, más abajo, que rechaza el root explícitamente.
+        // Antes este test se llamaba "...DevuelveTrue" a secas y quedaba leyendo
+        // como si legitimara borrar el root: se renombra para dejar clara la
+        // diferencia (hallazgo 2026-09-16).
         [Test]
-        public void QuedaDentroDeRoot_ElPropioRoot_DevuelveTrue()
+        public void QuedaDentroDeRoot_ElPropioRoot_EstaDentroDelArbol_PeroNoEsGuardaDeBorrado()
         {
             Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, _root), Is.True);
         }
@@ -266,6 +273,155 @@ namespace AgroParallel.Services.Tests
             string hermana = _root + "2";
 
             Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, hermana), Is.False);
+        }
+
+        // ------------------------------------------------------------------
+        // EsCarpetaDeLoteBorrable — guarda REAL de borrado (arreglo 2026-09-16,
+        // hallazgo crítico con repro ejecutado: QuedaDentroDeRoot solo no
+        // alcanza). Tabla completa del reporte: "." y "..." resuelven al
+        // propio root (Windows colapsa los puntos finales); "Campo.." y
+        // "Campo." resuelven a "Campo" pero con hoja distinta del nombre
+        // pedido. Todos tienen que rechazarse; un nombre normal tiene que
+        // pasar.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void EsCarpetaDeLoteBorrable_NombreNormal_Pasa()
+        {
+            CrearLoteLocal("Campo Norte");
+
+            bool ok = ResolutorLoteCloud.EsCarpetaDeLoteBorrable(_root, "Campo Norte", out string dir);
+
+            Assert.That(ok, Is.True);
+            Assert.That(dir, Is.EqualTo(Path.Combine(_root, "Campo Norte")));
+        }
+
+        [Test]
+        public void EsCarpetaDeLoteBorrable_Punto_Rechaza()
+        {
+            // "." resuelve al propio root — borrarlo es borrar TODOS los lotes.
+            Assert.That(ResolutorLoteCloud.EsCarpetaDeLoteBorrable(_root, ".", out _), Is.False);
+        }
+
+        [Test]
+        public void EsCarpetaDeLoteBorrable_TresPuntos_Rechaza()
+        {
+            // "..." también resuelve al propio root (Windows colapsa los puntos
+            // finales de un segmento de ruta).
+            Assert.That(ResolutorLoteCloud.EsCarpetaDeLoteBorrable(_root, "...", out _), Is.False);
+        }
+
+        [Test]
+        public void EsCarpetaDeLoteBorrable_PuntoConEspacios_TrasCleanNameQuedaEnPunto_Rechaza()
+        {
+            // El controller/adaptador aplica CleanName/LimpiarNombre ANTES de
+            // llamar acá, y "  .  " limpia a ".". Se prueba directo con "."
+            // porque es el valor que de verdad le llega a esta función.
+            Assert.That(ResolutorLoteCloud.EsCarpetaDeLoteBorrable(_root, ".", out _), Is.False);
+        }
+
+        [Test]
+        public void EsCarpetaDeLoteBorrable_NombreConDosPuntosFinales_Rechaza()
+        {
+            CrearLoteLocal("Campo");
+
+            // "Campo.." resuelve a "Fields/Campo" (existe), pero la hoja
+            // resuelta ("Campo") no coincide con el nombre pedido
+            // ("Campo.."): sin este chequeo se borraría "Campo" salteando la
+            // guarda del lote abierto, que compara contra el nombre crudo.
+            Assert.That(ResolutorLoteCloud.EsCarpetaDeLoteBorrable(_root, "Campo..", out _), Is.False);
+        }
+
+        [Test]
+        public void EsCarpetaDeLoteBorrable_NombreConUnPuntoFinal_Rechaza()
+        {
+            CrearLoteLocal("Campo");
+
+            Assert.That(ResolutorLoteCloud.EsCarpetaDeLoteBorrable(_root, "Campo.", out _), Is.False);
+        }
+
+        [Test]
+        public void EsCarpetaDeLoteBorrable_PuntoPuntoHaciaAfuera_Rechaza()
+        {
+            Assert.That(ResolutorLoteCloud.EsCarpetaDeLoteBorrable(_root, "..", out _), Is.False);
+        }
+
+        // ------------------------------------------------------------------
+        // NombresATombstonearTrasBorrar — arreglos 2 y 3: qué nombres hay que
+        // avisarle al sync que no vuelvan a bajar tras borrar una carpeta.
+        // Función pura para que la decisión quede testeada (antes vivía sólo
+        // en EngineLotesService.DeleteFieldAsync, sin ningún test).
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void NombresATombstonear_CarpetaPropiaSinMarcador_EncolaSoloSuNombre()
+        {
+            // El operario borró su propio lote, sin marcador .orbitx y sin
+            // ningún hermano que reclame ese nombre cloud.
+            CrearLoteLocal("Otro Lote"); // hermano irrelevante
+
+            var r = ResolutorLoteCloud.NombresATombstonearTrasBorrar(_root, "Campo Norte", null);
+
+            Assert.That(r, Is.EquivalentTo(new[] { "Campo Norte" }));
+        }
+
+        [Test]
+        public void NombresATombstonear_CarpetaEraElEspejo_EncolaLosDosNombres()
+        {
+            // La carpeta borrada era "Campo (OrbitX)" con lote_cloud="Campo":
+            // hay que tombstonear los dos, porque el pendiente que baja del
+            // cloud llega con ruta_rel="Fields/Campo/…", sin resolver contra
+            // el sufijo "(OrbitX)".
+            var r = ResolutorLoteCloud.NombresATombstonearTrasBorrar(_root, "Campo (OrbitX)", "Campo");
+
+            Assert.That(r, Is.EquivalentTo(new[] { "Campo (OrbitX)", "Campo" }));
+        }
+
+        [Test]
+        public void NombresATombstonear_HermanoEspejoSeQuedaConElNombreCloud_NoLoEncola()
+        {
+            // Caso del arreglo 2: el operario borra SU PROPIO "Campo" (sin
+            // marcador), pero queda vivo un hermano "Campo (OrbitX)" cuyo
+            // marcador dice lote_cloud="Campo". Tombstonear "Campo" bloquearía
+            // para siempre al hermano, que sigue vivo y esperando syncs.
+            string espejo = Path.Combine(_root, "Campo (OrbitX)");
+            Directory.CreateDirectory(espejo);
+            ResolutorLoteCloud.EscribirMarcador(espejo, "Campo", "sha-a");
+
+            var r = ResolutorLoteCloud.NombresATombstonearTrasBorrar(_root, "Campo", null);
+
+            Assert.That(r, Is.Empty);
+        }
+
+        [Test]
+        public void NombresATombstonear_HermanoEspejoConOtroCloud_NoLoBloquea()
+        {
+            // El hermano reclama OTRO nombre cloud: no interfiere.
+            string espejo = Path.Combine(_root, "Otro (OrbitX)");
+            Directory.CreateDirectory(espejo);
+            ResolutorLoteCloud.EscribirMarcador(espejo, "Otro", "sha-a");
+
+            var r = ResolutorLoteCloud.NombresATombstonearTrasBorrar(_root, "Campo", null);
+
+            Assert.That(r, Is.EquivalentTo(new[] { "Campo" }));
+        }
+
+        [Test]
+        public void NombresATombstonear_EraEspejoYAdemasHayHermanoQueReclamaSuPropioNombre_SoloEncolaElCloud()
+        {
+            // La carpeta borrada era ella misma un espejo ("X (OrbitX)" con
+            // lote_cloud="X"), y además hay un hermano ("X (OrbitX 2)") que
+            // por lo que sea también dice lote_cloud="X" (marcador viejo,
+            // por ejemplo). El nombre propio de la carpeta borrada
+            // ("X (OrbitX)") no lo reclama nadie más, así que igual se encola;
+            // "X" se encola una sola vez (ya viene por loteCloudDelPropioMarcador).
+            string hermano = Path.Combine(_root, "X (OrbitX 2)");
+            Directory.CreateDirectory(hermano);
+            ResolutorLoteCloud.EscribirMarcador(hermano, "X", "sha-a");
+
+            var r = ResolutorLoteCloud.NombresATombstonearTrasBorrar(_root, "X (OrbitX)", "X");
+
+            Assert.That(r, Is.EquivalentTo(new[] { "X (OrbitX)", "X" }));
         }
     }
 }

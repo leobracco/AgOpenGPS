@@ -17,6 +17,7 @@
 // ============================================================================
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
@@ -174,11 +175,16 @@ namespace AgroParallel.Services.OrbitX
 
         /// <summary>
         /// True si "candidato" queda DENTRO del árbol de "root" (ambos resueltos
-        /// con GetFullPath). LimpiarNombre saca caracteres inválidos de archivo,
-        /// pero ".." no es uno de ellos — un Path.Combine(root, "../../algo")
-        /// sigue resolviendo hacia AFUERA de root sin que LimpiarNombre lo note.
-        /// Sin este chequeo aparte, un endpoint de borrado sin auth en la LAN
-        /// podría borrar cualquier carpeta del disco, no solo lotes.
+        /// con GetFullPath), INCLUYENDO al propio root — es un chequeo genérico
+        /// de pertenencia al árbol, no una guarda de borrado. LimpiarNombre saca
+        /// caracteres inválidos de archivo, pero ".." no es uno de ellos — un
+        /// Path.Combine(root, "../../algo") sigue resolviendo hacia AFUERA de
+        /// root sin que LimpiarNombre lo note.
+        ///
+        /// OJO: para decidir si una carpeta se puede BORRAR no alcanza con esto
+        /// — el propio root "queda dentro de root" y Directory.Delete(root, true)
+        /// borraría TODOS los lotes (hallazgo 2026-09-16, repro real). Esa guarda,
+        /// más estricta, es <see cref="EsCarpetaDeLoteBorrable"/>.
         /// </summary>
         public static bool QuedaDentroDeRoot(string root, string candidato)
         {
@@ -196,6 +202,111 @@ namespace AgroParallel.Services.OrbitX
                 // Ruta ilegible (chars raros, etc.): del lado seguro, no está adentro.
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Guarda real para BORRAR una carpeta de lote — más estricta que
+        /// <see cref="QuedaDentroDeRoot"/>. Exige DOS cosas del resuelto
+        /// (Path.GetFullPath) de root+nombreLimpio:
+        ///   1) el padre resuelto es EXACTAMENTE el root (no el root mismo, ni
+        ///      dos niveles adentro por un separador raro).
+        ///   2) el nombre de hoja resuelto es IGUAL a nombreLimpio.
+        ///
+        /// Por qué hacen falta las dos, con repro real (hallazgo 2026-09-16):
+        ///   · nombreLimpio = "." o "..." → Windows COLAPSA los puntos finales
+        ///     al resolver la ruta y el resultado es el propio root → sin la
+        ///     condición (1) se borraría Fields/ entero.
+        ///   · nombreLimpio = "Campo.." o "Campo." → resuelve a "Fields/Campo"
+        ///     (existe de verdad) pero la hoja resuelta ("Campo") NO coincide
+        ///     con el nombre pedido ("Campo..") → sin la condición (2) se
+        ///     borraría "Campo" salteando la guarda del lote abierto, que
+        ///     compara contra el nombre CRUDO, no contra el resuelto.
+        ///
+        /// devuelve, en directorioResuelto, la ruta ya resuelta — el caller la
+        /// necesita para comparar contra el lote abierto por el nombre
+        /// REALMENTE afectado, no por el nombre crudo que mandó el cliente.
+        /// </summary>
+        public static bool EsCarpetaDeLoteBorrable(string root, string nombreLimpio, out string directorioResuelto)
+        {
+            directorioResuelto = null;
+            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(nombreLimpio)) return false;
+            try
+            {
+                string fullRoot = Path.GetFullPath(root)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string full = Path.GetFullPath(Path.Combine(root, nombreLimpio))
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (!string.Equals(Path.GetDirectoryName(full), fullRoot, StringComparison.OrdinalIgnoreCase))
+                    return false;
+                if (!string.Equals(Path.GetFileName(full), nombreLimpio, StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                directorioResuelto = full;
+                return true;
+            }
+            catch
+            {
+                // Ruta ilegible: del lado seguro, no se puede borrar.
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Decide qué nombres hay que tombstonear (avisarle al sync que no
+        /// vuelvan a bajar) cuando se borró la carpeta "nombreCarpetaBorrada"
+        /// dentro de "fieldsRoot". Pensada para llamarse DESPUÉS de borrar la
+        /// carpeta del disco — ya no está, así que no aparece como "hermana"
+        /// en el barrido de abajo.
+        ///
+        /// Devuelve hasta dos nombres:
+        ///   · el nombre de la propia carpeta borrada — SALVO que un hermano
+        ///     VIVO tenga un marcador .orbitx cuyo lote_cloud sea ESE mismo
+        ///     nombre (arreglo 2026-09-16): en ese caso el nombre cloud le
+        ///     pertenece al espejo ajeno, no al lote recién borrado, y
+        ///     tombstonearlo dejaría a ese espejo congelado para siempre
+        ///     esperando un sync que el tombstone bloquea.
+        ///   · el lote_cloud del propio marcador de la carpeta borrada
+        ///     (loteCloudDelPropioMarcador), si tenía uno y era distinto de su
+        ///     nombre de carpeta — o sea, si la carpeta borrada era ELLA MISMA
+        ///     el espejo de otro nombre cloud.
+        /// </summary>
+        public static IReadOnlyList<string> NombresATombstonearTrasBorrar(
+            string fieldsRoot, string nombreCarpetaBorrada, string loteCloudDelPropioMarcador)
+        {
+            var resultado = new List<string>();
+            if (string.IsNullOrEmpty(nombreCarpetaBorrada)) return resultado;
+
+            if (!ExisteHermanoQueReclamaEseNombreCloud(fieldsRoot, nombreCarpetaBorrada))
+                resultado.Add(nombreCarpetaBorrada);
+
+            if (!string.IsNullOrEmpty(loteCloudDelPropioMarcador) &&
+                !string.Equals(loteCloudDelPropioMarcador, nombreCarpetaBorrada, StringComparison.OrdinalIgnoreCase))
+            {
+                resultado.Add(loteCloudDelPropioMarcador);
+            }
+
+            return resultado;
+        }
+
+        // Barre las carpetas que quedan en fieldsRoot buscando un marcador
+        // .orbitx cuyo lote_cloud sea exactamente nombreCloud: si existe, ese
+        // nombre "pertenece" a esa carpeta viva, no al lote que se acaba de
+        // borrar.
+        private static bool ExisteHermanoQueReclamaEseNombreCloud(string fieldsRoot, string nombreCloud)
+        {
+            if (string.IsNullOrEmpty(fieldsRoot) || !Directory.Exists(fieldsRoot)) return false;
+            try
+            {
+                foreach (var dir in Directory.GetDirectories(fieldsRoot))
+                {
+                    string marcador = LeerLoteCloud(dir);
+                    if (string.Equals(marcador, nombreCloud, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+            catch { /* del lado seguro: si no se puede enumerar, no se asume dueño */ }
+            return false;
         }
 
         private sealed class MarcadorOrbitX
