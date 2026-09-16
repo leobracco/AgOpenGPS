@@ -338,11 +338,27 @@ namespace PilotX.GuidanceEngine.Adapters
             if (string.IsNullOrEmpty(clean)) return Task.FromResult(false);
 
             string root = RegistrySettings.fieldsDirectory;
-            string templateDir = Path.Combine(root, templateName);
+
+            // El template va por la MISMA guarda que el borrado. Antes entraba
+            // crudo a Path.Combine, así que un templateName con ".." leía el
+            // Field.txt de cualquier carpeta del disco y se lo copiaba al lote
+            // nuevo — la ruta la sirve una WebApi sin auth abierta a la LAN.
+            // Coincidencia exacta además del saneo: el nombre siempre sale de
+            // GET /api/lotes, no necesita indulgencia (misma familia de bug que
+            // el " Campo" que borraba "Campo").
+            string cleanTemplate = CleanName(templateName);
+            if (string.IsNullOrEmpty(cleanTemplate)) return Task.FromResult(false);
+            if (!string.Equals(cleanTemplate, templateName, StringComparison.Ordinal))
+                return Task.FromResult(false);
+            if (!ResolutorLoteCloud.EsCarpetaDeLoteBorrable(root, cleanTemplate, out string templateDir))
+                return Task.FromResult(false);
+
             string templateField = Path.Combine(templateDir, "Field.txt");
             if (!File.Exists(templateField)) return Task.FromResult(false);
 
-            string newDir = Path.Combine(root, clean);
+            // El destino también: sin esto, newName "." resolvía al propio root.
+            if (!ResolutorLoteCloud.EsCarpetaDeLoteBorrable(root, clean, out string newDir))
+                return Task.FromResult(false);
             if (Directory.Exists(newDir)) return Task.FromResult(false);
 
             string offsets, convergence, startFix;
