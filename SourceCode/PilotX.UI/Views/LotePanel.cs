@@ -40,6 +40,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 
 namespace PilotX.Desktop.Views;
 
@@ -83,6 +84,13 @@ public sealed class LotePanel : Border
     private readonly TextBlock _nombreLbl;
     private readonly Border _avisoBox;         // banner de aviso (Border + IsVisible, NUNCA modal)
     private readonly TextBlock _avisoTxt;
+    private readonly Border _avisoListaBox;    // banner de aviso propio de la lista (no se ve el de "nombre")
+    private readonly TextBlock _avisoListaTxt;
+
+    // Doble toque de confirmación para borrar: botón → (timer de 3 s, etiqueta
+    // original). Mismo mecanismo que ContornoPanel y GuiasPanel — en cabina no
+    // se usan modales.
+    private readonly Dictionary<Button, (DispatcherTimer Timer, string Etiqueta)> _confirmandoBorrado = new();
 
     // La lista sirve para dos cosas; el modo decide qué hace el toque.
     private string _modoLista = "abrir";      // "abrir" | "plantilla"
@@ -106,7 +114,7 @@ public sealed class LotePanel : Border
         };
 
         _scMenu   = ArmarMenu(out _pie, out _btnCerrarLote);
-        _scLista  = ArmarLista(out _listaTitulo, out _listaFilas);
+        _scLista  = ArmarLista(out _listaTitulo, out _listaFilas, out _avisoListaBox, out _avisoListaTxt);
         _scNombre = ArmarNombre(out _nombreLbl, out _txtNombre, out _avisoBox, out _avisoTxt);
 
         var stage = new Panel();
@@ -164,6 +172,12 @@ public sealed class LotePanel : Border
 
     private void Mostrar(string cual)
     {
+        // Salir de la lista no debe dejar un borrado a medio confirmar.
+        CancelarConfirmacionesBorrado();
+        // Entrar a la lista de cero no debe arrastrar el aviso de la vez anterior
+        // (al recargar tras un borrado, en cambio, CargarListaAsync no pasa por
+        // acá, así que el aviso que se acaba de mostrar sobrevive el refresco).
+        if (cual == "lista") OcultarAvisoLista();
         _scMenu.IsVisible   = cual == "menu";
         _scLista.IsVisible  = cual == "lista";
         _scNombre.IsVisible = cual == "nombre";
@@ -270,7 +284,7 @@ public sealed class LotePanel : Border
     }
 
     // ---- LISTA (abrir o elegir plantilla) ----------------------------------
-    private StackPanel ArmarLista(out TextBlock titulo, out StackPanel filas)
+    private StackPanel ArmarLista(out TextBlock titulo, out StackPanel filas, out Border avisoBox, out TextBlock avisoTxt)
     {
         var p = new StackPanel { Spacing = 8, IsVisible = false };
 
@@ -303,11 +317,29 @@ public sealed class LotePanel : Border
             BorderBrush = Borde, BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8), Background = BgFila, Padding = new Thickness(6)
         });
+
+        // ---------- banner de aviso propio de la lista (Border + IsVisible: NADA de Flyout sobre el mapa GL) ----------
+        // El de ArmarNombre vive en la pantalla "nombre" y no se ve desde acá.
+        avisoTxt = new TextBlock
+        {
+            Text = "", FontSize = 13, FontWeight = FontWeight.SemiBold,
+            Foreground = TextoError, TextWrapping = TextWrapping.Wrap,
+        };
+        avisoBox = new Border
+        {
+            Child = avisoTxt, Background = BgError, BorderBrush = RojoTexto,
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(8, 6, 8, 6), IsVisible = false,
+        };
+        p.Children.Add(avisoBox);
         return p;
     }
 
     private async Task CargarListaAsync()
     {
+        // Los botones de la lista se van a recrear: cualquier "¿Seguro?" armado
+        // apuntaría a un botón que ya no existe.
+        CancelarConfirmacionesBorrado();
         _listaFilas.Children.Clear();
         _listaFilas.Children.Add(new TextBlock
         {
@@ -336,7 +368,9 @@ public sealed class LotePanel : Border
             string nombre = l.Name ?? "";
             if (nombre.Length == 0) continue;
 
-            var fila = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Height = 48 };
+            // Tercera columna para el botón de borrar. La segunda sigue siendo
+            // las hectáreas.
+            var fila = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Height = 48 };
             // Nombre del lote = dato del operario: no se traduce.
             var b = new Button
             {
@@ -371,6 +405,40 @@ public sealed class LotePanel : Border
                 };
                 Grid.SetColumn(ha, 1);
                 fila.Children.Add(ha);
+            }
+
+            // Borrar: sólo en modo lista normal (en modo plantilla se elige un
+            // lote para clonar, no para borrarlo) y nunca para el lote abierto,
+            // que el backend rechaza igual.
+            if (_modoLista != "plantilla" && nombre != _actual)
+            {
+                var btnBorrar = new Button
+                {
+                    Content = PilotX.Cockpit.Bars.Traductor.T("Borrar"),
+                    Foreground = new SolidColorBrush(Color.Parse("#C0504A")),
+                    Background = BgFila,
+                    BorderThickness = new Thickness(0),
+                    FontSize = 14,
+                    Height = 48,
+                    Padding = new Thickness(12, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                btnBorrar.Click += async (_, __) =>
+                {
+                    if (!PedirConfirmacionBorrado(btnBorrar, "Borrar")) return;
+                    var r = await PostAsync("/api/lotes/delete?name=" + Uri.EscapeDataString(nombre));
+                    if (EsOk(r))
+                    {
+                        AvisarEnLista(PilotX.Cockpit.Bars.Traductor.T("Lote borrado") + ": " + nombre);
+                        await CargarListaAsync();
+                    }
+                    else
+                    {
+                        AvisarEnLista(PilotX.Cockpit.Bars.Traductor.T("No se pudo borrar. ¿Está abierto? Cerralo primero."));
+                    }
+                };
+                Grid.SetColumn(btnBorrar, 2);
+                fila.Children.Add(btnBorrar);
             }
             _listaFilas.Children.Add(new Border
             {
@@ -463,6 +531,14 @@ public sealed class LotePanel : Border
         _avisoBox.IsVisible = false;
     }
 
+    private void AvisarEnLista(string texto)
+    {
+        _avisoListaTxt.Text = texto;
+        _avisoListaBox.IsVisible = true;
+    }
+
+    private void OcultarAvisoLista() => _avisoListaBox.IsVisible = false;
+
     /// <summary>
     /// Código del wire → texto que el operario entiende. Mismos motivos y
     /// mismos textos que MOTIVOS en lote.js (la UI web) — /api/lotes/create
@@ -476,6 +552,39 @@ public sealed class LotePanel : Border
         "sin_directorio_de_lotes" => PilotX.Cockpit.Bars.Traductor.T("No está configurada la carpeta de lotes"),
         _                         => PilotX.Cockpit.Bars.Traductor.T("No se pudo crear el lote"),
     };
+
+    /// <summary>
+    /// Doble toque de confirmación, sin modales (regla de cabina): el primer
+    /// toque cambia el texto a "¿Seguro?"; el segundo dentro de 3 s confirma.
+    /// Devuelve true cuando hay que ejecutar el borrado.
+    /// </summary>
+    private bool PedirConfirmacionBorrado(Button b, string etiqueta)
+    {
+        if (_confirmandoBorrado.ContainsKey(b))
+        {
+            CancelarConfirmacionBorrado(b);
+            return true;
+        }
+        b.Content = PilotX.Cockpit.Bars.Traductor.T("¿Seguro?");
+        var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        _confirmandoBorrado[b] = (t, etiqueta);
+        t.Tick += (_, _) => CancelarConfirmacionBorrado(b);
+        t.Start();
+        return false;
+    }
+
+    private void CancelarConfirmacionBorrado(Button b)
+    {
+        if (!_confirmandoBorrado.TryGetValue(b, out var c)) return;
+        try { c.Timer.Stop(); } catch { }
+        _confirmandoBorrado.Remove(b);
+        b.Content = PilotX.Cockpit.Bars.Traductor.T(c.Etiqueta);
+    }
+
+    private void CancelarConfirmacionesBorrado()
+    {
+        foreach (var b in new List<Button>(_confirmandoBorrado.Keys)) CancelarConfirmacionBorrado(b);
+    }
 
     private static bool EsOk(JsonElement? r) =>
         r != null && r.Value.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True;
