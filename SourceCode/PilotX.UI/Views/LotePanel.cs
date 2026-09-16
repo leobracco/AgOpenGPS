@@ -89,6 +89,16 @@ public sealed class LotePanel : Border
     private readonly Border _avisoListaBox;    // banner de aviso propio de la lista (no se ve el de "nombre")
     private readonly TextBlock _avisoListaTxt;
 
+    // El Traductor cachea el PRIMER Text que ve en cada TextBlock (para poder
+    // volver al castellano) y lo reescribe en TODAS las pasadas de Aplicar()
+    // siguientes. _avisoListaTxt arranca con Text = "" (no hay aviso al crear
+    // el panel), así que ese "" quedó cacheado como "original" — y como
+    // CargarListaAsync termina con su propio Traductor.Aplicar(this) (retraduce
+    // la lista recién armada), CADA borrado exitoso mostraba el recuadro rojo
+    // VACÍO. Se guarda acá el texto pendiente para repintarlo después de ese
+    // Aplicar, en vez de antes (ver RepintarAvisoListaPendiente).
+    private string? _avisoListaPendiente;
+
     // Doble toque de confirmación para borrar: botón → (timer de 3 s, etiqueta
     // original). Mismo mecanismo que ContornoPanel y GuiasPanel — en cabina no
     // se usan modales.
@@ -399,6 +409,7 @@ public sealed class LotePanel : Border
                 Text = "No hay lotes", Foreground = TextoMuted, Margin = new Thickness(8)
             });
             PilotX.Cockpit.Bars.Traductor.Aplicar(this);
+            RepintarAvisoListaPendiente();
             return;
         }
 
@@ -486,6 +497,7 @@ public sealed class LotePanel : Border
             });
         }
         PilotX.Cockpit.Bars.Traductor.Aplicar(this);
+        RepintarAvisoListaPendiente();
     }
 
     /// <summary>
@@ -625,11 +637,27 @@ public sealed class LotePanel : Border
 
     private void AvisarEnLista(string texto)
     {
+        _avisoListaPendiente = texto;
         _avisoListaTxt.Text = texto;
         _avisoListaBox.IsVisible = true;
     }
 
-    private void OcultarAvisoLista() => _avisoListaBox.IsVisible = false;
+    private void OcultarAvisoLista()
+    {
+        _avisoListaPendiente = null;
+        _avisoListaBox.IsVisible = false;
+    }
+
+    /// <summary>
+    /// Repone el texto del aviso de lista DESPUÉS de un Traductor.Aplicar(this):
+    /// ver el comentario de _avisoListaPendiente. Hay que llamarla siempre
+    /// después de Aplicar(), nunca antes — si no, Aplicar la vuelve a pisar.
+    /// </summary>
+    private void RepintarAvisoListaPendiente()
+    {
+        if (_avisoListaBox.IsVisible && _avisoListaPendiente != null)
+            _avisoListaTxt.Text = _avisoListaPendiente;
+    }
 
     /// <summary>
     /// Código del wire → texto que el operario entiende. Mismos motivos y
