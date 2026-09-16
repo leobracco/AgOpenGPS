@@ -29,6 +29,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -80,6 +81,7 @@ public sealed class LotePanel : Border
     private readonly Button _btnCerrarLote;
     private readonly StackPanel _listaFilas;
     private readonly TextBlock _listaTitulo;
+    private readonly Button _btnBorrarTodos;
     private readonly TextBox _txtNombre;
     private readonly TextBlock _nombreLbl;
     private readonly Border _avisoBox;         // banner de aviso (Border + IsVisible, NUNCA modal)
@@ -91,6 +93,10 @@ public sealed class LotePanel : Border
     // original). Mismo mecanismo que ContornoPanel y GuiasPanel — en cabina no
     // se usan modales.
     private readonly Dictionary<Button, (DispatcherTimer Timer, string Etiqueta)> _confirmandoBorrado = new();
+
+    // Segundo paso del borrado masivo: true cuando la primera confirmación ya
+    // se dio y estamos esperando la segunda.
+    private bool _borradoMasivoArmado;
 
     // La lista sirve para dos cosas; el modo decide qué hace el toque.
     private string _modoLista = "abrir";      // "abrir" | "plantilla"
@@ -114,7 +120,8 @@ public sealed class LotePanel : Border
         };
 
         _scMenu   = ArmarMenu(out _pie, out _btnCerrarLote);
-        _scLista  = ArmarLista(out _listaTitulo, out _listaFilas, out _avisoListaBox, out _avisoListaTxt);
+        _scLista  = ArmarLista(out _listaTitulo, out _listaFilas, out _avisoListaBox, out _avisoListaTxt, out _btnBorrarTodos);
+        _btnBorrarTodos.Click += (_, __) => OnBorrarTodos();
         _scNombre = ArmarNombre(out _nombreLbl, out _txtNombre, out _avisoBox, out _avisoTxt);
 
         var stage = new Panel();
@@ -284,7 +291,7 @@ public sealed class LotePanel : Border
     }
 
     // ---- LISTA (abrir o elegir plantilla) ----------------------------------
-    private StackPanel ArmarLista(out TextBlock titulo, out StackPanel filas, out Border avisoBox, out TextBlock avisoTxt)
+    private StackPanel ArmarLista(out TextBlock titulo, out StackPanel filas, out Border avisoBox, out TextBlock avisoTxt, out Button btnBorrarTodos)
     {
         var p = new StackPanel { Spacing = 8, IsVisible = false };
 
@@ -318,6 +325,25 @@ public sealed class LotePanel : Border
             CornerRadius = new CornerRadius(8), Background = BgFila, Padding = new Thickness(6)
         });
 
+        // Borrar todos: NO es para el día a día, es para preparar una pantalla
+        // nueva o limpiar un equipo de demo. Por eso va al pie, en rojo, y pide
+        // DOS confirmaciones: la primera dice cuántos lotes son.
+        btnBorrarTodos = new Button
+        {
+            Content = PilotX.Cockpit.Bars.Traductor.T("Borrar todos"),
+            Foreground = new SolidColorBrush(Color.Parse("#C0504A")),
+            Background = BgFila,
+            BorderBrush = new SolidColorBrush(Color.Parse("#C0504A")),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            FontSize = 14,
+            Height = 44,
+            Margin = new Thickness(0, 8, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Padding = new Thickness(16, 0),
+        };
+        p.Children.Add(btnBorrarTodos);
+
         // ---------- banner de aviso propio de la lista (Border + IsVisible: NADA de Flyout sobre el mapa GL) ----------
         // El de ArmarNombre vive en la pantalla "nombre" y no se ve desde acá.
         avisoTxt = new TextBlock
@@ -348,6 +374,8 @@ public sealed class LotePanel : Border
         _listaTitulo.Text = _modoLista == "plantilla"
             ? PilotX.Cockpit.Bars.Traductor.T("Tocá el lote que querés usar de plantilla")
             : PilotX.Cockpit.Bars.Traductor.T("Tocá un lote para abrirlo");
+        // En modo plantilla se elige un lote para clonar: borrar no aplica.
+        _btnBorrarTodos.IsVisible = _modoLista != "plantilla";
 
         var raiz = await GetAsync("/api/lotes");
         _lotes = ParsearLotes(raiz);
@@ -447,6 +475,59 @@ public sealed class LotePanel : Border
             });
         }
         PilotX.Cockpit.Bars.Traductor.Aplicar(this);
+    }
+
+    /// <summary>
+    /// Borrar todos: NO es para el día a día, es para preparar una pantalla
+    /// nueva o limpiar un equipo de demo. Pide DOS confirmaciones — la
+    /// primera dice cuántos lotes son y que el abierto no se toca.
+    /// </summary>
+    private async void OnBorrarTodos()
+    {
+        var borrables = _lotes
+            .Select(l => l.Name ?? "")
+            .Where(n => n.Length > 0 && n != _actual)
+            .ToList();
+
+        if (borrables.Count == 0)
+        {
+            AvisarEnLista(_actual != null
+                ? PilotX.Cockpit.Bars.Traductor.T("No hay lotes para borrar (el abierto no se borra)")
+                : PilotX.Cockpit.Bars.Traductor.T("No hay lotes para borrar"));
+            return;
+        }
+
+        // Primera confirmación: decir CUÁNTOS y qué queda afuera.
+        if (!_borradoMasivoArmado)
+        {
+            _borradoMasivoArmado = true;
+            _btnBorrarTodos.Content = PilotX.Cockpit.Bars.Traductor.T("Confirmar borrado");
+            AvisarEnLista(string.Format(
+                PilotX.Cockpit.Bars.Traductor.T("Se van a borrar {0} lotes. No se puede deshacer."),
+                borrables.Count)
+                + (_actual != null
+                    ? " " + PilotX.Cockpit.Bars.Traductor.T("El lote abierto no se toca.")
+                    : ""));
+            return;
+        }
+
+        // Segunda: ejecuta.
+        _borradoMasivoArmado = false;
+        _btnBorrarTodos.Content = PilotX.Cockpit.Bars.Traductor.T("Borrar todos");
+
+        int fallas = 0;
+        foreach (var nombre in borrables)
+        {
+            var r = await PostAsync("/api/lotes/delete?name=" + Uri.EscapeDataString(nombre));
+            if (!EsOk(r)) fallas++;
+        }
+
+        AvisarEnLista(fallas == 0
+            ? string.Format(PilotX.Cockpit.Bars.Traductor.T("Se borraron {0} lotes"), borrables.Count)
+            : string.Format(PilotX.Cockpit.Bars.Traductor.T("Se borraron {0}, {1} no se pudieron"),
+                            borrables.Count - fallas, fallas));
+
+        await CargarListaAsync();
     }
 
     // ---- NOMBRE (nuevo lote, o nombre del clon) ----------------------------
@@ -584,6 +665,12 @@ public sealed class LotePanel : Border
     private void CancelarConfirmacionesBorrado()
     {
         foreach (var b in new List<Button>(_confirmandoBorrado.Keys)) CancelarConfirmacionBorrado(b);
+
+        if (_borradoMasivoArmado)
+        {
+            _borradoMasivoArmado = false;
+            _btnBorrarTodos.Content = PilotX.Cockpit.Bars.Traductor.T("Borrar todos");
+        }
     }
 
     private static bool EsOk(JsonElement? r) =>
