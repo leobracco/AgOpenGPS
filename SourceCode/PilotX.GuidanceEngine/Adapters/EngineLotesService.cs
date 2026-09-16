@@ -230,23 +230,59 @@ namespace PilotX.GuidanceEngine.Adapters
         /// <summary>
         /// Borra la carpeta del lote. Se niega a borrar el lote ABIERTO: hay que
         /// cerrarlo antes, si no se estaría borrando el piso mientras se trabaja.
+        ///
+        /// El nombre se sanea igual que CreateFieldAsync (CleanName) y, además,
+        /// se verifica que la carpeta resultante quede DENTRO de Fields/ antes
+        /// de tocar el disco: CleanName saca caracteres inválidos de archivo,
+        /// pero ".." no es uno de ellos, y este endpoint no tiene auth propia
+        /// en toda la LAN — sin el chequeo de contención, un "../.." se podría
+        /// usar para borrar cualquier carpeta fuera de Fields/.
         /// </summary>
         public Task<bool> DeleteFieldAsync(string name)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(name)) return Task.FromResult(false);
+                string clean = CleanName(name);
+                if (string.IsNullOrEmpty(clean)) return Task.FromResult(false);
+
                 string root = RegistrySettings.fieldsDirectory;
-                string dir = Path.Combine(root, name);
+                if (string.IsNullOrEmpty(root)) return Task.FromResult(false);
+                string dir = Path.Combine(root, clean);
+                if (!ResolutorLoteCloud.QuedaDentroDeRoot(root, dir)) return Task.FromResult(false);
+
                 if (!Directory.Exists(dir)) return Task.FromResult(false);
                 if (_host.IsJobStarted &&
-                    string.Equals(_host.currentFieldDirectory, name, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(_host.currentFieldDirectory, clean, StringComparison.OrdinalIgnoreCase))
                     return Task.FromResult(false);
+
+                // Si esta carpeta es el ESPEJO de un lote cloud (marcador .orbitx
+                // con lote_cloud distinto del nombre de la carpeta — ver
+                // ResolutorLoteCloud), el tombstone tiene que cubrir los DOS
+                // nombres. El pendiente que baja del cloud llega con ruta_rel =
+                // "Fields/<loteCloud>/…", SIN resolver contra el sufijo "(OrbitX)"
+                // (OrbitXSync.GuardarArchivoDeLote lo dice explícito); si acá solo
+                // se encola el nombre de carpeta, EstaBorrado(loteCloud) da falso
+                // y el próximo sync repone el lote recién borrado. Se lee el
+                // marcador ANTES de borrar, porque después ya no está.
+                string loteCloudEspejo = ResolutorLoteCloud.LeerLoteCloud(dir);
+                if (string.Equals(loteCloudEspejo, clean, StringComparison.OrdinalIgnoreCase))
+                    loteCloudEspejo = null; // no había colisión: el nombre de carpeta YA es el del cloud
+
                 Directory.Delete(dir, true);
 
                 // Avisarle al sync para que lo propague al cloud. Va DESPUÉS del
                 // borrado real: si el Delete tira, no hay nada que avisar.
-                try { AlBorrarLote?.Invoke(name); } catch { /* el aviso no puede tumbar el borrado */ }
+                try
+                {
+                    AlBorrarLote?.Invoke(clean);
+                    // Sólo cuando ESTA carpeta era el espejo: si el operario borró
+                    // SU PROPIO lote (sin marcador), no hay que encolar ningún
+                    // nombre extra — eso bloquearía para siempre al espejo ajeno
+                    // "<nombre> (OrbitX)", que el operario no borró.
+                    if (loteCloudEspejo != null) AlBorrarLote?.Invoke(loteCloudEspejo);
+                }
+                catch { /* el aviso no puede tumbar el borrado */ }
 
                 // La entrada cacheada del lote borrado queda colgada si no se
                 // saca: ListFields la seguiría usando para un directorio que ya

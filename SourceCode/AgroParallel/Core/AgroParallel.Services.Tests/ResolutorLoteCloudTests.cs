@@ -195,5 +195,77 @@ namespace AgroParallel.Services.Tests
             Assert.That(d.NombreCarpeta, Is.EqualTo("Lote12"));
             Assert.That(d.NombreCarpeta.IndexOfAny(Path.GetInvalidFileNameChars()), Is.EqualTo(-1));
         }
+
+        // ------------------------------------------------------------------
+        // LeerLoteCloud — expuesto para que el borrado de lotes (arreglo del
+        // tombstone del espejo) no duplique el parseo del marcador.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void LeerLoteCloud_SinMarcador_DevuelveNull()
+        {
+            string dir = CrearLoteLocal("Campo Norte");
+
+            Assert.That(ResolutorLoteCloud.LeerLoteCloud(dir), Is.Null);
+        }
+
+        [Test]
+        public void LeerLoteCloud_ConMarcador_DevuelveElNombreCloud()
+        {
+            string dir = Path.Combine(_root, "Campo Norte (OrbitX)");
+            Directory.CreateDirectory(dir);
+            ResolutorLoteCloud.EscribirMarcador(dir, "Campo Norte", "sha-a");
+
+            Assert.That(ResolutorLoteCloud.LeerLoteCloud(dir), Is.EqualTo("Campo Norte"));
+        }
+
+        [Test]
+        public void LeerLoteCloud_MarcadorRoto_DevuelveNull()
+        {
+            string dir = Path.Combine(_root, "Campo Norte");
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, ".orbitx"), "{ esto no es json");
+
+            Assert.That(ResolutorLoteCloud.LeerLoteCloud(dir), Is.Null);
+        }
+
+        // ------------------------------------------------------------------
+        // QuedaDentroDeRoot — chequeo de contención para el borrado (arreglo 5):
+        // un nombre con ".." no tiene caracteres inválidos de archivo, así que
+        // LimpiarNombre solo no alcanza para bloquearlo.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void QuedaDentroDeRoot_CarpetaDentro_DevuelveTrue()
+        {
+            string candidato = Path.Combine(_root, "Campo Norte");
+
+            Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, candidato), Is.True);
+        }
+
+        [Test]
+        public void QuedaDentroDeRoot_ConPuntoPuntoHaciaAfuera_DevuelveFalse()
+        {
+            string candidato = Path.Combine(_root, "..", "..", "algo_fuera_de_fields");
+
+            Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, candidato), Is.False);
+        }
+
+        [Test]
+        public void QuedaDentroDeRoot_ElPropioRoot_DevuelveTrue()
+        {
+            Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, _root), Is.True);
+        }
+
+        [Test]
+        public void QuedaDentroDeRoot_CarpetaHermanaConPrefijoParecido_DevuelveFalse()
+        {
+            // "_root2" empieza con la misma cadena que "_root" pero NO es un
+            // subdirectorio: un chequeo ingenuo con StartsWith(root) sin la
+            // barra separadora lo dejaría pasar.
+            string hermana = _root + "2";
+
+            Assert.That(ResolutorLoteCloud.QuedaDentroDeRoot(_root, hermana), Is.False);
+        }
     }
 }

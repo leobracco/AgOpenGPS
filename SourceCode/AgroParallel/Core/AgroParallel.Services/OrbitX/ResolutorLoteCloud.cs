@@ -161,6 +161,43 @@ namespace AgroParallel.Services.OrbitX
             return sb.ToString().Trim();
         }
 
+        /// <summary>
+        /// Lee el <c>lote_cloud</c> grabado en el marcador .orbitx de una carpeta,
+        /// o null si la carpeta no tiene marcador (es del operario) o el marcador
+        /// está roto. Expuesto para que otros callers (ej. el borrado de lotes,
+        /// que necesita saber si la carpeta que se está por borrar es el espejo
+        /// de un lote cloud) no dupliquen el parseo del JSON — la única fuente de
+        /// verdad sobre el formato del marcador es este archivo.
+        /// </summary>
+        public static string LeerLoteCloud(string directorio)
+            => LeerMarcador(directorio)?.LoteCloud;
+
+        /// <summary>
+        /// True si "candidato" queda DENTRO del árbol de "root" (ambos resueltos
+        /// con GetFullPath). LimpiarNombre saca caracteres inválidos de archivo,
+        /// pero ".." no es uno de ellos — un Path.Combine(root, "../../algo")
+        /// sigue resolviendo hacia AFUERA de root sin que LimpiarNombre lo note.
+        /// Sin este chequeo aparte, un endpoint de borrado sin auth en la LAN
+        /// podría borrar cualquier carpeta del disco, no solo lotes.
+        /// </summary>
+        public static bool QuedaDentroDeRoot(string root, string candidato)
+        {
+            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(candidato)) return false;
+            try
+            {
+                string fullRoot = Path.GetFullPath(root)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string fullCand = Path.GetFullPath(candidato);
+                return fullCand.Equals(fullRoot, StringComparison.OrdinalIgnoreCase)
+                    || fullCand.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                // Ruta ilegible (chars raros, etc.): del lado seguro, no está adentro.
+                return false;
+            }
+        }
+
         private sealed class MarcadorOrbitX
         {
             [System.Text.Json.Serialization.JsonPropertyName("lote_cloud")]

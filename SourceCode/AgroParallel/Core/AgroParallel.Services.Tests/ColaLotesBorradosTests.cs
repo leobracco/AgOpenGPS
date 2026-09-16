@@ -180,6 +180,45 @@ namespace AgroParallel.Services.Tests
             Assert.That(c.Pendientes(), Is.Empty);
         }
 
+        // Caso del espejo "(OrbitX)": el operario borra el espejo "Campo Norte
+        // (OrbitX)" (nombre de CARPETA), pero el pendiente que baja del cloud
+        // llega con "Campo Norte" (nombre CLOUD, sin resolver, ver
+        // OrbitXSync.GuardarArchivoDeLote). Si el caller (EngineLotesService)
+        // sólo encola el nombre de carpeta, EstaBorrado("Campo Norte") da falso
+        // y el sync repone el lote recién borrado. El fix es que el caller
+        // encole LOS DOS nombres — este test fija el contrato que necesita para
+        // que el arreglo funcione: encolar ambos nombres tiene que proteger a
+        // los dos por separado.
+        [Test]
+        public void EncolarNombreDeCarpetaYNombreCloud_ProtegeALosDos()
+        {
+            var c = new ColaLotesBorrados(_archivo);
+
+            c.Encolar("Campo Norte (OrbitX)"); // nombre de carpeta (lo que borró el operario)
+            c.Encolar("Campo Norte");          // nombre cloud (lo que manda el pendiente sin resolver)
+
+            Assert.That(c.EstaBorrado("Campo Norte (OrbitX)"), Is.True);
+            Assert.That(c.EstaBorrado("Campo Norte"), Is.True);
+            Assert.That(c.Pendientes(), Is.EquivalentTo(new[] { "Campo Norte (OrbitX)", "Campo Norte" }));
+        }
+
+        // Espejo: si el cloud confirma el borrado de UNO de los dos nombres
+        // (p.ej. el nombre cloud, que es el que existe del lado del server), el
+        // otro (el de carpeta local) puede seguir protegido hasta su propia
+        // confirmación — Confirmar es por nombre, no borra "la pareja" sola.
+        [Test]
+        public void Espejo_ConfirmarUnNombreNoLevantaElTombstoneDelOtro()
+        {
+            var c = new ColaLotesBorrados(_archivo);
+            c.Encolar("Campo Norte (OrbitX)");
+            c.Encolar("Campo Norte");
+
+            c.Confirmar("Campo Norte");
+
+            Assert.That(c.EstaBorrado("Campo Norte"), Is.False);
+            Assert.That(c.EstaBorrado("Campo Norte (OrbitX)"), Is.True);
+        }
+
         // AtomicJson deja el .bak con la versión anterior recién en el SEGUNDO
         // guardado (el primero crea el archivo, no hay nada previo que
         // respaldar). Con el principal corrupto pero el .bak sano, la cola se
