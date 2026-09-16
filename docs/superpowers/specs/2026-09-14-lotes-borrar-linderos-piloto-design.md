@@ -136,13 +136,40 @@ Borra local **y avisa a OrbitX**. Pero no bloquea: en el lote no hay WiFi.
 
 ### Diseño
 
-**UI** (`lote.html` / `lote.js`, pantalla "Abrir lote"): cada ítem de la lista
-suma un botón de borrar. Toque → confirmación **inline** con el nombre del lote.
-Nada de `confirm()` nativo: los diálogos modales del WebView bloquean el host y
-dejan la cabina sin responder.
+> **Corregido el 2026-09-15.** La versión original de esta sección decía que la
+> UI iba en `lote.html`/`lote.js`. Es falso: la cabina del PC abre el panel
+> **nativo** `PilotX.UI/Views/LotePanel.cs` (`MainWindow.axaml.cs:6523`,
+> `case "lote_menu"`). `lote.html` es el head web/Android
+> (`MainView.axaml.cs:222`). Es el mismo error que costó una ronda de revisión
+> en el trabajo de linderos.
+
+**El borrado ya está escrito, y es inalcanzable.** `wwwroot/js/lote-rapido.js`
+tiene borrado de a uno (`:120`) y borrado masivo (`:156`), con modal propio
+(`AgpModal.confirm`, porque `confirm()` nativo está muerto en WebView2) y
+manejo de errores. Pero **nadie abre `lote-rapido.html`**: no hay una sola
+referencia fuera de su propio `<script>`. Es el tercer caso del mismo patrón en
+este repo, junto con el lightbar GL que nunca se dibujaba y los settings
+huérfanos de la barra guía.
+
+Así que el trabajo no es escribir el borrado: es **conectarlo a la pantalla que
+el operario abre de verdad**.
+
+**UI** — el botón va en la lista de lotes de **`LotePanel.cs`**, la pantalla
+nativa. Toque → confirmación con el nombre del lote, usando el mecanismo de
+mensajes que ese panel ya tiene (el mismo que se usó para el cartel de "Ya
+existe un lote con ese nombre"). **Nada de diálogos modales del sistema**: en el
+WebView bloquean el host, y en el panel nativo no hacen falta.
 
 El lote abierto se lista **sin** botón de borrar. `DeleteFieldAsync` ya se niega
 a borrarlo, y un botón que siempre falla es peor que no tenerlo.
+
+**Borrado masivo** ("borrar todos menos el abierto"): entra, con **doble
+confirmación** y diciendo cuántos lotes se van a borrar. Decisión del usuario,
+2026-09-15. Es la herramienta para preparar una pantalla nueva o limpiar un
+equipo de demo sin ir por el explorador de Windows.
+
+`lote-rapido.html` **se deja como está**: sigue huérfano pero no molesta, y
+sacarlo le rompería el acceso a cualquiera que lo tenga por URL directa.
 
 **Backend local**: no hay nada que escribir. `POST /api/lotes/delete?name=`
 (`LotesController.cs:67`) → `EngineLotesService.DeleteFieldAsync`
@@ -155,6 +182,22 @@ hoy queda colgada.
 reintentos (`MaxIntentosPorItem`) que ya usa la cola de subida. Hasta que el
 cloud confirme, el nombre queda en la lista de tombstones local para que el
 sync no lo vuelva a bajar.
+
+**El tombstone no es opcional, y ahora se sabe exactamente por qué.** El
+trabajo de linderos (2026-09-15) dejó a `ResolutorLoteCloud` decidiendo el
+destino de cada lote que baja: si la carpeta **no existe**, devuelve `Crear`. O
+sea que borrar un lote que es espejo del cloud, sin más, hace que **el sync lo
+reponga en el ciclo siguiente** — el operario lo borra y reaparece solo.
+
+Por eso el chequeo del tombstone va **antes** de llamar al importador, en
+`OrbitXSync.GuardarArchivoDeLote`: si el lote está en la lista de borrados, el
+pendiente se ackea sin escribir nada. El tombstone se levanta cuando el cloud
+confirma el borrado, que es el momento en que deja de haber nada que reponer.
+
+Hay una segunda vía de resurrección, preexistente y anotada: `_lastHashes` en
+`OrbitXSync` es un diccionario **en memoria**. Si el operario borra un lote,
+reinicia PilotX y vuelve a abrir uno con ese nombre, los archivos se re-suben.
+El tombstone del cloud cubre el caso normal; ése queda fuera de alcance.
 
 **OrbitX-Server**: dos rutas, porque los esquemas de auth no se mezclan.
 
