@@ -20,6 +20,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using AgroParallel.Services;
 using AgroParallel.Services.Abstractions;
+using AgroParallel.Services.OrbitX;
 
 namespace AgroParallel.OrbitX
 {
@@ -38,6 +39,16 @@ namespace AgroParallel.OrbitX
         // Tope de reintentos antes de descartar un ítem que el server rechaza
         // siempre (4xx permanente) — sin esto bloqueaba la cola entera (head-of-line).
         private const int MaxIntentosPorItem = 5;
+
+        // Lotes borrados por el operario que esperan aviso al cloud. Ver
+        // ColaLotesBorrados: la misma lista hace de tombstone para que el sync
+        // no reponga lo que el operario acaba de borrar.
+        private readonly ColaLotesBorrados _lotesBorrados = new ColaLotesBorrados(
+            Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "data", "lotes_borrados.json"));
+
+        /// <summary>Cola de borrados pendientes de avisar al cloud. La UI encola
+        /// acá al borrar un lote.</summary>
+        public ColaLotesBorrados LotesBorrados => _lotesBorrados;
 
         public bool IsRunning { get; private set; }
         public int FilesSynced { get; private set; }
@@ -251,6 +262,8 @@ namespace AgroParallel.OrbitX
                 if (_cfg.SyncFlowX) EnqueueFlowXFiles();
                 if (_cfg.SyncStormX) EnqueueStormXFiles();
                 if (_cfg.SyncAOG) EnqueueAOGFiles();
+
+                await AvisarLotesBorrados();
 
                 // Subir cola. Un archivo se da por sincronizado SOLO cuando el
                 // server contesta OK: recién ahí anotamos el hash. Si falla
@@ -974,6 +987,18 @@ namespace AgroParallel.OrbitX
                     return false;
                 }
                 string lote = partes[0];
+
+                // El operario borró este lote y todavía no se le pudo avisar al
+                // cloud. Si lo escribiéramos, reaparecería solo en el próximo
+                // ciclo: ResolutorLoteCloud devuelve Crear cuando la carpeta no
+                // existe. Se ackea el pendiente para que el server no lo
+                // reencole eternamente.
+                if (_lotesBorrados.EstaBorrado(lote))
+                {
+                    Trace("[LOTE] '" + lote + "' fue borrado en la cabina — no se repone");
+                    return true;
+                }
+
                 string archivo = partes[partes.Length - 1];
 
                 if (!string.IsNullOrEmpty(snap.CurrentFieldDirectory) &&
@@ -1076,6 +1101,81 @@ namespace AgroParallel.OrbitX
             catch (Exception ex)
             {
                 AgpLog.Warn("OrbitXSync", "enviar posición GPS al cloud", ex);
+            }
+        }
+
+        // Cuántas veces se reintenta avisar un borrado antes de abandonarlo.
+        // Mismo criterio que MaxIntentosPorItem de la cola de subida: un aviso
+        // que el server rechaza SIEMPRE no puede bloquear a los demás.
+        private const int MaxIntentosBorrado = 5;
+        private readonly Dictionary<string, int> _intentosBorrado =
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Le avisa al cloud de los lotes que el operario borró. Es best-effort:
+        /// en el lote no hay WiFi, así que lo que no sale ahora sale en el
+        /// próximo tick. El tombstone se levanta recién cuando el cloud confirma.
+        /// </summary>
+        private async Task AvisarLotesBorrados()
+        {
+            var pendientes = _lotesBorrados.Pendientes();
+            if (pendientes.Count == 0) return;
+
+            foreach (var lote in pendientes)
+            {
+                string url = _cfg.ServerUrl.TrimEnd('/') + "/api/aog/lote/borrado";
+                try
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Post, url);
+                    req.Headers.Add("X-Device-ID", _cfg.DeviceId);
+                    req.Headers.Add("X-Auth-Token", _cfg.DeviceToken);
+                    if (!string.IsNullOrEmpty(_cfg.EstabSlug))
+                        req.Headers.Add("X-Estab-Slug", _cfg.EstabSlug);
+                    req.Content = new StringContent(
+                        JsonSerializer.Serialize(new Dictionary<string, object> { ["lote"] = lote }),
+                        Encoding.UTF8, "application/json");
+
+                    var resp = await _http.SendAsync(req);
+                    if (resp.IsSuccessStatusCode)
+                    {
+                        _lotesBorrados.Confirmar(lote);
+                        _intentosBorrado.Remove(lote);
+                        Trace("[LOTE] borrado avisado al cloud: '" + lote + "'");
+                        continue;
+                    }
+
+                    // 404 = el cloud no lo tiene: el borrado ya está logrado.
+                    if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        _lotesBorrados.Confirmar(lote);
+                        _intentosBorrado.Remove(lote);
+                        Trace("[LOTE] '" + lote + "' no estaba en el cloud — nada que borrar");
+                        continue;
+                    }
+
+                    ContarFalloBorrado(lote, "HTTP " + (int)resp.StatusCode);
+                }
+                catch (Exception ex)
+                {
+                    // Sin señal: se reintenta en el próximo tick, sin contar
+                    // como fallo permanente.
+                    Trace("[LOTE] no se pudo avisar el borrado de '" + lote + "': " + ex.Message);
+                }
+            }
+        }
+
+        private void ContarFalloBorrado(string lote, string motivo)
+        {
+            int n;
+            _intentosBorrado.TryGetValue(lote, out n);
+            n++;
+            _intentosBorrado[lote] = n;
+            Trace("[LOTE] aviso de borrado de '" + lote + "' rechazado (" + motivo + "), intento " + n);
+            if (n >= MaxIntentosBorrado)
+            {
+                _lotesBorrados.Descartar(lote);
+                _intentosBorrado.Remove(lote);
+                Trace("[LOTE] se abandona el aviso de borrado de '" + lote + "' tras " + n + " intentos");
             }
         }
 
