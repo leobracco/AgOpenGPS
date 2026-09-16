@@ -1,13 +1,15 @@
 // ============================================================================
-// ColaLotesBorradosTests.cs — la cola de lotes borrados que esperan aviso al
-// cloud, y que mientras tanto hace de tombstone.
+// ColaLotesBorradosTests.cs — los lotes borrados por el operario: el aviso
+// pendiente al cloud y el tombstone que evita que el sync los reponga.
 //
 // El tombstone es lo que impide que el sync REPONGA un lote recién borrado:
 // ResolutorLoteCloud devuelve Crear cuando la carpeta no existe, así que sin
 // esto el operario borra un lote y le reaparece en el ciclo siguiente.
 // ============================================================================
 
+using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 using AgroParallel.Common;
 using AgroParallel.Services.OrbitX;
 using NUnit.Framework;
@@ -101,15 +103,34 @@ namespace AgroParallel.Services.Tests
             Assert.That(otra.EstaBorrado("Lote 12"), Is.False);
         }
 
+        // Abandonar el aviso deja de insistirle al cloud, pero NO desprotege
+        // el lote: el tombstone tiene que quedar en pie. Antes (Descartar)
+        // sacaba las dos cosas, y eso era justamente el bug: agotar
+        // reintentos reponía el lote borrado en el próximo ciclo.
         [Test]
-        public void Descartar_SacaElLoteIgualQueConfirmar()
+        public void AbandonarAviso_SacaElAvisoPeroElTombstoneQueda()
         {
             var c = new ColaLotesBorrados(_archivo);
             c.Encolar("Lote 12");
 
-            c.Descartar("Lote 12");
+            c.AbandonarAviso("Lote 12");
 
             Assert.That(c.Pendientes(), Is.Empty);
+            Assert.That(c.EstaBorrado("Lote 12"), Is.True);
+        }
+
+        // El cloud confirma explícitamente: recién ahí se levantan las DOS
+        // cosas, aviso y tombstone.
+        [Test]
+        public void Confirmar_LevantaElAvisoYElTombstone()
+        {
+            var c = new ColaLotesBorrados(_archivo);
+            c.Encolar("Lote 12");
+
+            c.Confirmar("Lote 12");
+
+            Assert.That(c.Pendientes(), Is.Empty);
+            Assert.That(c.EstaBorrado("Lote 12"), Is.False);
         }
 
         [Test]
@@ -178,6 +199,22 @@ namespace AgroParallel.Services.Tests
             var recuperada = new ColaLotesBorrados(_archivo);
 
             Assert.That(recuperada.EstaBorrado("Lote 12"), Is.True);
+        }
+
+        // Antes de separar aviso/tombstone, el archivo era una lista pelada de
+        // strings. Un archivo así (de una versión vieja de PilotX, o restaurado
+        // de un backup) tiene que seguir cargando: lo conservador es tratar
+        // cada nombre como las DOS cosas, tombstone y aviso pendiente.
+        [Test]
+        public void ArchivoFormatoViejo_SeCargaComoTombstoneYAvisoPendiente()
+        {
+            File.WriteAllText(_archivo, JsonSerializer.Serialize(new List<string> { "Lote 12", "Lote 13" }));
+
+            var c = new ColaLotesBorrados(_archivo);
+
+            Assert.That(c.EstaBorrado("Lote 12"), Is.True);
+            Assert.That(c.EstaBorrado("Lote 13"), Is.True);
+            Assert.That(c.Pendientes(), Is.EquivalentTo(new[] { "Lote 12", "Lote 13" }));
         }
     }
 }

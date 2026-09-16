@@ -40,9 +40,9 @@ namespace AgroParallel.OrbitX
         // siempre (4xx permanente) — sin esto bloqueaba la cola entera (head-of-line).
         private const int MaxIntentosPorItem = 5;
 
-        // Lotes borrados por el operario que esperan aviso al cloud. Ver
-        // ColaLotesBorrados: la misma lista hace de tombstone para que el sync
-        // no reponga lo que el operario acaba de borrar.
+        // Lotes borrados por el operario. Ver ColaLotesBorrados: separa el
+        // aviso pendiente al cloud del tombstone que evita que el sync
+        // reponga lo que el operario acaba de borrar.
         private readonly ColaLotesBorrados _lotesBorrados = new ColaLotesBorrados(
             Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "data", "lotes_borrados.json"));
 
@@ -1114,7 +1114,10 @@ namespace AgroParallel.OrbitX
         /// <summary>
         /// Le avisa al cloud de los lotes que el operario borró. Es best-effort:
         /// en el lote no hay WiFi, así que lo que no sale ahora sale en el
-        /// próximo tick. El tombstone se levanta recién cuando el cloud confirma.
+        /// próximo tick. El tombstone se levanta ÚNICAMENTE cuando el cloud
+        /// confirma con 200 OK; abandonar el aviso (agotar reintentos, o un
+        /// código que no se puede leer como confirmación) NO lo toca — el lote
+        /// sigue protegido contra la reposición aunque se deje de insistir.
         /// </summary>
         private async Task AvisarLotesBorrados()
         {
@@ -1144,15 +1147,13 @@ namespace AgroParallel.OrbitX
                         continue;
                     }
 
-                    // 404 = el cloud no lo tiene: el borrado ya está logrado.
-                    if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    {
-                        _lotesBorrados.Confirmar(lote);
-                        _intentosBorrado.Remove(lote);
-                        Trace("[LOTE] '" + lote + "' no estaba en el cloud — nada que borrar");
-                        continue;
-                    }
-
+                    // OJO: un 404 acá NO se puede leer como "el cloud no tiene
+                    // el lote, borrado logrado". Es indistinguible de "la ruta
+                    // no existe en el server" (pasó de verdad: el endpoint
+                    // /api/aog/lote/borrado no estaba desplegado y el catch-all
+                    // devolvía 404 para todo, confirmando — y por lo tanto
+                    // desprotegiendo — cada lote borrado en el primer intento).
+                    // Se cuenta como cualquier otro fallo.
                     ContarFalloBorrado(lote, "HTTP " + (int)resp.StatusCode);
                 }
                 catch (Exception ex)
@@ -1173,7 +1174,10 @@ namespace AgroParallel.OrbitX
             Trace("[LOTE] aviso de borrado de '" + lote + "' rechazado (" + motivo + "), intento " + n);
             if (n >= MaxIntentosBorrado)
             {
-                _lotesBorrados.Descartar(lote);
+                // Se deja de insistir con el aviso, pero el tombstone QUEDA:
+                // el lote sigue protegido contra la reposición aunque el
+                // cloud nunca se haya enterado del borrado.
+                _lotesBorrados.AbandonarAviso(lote);
                 _intentosBorrado.Remove(lote);
                 Trace("[LOTE] se abandona el aviso de borrado de '" + lote + "' tras " + n + " intentos");
             }
