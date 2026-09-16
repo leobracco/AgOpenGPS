@@ -99,6 +99,12 @@ public sealed class LotePanel : Border
     // Aplicar, en vez de antes (ver RepintarAvisoListaPendiente).
     private string? _avisoListaPendiente;
 
+    // Mismo problema que _avisoListaPendiente, pero para el banner de la
+    // pantalla "Nuevo" (_avisoTxt): también arranca en "" y también hay que
+    // repintarlo tras un cambio de idioma con el aviso visible (por ejemplo
+    // "Ya existe un lote con ese nombre" — hallazgo 2026-09-16).
+    private string? _avisoPendiente;
+
     // Doble toque de confirmación para borrar: botón → (timer de 3 s, etiqueta
     // original). Mismo mecanismo que ContornoPanel y GuiasPanel — en cabina no
     // se usan modales.
@@ -154,14 +160,16 @@ public sealed class LotePanel : Border
         // toque) en vez de dejar la puerta abierta a un borrado invisible.
         // El Post corre DESPUÉS del Aplicar global de MainWindow.
         //
-        // Mismo Aplicar() también le pisa el Text a _avisoListaTxt (arranca en
-        // "" y ese "" queda cacheado como "original" — ver el comentario de
-        // _avisoListaPendiente): sin repintarlo acá, un cambio de idioma con el
-        // cartel de aviso visible ("Lote borrado: X", etc.) lo deja en blanco.
+        // Mismo Aplicar() también le pisa el Text a _avisoListaTxt y a _avisoTxt
+        // (arrancan en "" y ese "" queda cacheado como "original" — ver los
+        // comentarios de _avisoListaPendiente y _avisoPendiente): sin repintarlos
+        // acá, un cambio de idioma con el cartel de aviso visible ("Lote borrado:
+        // X", "Ya existe un lote con ese nombre", etc.) lo deja en blanco.
         PilotX.Cockpit.Bars.Traductor.IdiomaCambio += () => Dispatcher.UIThread.Post(() =>
         {
             CancelarConfirmacionesBorrado();
             RepintarAvisoListaPendiente();
+            RepintarAvisoPendiente();
         });
     }
 
@@ -634,12 +642,14 @@ public sealed class LotePanel : Border
 
     private void MostrarAviso(string texto)
     {
+        _avisoPendiente = texto;
         _avisoTxt.Text = texto;
         _avisoBox.IsVisible = true;
     }
 
     private void OcultarAviso()
     {
+        _avisoPendiente = null;
         _avisoTxt.Text = "";
         _avisoBox.IsVisible = false;
     }
@@ -666,6 +676,16 @@ public sealed class LotePanel : Border
     {
         if (_avisoListaBox.IsVisible && _avisoListaPendiente != null)
             _avisoListaTxt.Text = _avisoListaPendiente;
+    }
+
+    /// <summary>
+    /// Análogo de RepintarAvisoListaPendiente para el banner de la pantalla
+    /// "Nuevo" (_avisoTxt). Misma razón: llamar siempre después de Aplicar().
+    /// </summary>
+    private void RepintarAvisoPendiente()
+    {
+        if (_avisoBox.IsVisible && _avisoPendiente != null)
+            _avisoTxt.Text = _avisoPendiente;
     }
 
     /// <summary>
