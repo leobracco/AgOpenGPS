@@ -381,6 +381,21 @@ namespace AgOpenGPS
                     return true;
                 case "borrar_aplicado":
                     return DeleteApplied();
+
+                // Modo de lectura del desvío. NO toca el piloto: sólo elige qué
+                // se dibuja arriba del mapa (la barra de luces o el recuadro
+                // "A LA LÍNEA"). El valor vuelve al cliente como mostrar_luces
+                // en /api/aog/state, y lo consume MainWindow.
+                case "modo_banderillero":
+                    AgOpenGPS.Properties.Settings.Default.setMenu_isLightbarOn = true;
+                    AgOpenGPS.Properties.Settings.Default.Save();
+                    Log.EventWriter("PilotX: modo de lectura = banderillero (luces)");
+                    return true;
+                case "modo_piloto":
+                    AgOpenGPS.Properties.Settings.Default.setMenu_isLightbarOn = false;
+                    AgOpenGPS.Properties.Settings.Default.Save();
+                    Log.EventWriter("PilotX: modo de lectura = piloto (numero)");
+                    return true;
                 default:
                     return false;
             }
