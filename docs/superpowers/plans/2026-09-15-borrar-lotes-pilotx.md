@@ -296,20 +296,31 @@ namespace AgroParallel.Services.OrbitX
             }
         }
 
+        // Se usa AtomicJson y NO File.WriteAllText: este archivo ES el tombstone,
+        // y perderlo entero significa que el sync repone TODOS los lotes que el
+        // operario borró. File.WriteAllText trunca a 0 y después escribe, así que
+        // un apagado de golpe en cabina lo deja vacío o cortado — ya pasó en
+        // campo (ver la cabecera de AtomicJson.cs, incidente FlowX 2026-09-05).
+        // AtomicJson escribe a .tmp, fuerza el flush a disco y reemplaza de forma
+        // atómica, dejando la versión anterior como .bak; al leer, si el
+        // principal está dañado cae solo al respaldo.
+
         private void Cargar()
         {
             try
             {
-                if (!File.Exists(_rutaArchivo)) return;
-                var leidos = JsonSerializer.Deserialize<List<string>>(File.ReadAllText(_rutaArchivo));
+                var leidos = AgroParallel.Common.AtomicJson.Read<List<string>>(_rutaArchivo, null);
                 if (leidos == null) return;
                 foreach (var n in leidos)
                     if (!string.IsNullOrWhiteSpace(n)) _pendientes.Add(n.Trim());
             }
-            catch
+            catch (Exception ex)
             {
-                // Archivo roto: se arranca con la cola vacía. Es preferible
-                // perder avisos pendientes a dejar a PilotX sin poder borrar.
+                // Ni el archivo ni su respaldo sirven. Se arranca con la cola
+                // vacía —es preferible perder avisos a dejar a PilotX sin poder
+                // borrar— pero queda rastro: si un lote reaparece en campo, esto
+                // es lo primero que hay que mirar.
+                AgpLog.Warn("ColaLotesBorrados", "no se pudo leer " + _rutaArchivo, ex);
             }
         }
 
@@ -317,14 +328,14 @@ namespace AgroParallel.Services.OrbitX
         {
             try
             {
-                string dir = Path.GetDirectoryName(_rutaArchivo);
-                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-                File.WriteAllText(_rutaArchivo, JsonSerializer.Serialize(new List<string>(_pendientes)));
+                AgroParallel.Common.AtomicJson.Write(
+                    _rutaArchivo, JsonSerializer.Serialize(new List<string>(_pendientes)));
             }
-            catch
+            catch (Exception ex)
             {
-                // Si no se puede escribir, la cola sigue viva en memoria hasta
-                // el próximo reinicio. No vale frenar el borrado por esto.
+                // La cola sigue viva en memoria hasta el próximo reinicio. No
+                // vale frenar el borrado por esto, pero sí dejar rastro.
+                AgpLog.Warn("ColaLotesBorrados", "no se pudo guardar " + _rutaArchivo, ex);
             }
         }
     }
