@@ -262,6 +262,8 @@ namespace AgroParallel.OrbitX
                 if (_cfg.SyncFlowX) EnqueueFlowXFiles();
                 if (_cfg.SyncStormX) EnqueueStormXFiles();
                 if (_cfg.SyncAOG) EnqueueAOGFiles();
+                // Va con SyncAOG: es la config de PilotX, no de un modulo X-*.
+                if (_cfg.SyncAOG) EnqueuePilotXConfig();
 
                 await AvisarLotesBorrados();
 
@@ -379,6 +381,69 @@ namespace AgroParallel.OrbitX
         {
             string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
             EnqueueIfChanged(Path.Combine(baseDir, "stormX.json"), "stormx/stormX.json", "stormx_config", "stormx");
+        }
+
+        /// <summary>
+        /// Sube la CONFIGURACION DE LA MAQUINA: el perfil de vehiculo activo y
+        /// los demas perfiles guardados (Vehicles/*.XML), mas el aog_settings
+        /// que dice cual esta puesto.
+        ///
+        /// Por que urge: el perfil XML tiene TODA la geometria y calibracion —
+        /// antena, implemento, secciones, PID de direccion y los look-ahead de
+        /// encendido/apagado. Sin eso en el cloud no se puede diagnosticar un
+        /// equipo sin ir hasta el tractor. El 2026-09-17 se quiso revisar un
+        /// pintado tardio y el lookAheadOn no estaba en ningun lado.
+        ///
+        /// El server YA lo esperaba: routes/aog.js:84 busca
+        /// subtipo "vehicle_config" y hay una pagina vehiculos.ejs en el panel.
+        /// Estaban vacias porque nadie subia el archivo.
+        ///
+        /// LO QUE NO SE SUBE, a proposito:
+        ///  · *.clave      sidecar de PerfilGuard: es la CLAVE que protege el
+        ///                 perfil. Es una credencial, no configuracion.
+        ///  · *.bak        respaldo local, ruido.
+        ///  · orbitX.json  device_id + token del equipo.
+        /// </summary>
+        private void EnqueuePilotXConfig()
+        {
+            try
+            {
+                // Dice QUE perfil esta activo; sin el, los XML del cloud no
+                // dicen cual esta puesto en la maquina.
+                EnqueueIfChanged(
+                    Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "aog_settings.json"),
+                    "pilotx/aog_settings.json", "pilotx_settings", "pilotx");
+
+                // Vehicles/ es hermano de Fields/ (ApplicationModel los crea
+                // juntos). Se deriva del snapshot y no de AgOpenGPS.Core para
+                // no meterle esa dependencia a este servicio.
+                var snap = _state.GetSnapshot();
+                string fieldsRoot = snap?.FieldsDirectory;
+                if (string.IsNullOrEmpty(fieldsRoot)) return;
+                string dataRoot = Path.GetDirectoryName(
+                    fieldsRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                if (string.IsNullOrEmpty(dataRoot)) return;
+
+                string vehDir = Path.Combine(dataRoot, "Vehicles");
+                if (!Directory.Exists(vehDir)) return;
+
+                foreach (var f in Directory.GetFiles(vehDir))
+                {
+                    // Comparacion EXPLICITA de la extension y no un patron
+                    // "*.XML": en Windows ese patron tambien engancha nombres
+                    // como "Deutz.XMLviejo" por los nombres cortos 8.3.
+                    if (!string.Equals(Path.GetExtension(f), ".XML", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    EnqueueIfChanged(f, "pilotx/vehicles/" + Path.GetFileName(f),
+                                     "vehicle_config", "pilotx");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Que no se caiga el tick de sync por esto: los lotes del
+                // operario importan mas que la config.
+                LastError = ex.Message;
+            }
         }
 
         private void EnqueueAOGFiles()
