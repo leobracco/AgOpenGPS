@@ -738,6 +738,16 @@ namespace AgroParallel.OrbitX
                         { "cables", n.Cables },
                         { "safe_mode", n.SafeMode },
                         { "crash_count", n.CrashCount },
+                        // POR QUE se reinicio la ultima vez: "poweron" es normal;
+                        // "brownout", "task_wdt", "panic" o "wdt" son las que
+                        // explican un crash_count que sube solo. El firmware ya lo
+                        // publica en su anuncio y NodoRegistryService lo captura,
+                        // pero hasta ahora moria en la pantalla: desde el panel se
+                        // veia el contador subir sin poder saber la causa. Caso
+                        // real (Las Gringas, 2026-09-17): dos nodos con 38 y 37
+                        // crashes y semillas desparejas, y para distinguir brownout
+                        // de watchdog habia que ir hasta el tractor.
+                        { "boot_reason", n.BootReason ?? "" },
                         { "last_seen", n.LastSeenUtc == default ? null : (object)n.LastSeenUtc.ToString("o") },
                     });
                     if (lista.Count >= 64) break;    // un heartbeat, no un censo
