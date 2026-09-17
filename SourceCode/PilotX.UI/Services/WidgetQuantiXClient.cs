@@ -161,13 +161,19 @@ public sealed class WidgetQuantiXClient
         catch { return false; }
     }
 
-    /// <summary>Cuánto sube o baja cada toque de + / −. Escalonado como en el
-    /// widget HTML: con dosis chicas hace falta precisión fina, con dosis
-    /// grandes moverse de a 0,1 sería inusable con guante.</summary>
+    /// <summary>Cuánto sube o baja cada toque de + / −. Escalonado: con dosis
+    /// chicas hace falta precisión fina, con dosis grandes moverse de a 0,1
+    /// sería inusable con guante (a 300 kg/ha, subir 10 kg serían 100 toques).
+    /// El primer escalón subió de 5 a 10 (pedido del usuario 2026-09-16, "hasta
+    /// 10 que vaya de 0.1"): en semillas por metro y dosis chicas, saltar de a
+    /// 0,5 era demasiado grueso.
+    /// ESPEJO EXACTO de doseStep() en wwwroot/js/widget-quantix.js — si cambia
+    /// uno hay que cambiar el otro, o la misma máquina se mueve distinto según
+    /// por qué pantalla la toques.</summary>
     public static double PasoDosis(double valor)
     {
         double v = Math.Abs(valor);
-        if (v < 5) return 0.1;
+        if (v < 10) return 0.1;
         if (v < 30) return 0.5;
         if (v < 100) return 1;
         if (v < 500) return 5;

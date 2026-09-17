@@ -105,18 +105,29 @@
   function unidadLabel(u) { return (u === 'sem_m') ? 'sem/m' : 'kg/ha'; }
   function keyOf(f) { return f.nodoUid + '#' + f.m.idx; }
 
-  // Paso adaptativo según dosis actual (espejo de AdaptiveStep.cs).
+  // Paso adaptativo según dosis actual. ESPEJO EXACTO de
+  // WidgetQuantiXClient.PasoDosis (C#): si cambia uno hay que cambiar el otro,
+  // o la misma máquina se mueve distinto segun por que pantalla la toques.
+  // El primer escalon subio de 5 a 10 (pedido del usuario 2026-09-16, "hasta 10
+  // que vaya de 0.1"): en semillas por metro y dosis chicas, saltar de a 0,5
+  // era demasiado grueso.
   function doseStep(value) {
     const v = Math.abs(value || 0);
-    if (v < 5) return 0.1;
+    if (v < 10) return 0.1;
     if (v < 30) return 0.5;
     if (v < 100) return 1;
     if (v < 500) return 5;
     return 10;
   }
+  // Cuantos decimales se MUESTRAN. Espejo de FormatoDosis (C#).
+  // Con dosis grandes el decimal es ruido, PERO si el valor tiene fraccion hay
+  // que mostrarla: entre 10 y 30 el paso es de 0,5, y sin esto el operario
+  // tocaba + en 10 y veia "11", tocaba de nuevo y seguia viendo "11" — el
+  // numero no se movia. El C# ya tenia esta guarda; al JS le faltaba.
   function doseDecimals(value) {
     const v = Math.abs(value || 0);
     if (v < 10) return 1;
+    if (Math.abs(v - Math.round(v)) > 0.001) return 1;   // tiene fraccion
     return 0;
   }
   function fmt(value, decimals) {
