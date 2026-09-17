@@ -23,6 +23,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Input.TextInput;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -493,6 +495,53 @@ public sealed class ShapeTab : QxTab
     private void RenderEditorZona(string campo)
     {
         _tapOut.Children.Clear();
+
+        // El campo se crea PRIMERO aunque se muestre en el medio: los botones
+        // −/+/Aplicar llaman a Confirmar(), que lo captura. Creándolo después,
+        // el compilador rechaza la captura sin asignar (CS0165).
+        // TextBox y no TextBlock: el TecladoVirtual se engancha al campo que
+        // toma el foco, así que tocar el número abre el pad y se ESCRIBE la
+        // dosis. Sin esto, llevar una zona de 6 a 20 sem/m eran 140 toques.
+        var campoVal = new TextBox
+        {
+            Text = _valorEditando.ToString("0.##", CultureInfo.InvariantCulture),
+            Foreground = QxUi.Texto, FontSize = 15, FontWeight = FontWeight.Bold, FontFamily = QxUi.Mono,
+            Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0),
+            MinWidth = 54, TextAlignment = TextAlignment.Center,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            CaretBrush = QxUi.Texto,
+        };
+        TextInputOptions.SetContentType(campoVal, TextInputContentType.Number);
+
+        // Acepta coma Y punto: el pad del TecladoVirtual trae las dos teclas y
+        // no hay forma de saber cuál va a usar el operario. Lo que no se
+        // entiende, o es negativo, NO pisa el valor: se restaura el anterior.
+        void Confirmar()
+        {
+            double v = QxUi.LeerDouble(campoVal, double.NaN);
+            if (double.IsNaN(v) || v < 0)
+            {
+                campoVal.Text = _valorEditando.ToString("0.##", CultureInfo.InvariantCulture);
+                return;
+            }
+            _valorEditando = Math.Round(v, 1);
+            campoVal.Text = _valorEditando.ToString("0.##", CultureInfo.InvariantCulture);
+        }
+
+        campoVal.GotFocus += (_, __) => campoVal.SelectAll();
+        campoVal.LostFocus += (_, __) => Confirmar();
+        campoVal.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter) { Confirmar(); e.Handled = true; }
+            else if (e.Key == Key.Escape)
+            {
+                campoVal.Text = _valorEditando.ToString("0.##", CultureInfo.InvariantCulture);
+                e.Handled = true;
+            }
+        };
+
         _tapOut.Children.Add(new TextBlock
         {
             Text = campo, Foreground = QxUi.Texto, FontSize = 13, FontWeight = FontWeight.Bold,
@@ -500,22 +549,21 @@ public sealed class ShapeTab : QxTab
         });
         _tapOut.Children.Add(QxUi.Boton("−", () =>
         {
+            Confirmar();   // si venía escribiendo, se parte de lo escrito
             _valorEditando = Math.Max(0, Math.Round((_valorEditando - PasoEdicion(_valorEditando)) * 10) / 10);
             RenderEditorZona(campo);
         }));
-        _tapOut.Children.Add(new TextBlock
-        {
-            Text = _valorEditando.ToString("0.##", CultureInfo.InvariantCulture),
-            Foreground = QxUi.Texto, FontSize = 15, FontWeight = FontWeight.Bold, FontFamily = QxUi.Mono,
-            MinWidth = 54, TextAlignment = TextAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        });
+        _tapOut.Children.Add(campoVal);
         _tapOut.Children.Add(QxUi.Boton("+", () =>
         {
+            Confirmar();   // ídem
             _valorEditando = Math.Round((_valorEditando + PasoEdicion(_valorEditando)) * 10) / 10;
             RenderEditorZona(campo);
         }));
-        _tapOut.Children.Add(QxUi.Boton("Aplicar", () => _ = AplicarDosisZonaAsync(), primario: true));
+        // Confirmar() explícito y NO confiando en el LostFocus del campo: si el
+        // botón fuera Focusable=false el foco no se mueve, LostFocus no dispara
+        // y se guardaría el valor VIEJO sin que el operario se entere.
+        _tapOut.Children.Add(QxUi.Boton("Aplicar", () => { Confirmar(); _ = AplicarDosisZonaAsync(); }, primario: true));
     }
 
     private async Task AplicarDosisZonaAsync()

@@ -3318,22 +3318,49 @@
       '<span style="display:inline-flex;align-items:center;gap:6px">' +
         '<b>' + escapeHtml(shapeTap.field || 'DOSIS') + '</b>' +
         '<button class="btn qxZonaMenos" style="min-height:34px;padding:0 12px">−</button>' +
-        '<b style="font-family:var(--agp-font-mono);min-width:44px;text-align:center">' + v + '</b>' +
+        // input y no <b>: tocarlo abre el teclado del Hub y se ESCRIBE la dosis.
+        // inputmode=decimal para que el teclado del sistema salga numerico.
+        '<input class="qxZonaVal" type="text" inputmode="decimal" value="' + v + '"' +
+          ' style="font-family:var(--agp-font-mono);min-width:54px;width:54px;text-align:center;' +
+          'font-weight:700;font-size:15px;padding:2px 4px">' +
         '<button class="btn qxZonaMas" style="min-height:34px;padding:0 12px">+</button>' +
         '<button class="btn primary qxZonaOk" style="min-height:34px;padding:0 14px">Aplicar</button>' +
       '</span>';
+    // Acepta coma Y punto: el teclado del Hub y el del sistema difieren segun
+    // el equipo. Lo que no se entiende, o es negativo, NO pisa el valor.
+    var inpVal = out.querySelector('.qxZonaVal');
+    function confirmarVal() {
+      var n = parseFloat(String(inpVal.value || '').trim().replace(',', '.'));
+      if (!isFinite(n) || n < 0) { inpVal.value = shapeTap.editVal; return; }
+      shapeTap.editVal = Math.round(n * 10) / 10;
+      inpVal.value = shapeTap.editVal;
+    }
+    inpVal.addEventListener('focus', function () { inpVal.select(); });
+    inpVal.addEventListener('blur', confirmarVal);
+    inpVal.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { confirmarVal(); inpVal.blur(); }
+      else if (e.key === 'Escape') { inpVal.value = shapeTap.editVal; inpVal.blur(); }
+    });
+    // El tap en el campo no debe cerrar la tarjeta de la zona.
+    inpVal.addEventListener('click', function (e) { e.stopPropagation(); });
+
     out.querySelector('.qxZonaMenos').addEventListener('click', function (e) {
       e.stopPropagation();
+      confirmarVal();   // si venia escribiendo, se toma lo escrito antes de restar
       shapeTap.editVal = Math.max(0, Math.round((shapeTap.editVal - shapePasoEdicion(shapeTap.editVal)) * 10) / 10);
       shapeRenderEditor(out);
     });
     out.querySelector('.qxZonaMas').addEventListener('click', function (e) {
       e.stopPropagation();
+      confirmarVal();   // idem: + despues de escribir parte de lo escrito
       shapeTap.editVal = Math.round((shapeTap.editVal + shapePasoEdicion(shapeTap.editVal)) * 10) / 10;
       shapeRenderEditor(out);
     });
     out.querySelector('.qxZonaOk').addEventListener('click', async function (e) {
       e.stopPropagation();
+      // Si venia escribiendo y toco Aplicar directo, se manda LO ESCRITO.
+      // Sin esto se guardaba el valor viejo y el operario no se enteraba.
+      confirmarVal();
       try {
         var r = await fetch('/api/prescripciones/dosis-zona', {
           method: 'POST',

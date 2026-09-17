@@ -76,6 +76,7 @@ public sealed class QuantiXMapOverlay : Border
             _barra.OnMan = () => _ = ComandoSeleccion(manual: true);
             _barra.OnOff = () => _ = ApagarSeleccion();
             _barra.OnPaso = dir => _ = PasoSeleccion(dir);
+            _barra.OnDosisEscrita = v => _ = EscribirSeleccion(v);
             _barra.OnCerrar = Deseleccionar;
         }
     }
@@ -599,6 +600,19 @@ public sealed class QuantiXMapOverlay : Border
         if (sel == null) return;
         var m = sel.Value.Motor;
         await _client.SetApagadoAsync(sel.Value.Uid, m.Idx, !m.Apagado).ConfigureAwait(false);
+        await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
+    }
+
+    /// <summary>Dosis escrita a mano con el teclado, en vez de a pasos. Manda
+    /// el valor TAL CUAL lo escribió el operario: acá no se redondea al paso ni
+    /// se valida el rango: si escribió 12,4 quiere 12,4. La barra ya descartó lo
+    /// que no se entiende y lo negativo.</summary>
+    private async Task EscribirSeleccion(double dosis)
+    {
+        if (_client == null) return;
+        var sel = BuscarSeleccion(MotoresVisibles());
+        if (sel == null) return;
+        await _client.SetManualAsync(sel.Value.Uid, sel.Value.Motor.Idx, true, dosis).ConfigureAwait(false);
         await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
     }
 

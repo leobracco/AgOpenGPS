@@ -22,6 +22,8 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input.TextInput;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 
@@ -48,9 +50,16 @@ public sealed class QuantiXControlBar : Border
     private readonly Button _btnOff;
     private readonly Button _btnMenos;
     private readonly Button _btnMas;
-    private readonly TextBlock _dosis;
+    private readonly TextBox _dosis;
+    /// <summary>Ultimo texto que vino del motor. Sirve para restaurar con
+    /// Escape y para no perder el valor si lo escrito no se entiende.</summary>
+    private string _dosisUltima = "—";
     private readonly TextBlock _unidad;
     private readonly TextBlock _rpm;
+
+    /// <summary>El operario ESCRIBIÓ una dosis con el teclado y la confirmó.
+    /// Va aparte de OnPaso: escribir es un salto directo, no un incremento.</summary>
+    public Action<double>? OnDosisEscrita;
 
     /// <summary>Pasar el motor a AUTO (el mapa/prescripción manda).</summary>
     public Action? OnAuto;
@@ -113,16 +122,37 @@ public sealed class QuantiXControlBar : Border
         _btnMenos.Click += (_, __) => OnPaso?.Invoke(-1);
         _btnMas.Click   += (_, __) => OnPaso?.Invoke(+1);
 
-        _dosis = new TextBlock
+        // Es un TextBox y no un TextBlock para que se pueda ESCRIBIR la dosis:
+        // el TecladoVirtual se engancha solo al TextBox que toma el foco. Sin
+        // esto, pasar de 6 a 12 sem/m eran 60 toques del +.
+        // Se declara ContentType=Number para que salga el pad numérico y no el
+        // QWERTY (TecladoVirtual.EsNumerico lo mira primero).
+        _dosis = new TextBox
         {
             Text = "—",
             Foreground = TextoHi,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(0),
             FontSize = 20,
             FontWeight = FontWeight.Bold,
             MinWidth = 88,
             TextAlignment = TextAlignment.Center,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
             FontFamily = new FontFamily("Consolas, Courier New, monospace"),
+            CaretBrush = TextoHi,
+        };
+        TextInputOptions.SetContentType(_dosis, TextInputContentType.Number);
+        // Al tomar el foco se selecciona todo: el operario escribe el valor
+        // nuevo de una, sin borrar el viejo dígito por dígito con guante.
+        _dosis.GotFocus += (_, __) => _dosis.SelectAll();
+        _dosis.LostFocus += (_, __) => ConfirmarEscritura();
+        _dosis.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter) { ConfirmarEscritura(); e.Handled = true; }
+            else if (e.Key == Key.Escape) { _dosis.Text = _dosisUltima; e.Handled = true; }
         };
         _unidad = new TextBlock
         {
@@ -187,7 +217,10 @@ public sealed class QuantiXControlBar : Border
                            bool apagado = false)
     {
         _nombre.Text = nombre;
-        _dosis.Text = dosisTexto;
+        // MIENTRAS EL OPERARIO ESCRIBE NO SE PISA: el overlay refresca en cada
+        // poll (500 ms) y sin esta guarda el texto se borraba debajo del dedo.
+        _dosisUltima = dosisTexto;
+        if (!_dosis.IsFocused) _dosis.Text = dosisTexto;
         _unidad.Text = etiquetaUnidad;
         _rpm.Text = rpm.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
@@ -208,7 +241,31 @@ public sealed class QuantiXControlBar : Border
         // harían nada en ninguno de los dos.
         _btnMenos.IsEnabled = man;
         _btnMas.IsEnabled = man;
+        // Escribir la dosis vale por lo mismo que los pasos: solo en MAN.
+        _dosis.IsReadOnly = !man;
         _dosis.Foreground = apagado ? Rojo : (manual ? TextoHi : TextoDim);
+    }
+
+    /// <summary>Toma lo que el operario escribió y lo confirma. Acepta coma Y
+    /// punto: el pad del TecladoVirtual trae las dos teclas y no hay forma de
+    /// saber cuál va a usar. Si no se entiende lo escrito, o es negativo, se
+    /// restaura el valor del motor y NO se manda nada — mandar un 0 por un
+    /// dedazo frenaría la dosificación en medio del lote.</summary>
+    private void ConfirmarEscritura()
+    {
+        string s = (_dosis.Text ?? "").Trim().Replace(',', '.');
+        if (!double.TryParse(s, System.Globalization.NumberStyles.Float,
+                             System.Globalization.CultureInfo.InvariantCulture, out double v)
+            || v < 0 || double.IsNaN(v) || double.IsInfinity(v))
+        {
+            _dosis.Text = _dosisUltima;
+            return;
+        }
+        v = Math.Round(v, 1);
+        // Sin cambio real no se molesta al motor con un POST al pedo.
+        string quedaria = v.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        if (string.Equals(quedaria, (_dosisUltima ?? "").Replace(',', '.'), StringComparison.Ordinal)) return;
+        OnDosisEscrita?.Invoke(v);
     }
 
     private static Button BotonModo(string texto) => new Button
