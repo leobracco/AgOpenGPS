@@ -457,18 +457,38 @@ public sealed class ShapeTab : QxTab
             _tapOut.Children.Add(QxUi.Chip(PilotX.Cockpit.Bars.Traductor.T("Fuera de las zonas")));
     }
 
-    /// <summary>Paso de edición según magnitud: sem/m van en decimales, kg/ha
-    /// en enteros. El tramo fino pasó de 0,5 a 0,1 (pedido del usuario
-    /// 2026-09-16: "que la dosis se incremente / decremente de a 0,1", "para la
-    /// dosis variable de semillas por metro") — media semilla por metro es una
-    /// diferencia real de siembra.
-    /// Acá NO se puede mirar la unidad: es per-motor (m.UnidadDosis) y una zona
-    /// de la prescripción no sabe a qué motor le toca, así que la magnitud es el
-    /// único indicio — que es lo que este método ya hacía.
-    /// OJO: de 10 a 50 sigue moviéndose de a 1. Para sem/m alcanza en maíz (4-9)
-    /// pero queda grueso en soja (12-25). Si hace falta, el tramo fino se estira
-    /// acá, teniendo en cuenta que kg/ha comparte la misma tabla.</summary>
-    private static double PasoEdicion(double v) => v < 10 ? 0.1 : v < 50 ? 1 : 5;
+    /// <summary>¿Toda la máquina dosifica en semillas por metro? Una zona de la
+    /// prescripción no sabe a qué motor le toca, así que solo se puede afirmar
+    /// la unidad cuando TODOS coinciden. Con motores mezclados (una tolva en
+    /// sem/m y otra en kg/ha) no se puede decidir y manda la magnitud.</summary>
+    private bool TodoEnSemillas()
+    {
+        bool hayAlguno = false;
+        foreach (var n in C.Cfg.Nodos)
+            foreach (var m in n.Motores)
+            {
+                hayAlguno = true;
+                if (!string.Equals(m.UnidadDosis, "sem_m", StringComparison.Ordinal)) return false;
+            }
+        return hayAlguno;
+    }
+
+    /// <summary>Paso de edición de la dosis de una zona. El tramo fino pasó de
+    /// 0,5 a 0,1 (pedido del usuario 2026-09-16: "que la dosis se incremente /
+    /// decremente de a 0,1", "para la dosis variable de semillas por metro") —
+    /// media semilla por metro es una diferencia real de siembra.
+    ///
+    /// En SEMILLAS POR METRO es siempre 0,1, sin escalonar: los valores van de 3
+    /// a 35 (maíz 4-9, soja 12-25) y con la tabla por magnitud la soja se movía
+    /// de a 1, mientras que en marcha —donde el paso SÍ mira la unidad— la misma
+    /// dosis se movía de a 0,1. El mismo número con dos comportamientos según la
+    /// pantalla era el peor de los mundos.
+    ///
+    /// Si no se puede afirmar la unidad, decide la magnitud, que es lo que este
+    /// método hacía antes.</summary>
+    private double PasoEdicion(double v)
+        => TodoEnSemillas() ? 0.1
+         : v < 10 ? 0.1 : v < 50 ? 1 : 5;
 
     private void RenderEditorZona(string campo)
     {

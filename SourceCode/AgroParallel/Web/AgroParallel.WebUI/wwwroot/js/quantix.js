@@ -3288,9 +3288,28 @@
   // ESPEJO EXACTO de ShapeTab.PasoEdicion (C#): si cambia uno hay que cambiar el
   // otro, o la misma prescripcion se edita distinto segun la pantalla.
   // El tramo fino paso de 0,5 a 0,1 (pedido del usuario 2026-09-16, para la
-  // dosis variable de semillas por metro). De 10 a 50 sigue de a 1: alcanza en
-  // maiz (4-9 sem/m) pero queda grueso en soja (12-25).
-  function shapePasoEdicion(v) { return v < 10 ? 0.1 : v < 50 ? 1 : 5; }
+  // dosis variable de semillas por metro). En sem/m es SIEMPRE 0,1: los valores
+  // van de 3 a 35 (maiz 4-9, soja 12-25) y con la tabla por magnitud la soja se
+  // movia de a 1, mientras que en marcha la misma dosis se movia de a 0,1.
+  // Toda la maquina dosifica en semillas por metro? Una zona de la prescripcion
+  // no sabe a que motor le toca, asi que solo se puede afirmar la unidad cuando
+  // TODOS coinciden. Con motores mezclados manda la magnitud.
+  function shapeTodoEnSemillas() {
+    var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
+    var hayAlguno = false;
+    for (var i = 0; i < ns.length; i++) {
+      var ms = ns[i].motores || [];
+      for (var j = 0; j < ms.length; j++) {
+        hayAlguno = true;
+        if (ms[j].unidad_dosis !== 'sem_m') return false;
+      }
+    }
+    return hayAlguno;
+  }
+  function shapePasoEdicion(v) {
+    if (shapeTodoEnSemillas()) return 0.1;
+    return v < 10 ? 0.1 : v < 50 ? 1 : 5;
+  }
 
   function shapeRenderEditor(out) {
     var v = shapeTap.editVal;

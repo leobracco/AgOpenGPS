@@ -123,11 +123,18 @@
     if (v < 500) return 5;
     return 10;
   }
-  // Cuantos decimales se MUESTRAN. Espejo de FormatoDosis (C#).
+  // Cuantos decimales se MUESTRAN.
   // Con dosis grandes el decimal es ruido, PERO si el valor tiene fraccion hay
   // que mostrarla: entre 10 y 30 el paso es de 0,5, y sin esto el operario
   // tocaba + en 10 y veia "11", tocaba de nuevo y seguia viendo "11" — el
   // numero no se movia. El C# ya tenia esta guarda; al JS le faltaba.
+  //
+  // NO es espejo exacto de FormatoDosis (C#): alla sem_m fuerza SIEMPRE un
+  // decimal, asi que 20 sem/m se ve "20,0" en la cabina nativa y "20" aca.
+  // Divergencia conocida y aceptada (2026-09-16): para igualarla hay que pasar
+  // la unidad por todo fmt(), y con motores de unidades mezcladas eso se puede
+  // equivocar de unidad. Con cualquier valor CON fraccion —que es lo que deja
+  // el paso de 0,1— los dos muestran el decimal, que es lo que importa.
   function doseDecimals(value) {
     const v = Math.abs(value || 0);
     if (v < 10) return 1;
