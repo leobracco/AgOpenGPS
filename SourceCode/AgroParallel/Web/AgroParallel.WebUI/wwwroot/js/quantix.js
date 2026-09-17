@@ -3284,7 +3284,13 @@
   }
 
   // Paso de edición según magnitud: sem/m van en decimales, kg/ha en enteros.
-  function shapePasoEdicion(v) { return v < 10 ? 0.5 : v < 50 ? 1 : 5; }
+  // Paso de edicion de la dosis de una ZONA de la prescripcion (dosis variable).
+  // ESPEJO EXACTO de ShapeTab.PasoEdicion (C#): si cambia uno hay que cambiar el
+  // otro, o la misma prescripcion se edita distinto segun la pantalla.
+  // El tramo fino paso de 0,5 a 0,1 (pedido del usuario 2026-09-16, para la
+  // dosis variable de semillas por metro). De 10 a 50 sigue de a 1: alcanza en
+  // maiz (4-9 sem/m) pero queda grueso en soja (12-25).
+  function shapePasoEdicion(v) { return v < 10 ? 0.1 : v < 50 ? 1 : 5; }
 
   function shapeRenderEditor(out) {
     var v = shapeTap.editVal;

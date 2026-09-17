@@ -111,7 +111,11 @@
   // El primer escalon subio de 5 a 10 (pedido del usuario 2026-09-16, "hasta 10
   // que vaya de 0.1"): en semillas por metro y dosis chicas, saltar de a 0,5
   // era demasiado grueso.
-  function doseStep(value) {
+  function doseStep(value, unidad) {
+    // SEMILLAS POR METRO: siempre 0,1, sin escalonar. La tabla de abajo esta
+    // pensada para kg/ha; en sem/m los valores viven entre 3 y 30 y media
+    // semilla por metro es una diferencia real de siembra.
+    if (unidad === 'sem_m') return 0.1;
     const v = Math.abs(value || 0);
     if (v < 10) return 0.1;
     if (v < 30) return 0.5;
@@ -352,7 +356,7 @@
   async function stepGlobal(dir) {
     if (!gState.allMan || !gState.sameUnit || gState.uniformDose == null) return;
     const cur = gState.uniformDose;
-    const next = Math.max(0, cur + dir * doseStep(cur));
+    const next = Math.max(0, cur + dir * doseStep(cur, gState.unidad));
     await sendManualAll(true, Math.round(next * 10) / 10);
   }
   gDn.addEventListener('click', () => stepGlobal(-1));
@@ -426,7 +430,7 @@
       if (!m.manual_mode) return;
       const dir = ev.target.closest('#fUp') ? 1 : -1;
       const cur = m.manual_dosis > 0 ? m.manual_dosis : (m.dosis_fija_config || 0);
-      const next = Math.max(0, cur + dir * doseStep(cur));
+      const next = Math.max(0, cur + dir * doseStep(cur, m.unidad));
       await sendManual(uid, idx, true, Math.round(next * 10) / 10);
       return;
     }

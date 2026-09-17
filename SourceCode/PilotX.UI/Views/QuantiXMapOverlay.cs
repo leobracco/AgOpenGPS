@@ -609,7 +609,7 @@ public sealed class QuantiXMapOverlay : Border
         if (sel == null) return;
         var m = sel.Value.Motor;
         double actual = m.ManualDosis > 0 ? m.ManualDosis : m.Objetivo;
-        await _client.SetManualAsync(sel.Value.Uid, m.Idx, true, Siguiente(actual, dir)).ConfigureAwait(false);
+        await _client.SetManualAsync(sel.Value.Uid, m.Idx, true, Siguiente(actual, dir, m.Unidad)).ConfigureAwait(false);
         await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
     }
 
@@ -618,9 +618,9 @@ public sealed class QuantiXMapOverlay : Border
     private static double ObjetivoDePartida(QxWidgetMotor m)
         => m.ManualDosis > 0 ? m.ManualDosis : m.Objetivo;
 
-    private static double Siguiente(double actual, int dir)
+    private static double Siguiente(double actual, int dir, string? unidad)
     {
-        double v = Math.Max(0, actual + dir * WidgetQuantiXClient.PasoDosis(actual));
+        double v = Math.Max(0, actual + dir * WidgetQuantiXClient.PasoDosis(actual, unidad));
         return Math.Round(v * 10) / 10.0;
     }
 }

@@ -457,9 +457,18 @@ public sealed class ShapeTab : QxTab
             _tapOut.Children.Add(QxUi.Chip(PilotX.Cockpit.Bars.Traductor.T("Fuera de las zonas")));
     }
 
-    /// <summary>Paso de edición según magnitud: sem/m van en decimales,
-    /// kg/ha en enteros.</summary>
-    private static double PasoEdicion(double v) => v < 10 ? 0.5 : v < 50 ? 1 : 5;
+    /// <summary>Paso de edición según magnitud: sem/m van en decimales, kg/ha
+    /// en enteros. El tramo fino pasó de 0,5 a 0,1 (pedido del usuario
+    /// 2026-09-16: "que la dosis se incremente / decremente de a 0,1", "para la
+    /// dosis variable de semillas por metro") — media semilla por metro es una
+    /// diferencia real de siembra.
+    /// Acá NO se puede mirar la unidad: es per-motor (m.UnidadDosis) y una zona
+    /// de la prescripción no sabe a qué motor le toca, así que la magnitud es el
+    /// único indicio — que es lo que este método ya hacía.
+    /// OJO: de 10 a 50 sigue moviéndose de a 1. Para sem/m alcanza en maíz (4-9)
+    /// pero queda grueso en soja (12-25). Si hace falta, el tramo fino se estira
+    /// acá, teniendo en cuenta que kg/ha comparte la misma tabla.</summary>
+    private static double PasoEdicion(double v) => v < 10 ? 0.1 : v < 50 ? 1 : 5;
 
     private void RenderEditorZona(string campo)
     {

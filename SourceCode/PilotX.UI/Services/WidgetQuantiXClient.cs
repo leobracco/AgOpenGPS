@@ -170,8 +170,15 @@ public sealed class WidgetQuantiXClient
     /// ESPEJO EXACTO de doseStep() en wwwroot/js/widget-quantix.js — si cambia
     /// uno hay que cambiar el otro, o la misma máquina se mueve distinto según
     /// por qué pantalla la toques.</summary>
-    public static double PasoDosis(double valor)
+    public static double PasoDosis(double valor, string? unidad = null)
     {
+        // SEMILLAS POR METRO: siempre 0,1, sin escalonar. La tabla de abajo está
+        // pensada para kg/ha, donde 0,5 arriba de 10 es razonable; en sem/m los
+        // valores viven entre 3 y 30 y media semilla por metro es una diferencia
+        // real de siembra. Es el mismo criterio que ya usaba FormatoDosis, que
+        // fuerza un decimal cuando la unidad es sem_m.
+        if (string.Equals(unidad, "sem_m", StringComparison.OrdinalIgnoreCase)) return 0.1;
+
         double v = Math.Abs(valor);
         if (v < 10) return 0.1;
         if (v < 30) return 0.5;
