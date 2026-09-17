@@ -21,6 +21,9 @@ namespace AgOpenGPS
         public double offset;
 
         public double lookAheadOffSetting, lookAheadOnSetting;
+        /// <summary>Segundos que espera el MAPA para empezar a pintar. -1 = seguir
+        /// lookAheadOnSetting (ver Settings.setVehicle_toolPaintDelay).</summary>
+        public double paintDelaySetting;
         public double turnOffDelay;
 
         public double lookAheadDistanceOnPixelsLeft, lookAheadDistanceOnPixelsRight;
@@ -80,6 +83,7 @@ namespace AgOpenGPS
             lookAheadOnSetting = Properties.Settings.Default.setVehicle_toolLookAheadOn;
             lookAheadOffSetting = Properties.Settings.Default.setVehicle_toolLookAheadOff;
             turnOffDelay = Properties.Settings.Default.setVehicle_toolOffDelay;
+            paintDelaySetting = Properties.Settings.Default.setVehicle_toolPaintDelay;
 
             isSectionOffWhenOut = Properties.Settings.Default.setTool_isSectionOffWhenOut;
 

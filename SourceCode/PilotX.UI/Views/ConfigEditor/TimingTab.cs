@@ -145,6 +145,9 @@ public sealed class TimingTab : ConfigTab
     private TextBlock? _lblMetros;
     private static readonly (double min, double max) LimOff   = (0.0, 20.0);
     private static readonly (double min, double max) LimDelay = (0.0, 10.0);
+    /// <summary>Retardo de pintado: mismo techo que el encendido. Pintar más
+    /// tarde que la anticipación de la válvula no tiene sentido físico.</summary>
+    private static readonly (double min, double max) LimPintado = (0.0, 10.0);
 
     // ---- modelo local (el `ts` de config.js) -------------------------------
     private bool _dirty;
@@ -159,6 +162,9 @@ public sealed class TimingTab : ConfigTab
     private bool _cargando;
 
     private TextBox? _txtOn, _txtOff, _txtDelay;
+    /// <summary>Retardo del PINTADO. Vacío = seguir el look-ahead de
+    /// encendido (comportamiento histórico, se manda -1).</summary>
+    private TextBox? _txtPintado;
 
     /// <summary>Estado con el que se armó el árbol (sin datos / servicio caído /
     /// ok), para saber si el refresco de fondo tiene que reconstruir.</summary>
@@ -195,7 +201,24 @@ public sealed class TimingTab : ConfigTab
         double? on    = LeerNudDec(_txtOn,    LimOn);
         double? off   = LeerNudDec(_txtOff,   LimOff);
         double? delay = LeerNudDec(_txtDelay, LimDelay);
-        if (on == null || off == null || delay == null)
+
+        // Retardo de pintado: VACÍO es un valor válido y quiere decir "seguí el
+        // encendido", que es como venía. Por eso no entra en el null-check de
+        // abajo: si entrara, dejar el campo en blanco cancelaría el guardado.
+        double pintado = -1;
+        bool pintadoMal = false;
+        if (_txtPintado != null)
+        {
+            string tp = (_txtPintado.Text ?? "").Trim();
+            if (tp.Length == 0) { Invalido(_txtPintado, false); }
+            else
+            {
+                double? v = LeerNudDec(_txtPintado, LimPintado);
+                if (v == null) pintadoMal = true; else pintado = v.Value;
+            }
+        }
+
+        if (on == null || off == null || delay == null || pintadoMal)
         {
             C.Estado?.Invoke("Revisá los valores marcados en rojo", "err");
             return false;
@@ -221,6 +244,7 @@ public sealed class TimingTab : ConfigTab
                 look_ahead_on  = on.Value,
                 look_ahead_off = off.Value,
                 turn_off_delay = delay.Value,
+                paint_delay    = pintado,
             }).ConfigureAwait(true);
 
             if (r == null)
@@ -303,6 +327,7 @@ public sealed class TimingTab : ConfigTab
         _txtOn    = Nud("Encendido (s)");
         _txtOff   = Nud("Apagado (s)");
         _txtDelay = Nud("Retardo de apagado (s)");
+        _txtPintado = Nud("Retardo de pintado (s)");
         Cablear();   // recién acá: cada handler del XOR necesita al otro campo
 
         // Las tres columnas del `.timingCols` (flex-wrap): en WrapPanel se
@@ -321,6 +346,29 @@ public sealed class TimingTab : ConfigTab
             + "El apagado no puede superar 0,8 × encendido."));
 
         Children.Add(CfgUi.Carta(carta));
+
+        // ---- Carta aparte: retardo del PINTADO -----------------------------
+        // Va SEPARADO de los tres de arriba a propósito: esos tres mandan la
+        // VÁLVULA (cuándo sale el producto); éste manda el MAPA (cuándo se
+        // dibuja). Meterlo como cuarta columna haría pensar que entra en la
+        // regla de exclusión con «Apagado» y «Retardo», y no tiene nada que ver.
+        var cp = new StackPanel { Spacing = 10, MaxWidth = 620 };
+        cp.Children.Add(CfgUi.Titulo("Retardo de pintado"));
+        var colsP = CfgUi.Grilla();
+        colsP.Children.Add(Columna("SectionOnLookAhead.png", _txtPintado, "Retardo de pintado (s)"));
+        cp.Children.Add(colsP);
+        cp.Children.Add(CfgUi.Nota(
+            "Cuánto espera el MAPA para empezar a pintar. Dejalo VACÍO para que siga al "
+            + "«Encendido», que es como venía funcionando."));
+        cp.Children.Add(CfgUi.Nota(
+            "Para qué sirve: la válvula abre apenas se pide la sección, pero el producto "
+            + "recién cae cuando la máquina reacciona. El mapa pintaba al cabo del "
+            + "«Encendido» entero, así que si ese valor está por encima del retardo real "
+            + "de tu máquina —lo normal, para no dejar huecos de siembra— la semilla cae "
+            + "ANTES de que empiece la pintura y el mapa arranca tarde. Bajá este número "
+            + "hasta que la pintura coincida con lo sembrado. NO toca la válvula: la "
+            + "siembra no cambia."));
+        Children.Add(CfgUi.Carta(cp));
 
         PintarValores();
         PintarHabilitado();
@@ -505,6 +553,14 @@ public sealed class TimingTab : ConfigTab
         if (_txtOn    != null) { SetTexto(_txtOn,    Val(tm?.LookAheadOn));  Invalido(_txtOn, false); }
         if (_txtOff   != null) { SetTexto(_txtOff,   Val(tm?.LookAheadOff)); Invalido(_txtOff, false); }
         if (_txtDelay != null) { SetTexto(_txtDelay, Val(tm?.TurnOffDelay)); Invalido(_txtDelay, false); }
+        // -1 = "seguí el encendido": se muestra VACÍO, no "-1", que no querría
+        // decir nada para el operario.
+        if (_txtPintado != null)
+        {
+            double pd = tm?.PaintDelay ?? -1;
+            SetTexto(_txtPintado, pd >= 0 ? Num(pd) : "");
+            Invalido(_txtPintado, false);
+        }
         ActualizarMetros();
     }
 

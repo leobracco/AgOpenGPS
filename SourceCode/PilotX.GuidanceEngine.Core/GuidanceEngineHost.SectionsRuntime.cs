@@ -303,14 +303,39 @@ namespace AgOpenGPS
                 }
 
                 // Mapping timers.
+                //
+                // El retardo del PINTADO se toma de paintDelaySetting y ya NO
+                // directamente de lookAheadOnSetting. Por que:
+                //
+                //   · la valvula abre en el INSTANTE del pedido (arriba,
+                //     "if (sectionOnRequest) isSectionOn = true");
+                //   · el pedido se levanta ANTICIPADO, porque el anti-solape
+                //     consulta un punto proyectado lookAheadOn segundos adelante
+                //     (AntiSolapeSecciones.SeccionRequeridaOn);
+                //   · entonces el mapa empieza a pintar cuando el implemento
+                //     llega al punto, y la semilla empezo a caer al cumplirse el
+                //     retardo FISICO de la maquina.
+                //
+                // Las dos cosas coinciden solo si lookAheadOn es exactamente ese
+                // retardo fisico. Cuando se lo sube de mas para no dejar huecos de
+                // siembra, la semilla cae antes y el mapa pinta despues: atrasa
+                // (lookAheadOn - retardo_real). De ahi el reporte de campo
+                // "siembra y fumiga bien, pero arranca a pintar tarde".
+                //
+                // -1 mantiene el comportamiento historico, asi que un equipo que
+                // actualiza no cambia de conducta hasta que alguien lo toque.
+                double segPintado = tool.paintDelaySetting >= 0
+                    ? tool.paintDelaySetting
+                    : tool.lookAheadOnSetting;
+
                 if (section[j].sectionOnRequest && !section[j].isMappingOn && section[j].mappingOnTimer == 0)
                 {
-                    section[j].mappingOnTimer = (int)(tool.lookAheadOnSetting * gpsHz - 1);
+                    section[j].mappingOnTimer = (int)(segPintado * gpsHz - 1);
                 }
                 else if (section[j].sectionOnRequest && section[j].isMappingOn && section[j].mappingOffTimer > 1)
                 {
                     section[j].mappingOffTimer = 0;
-                    section[j].mappingOnTimer = (int)(tool.lookAheadOnSetting * gpsHz - 1);
+                    section[j].mappingOnTimer = (int)(segPintado * gpsHz - 1);
                 }
 
                 if (tool.lookAheadOffSetting > 0)

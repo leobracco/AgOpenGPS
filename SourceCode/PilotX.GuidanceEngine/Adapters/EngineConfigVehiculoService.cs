@@ -137,7 +137,8 @@ namespace PilotX.GuidanceEngine.Adapters
                 {
                     LookAheadOn = s.setVehicle_toolLookAheadOn,
                     LookAheadOff = s.setVehicle_toolLookAheadOff,
-                    TurnOffDelay = s.setVehicle_toolOffDelay
+                    TurnOffDelay = s.setVehicle_toolOffDelay,
+                    PaintDelay = s.setVehicle_toolPaintDelay
                 },
                 Secciones = BuildSecciones(),
                 Switches = new ConfigSwitchesSec
@@ -590,12 +591,23 @@ namespace PilotX.GuidanceEngine.Adapters
                 return ConfigResultDto.Falla("off-y-delay-excluyentes");
             if (off > on * 0.8) off = on * 0.8; // clamp del original
 
+            // Retardo del PINTADO. Negativo = seguir el look-ahead de encendido,
+            // que es el comportamiento historico. Tope 10 s, el MISMO que usa la
+            // pantalla (TimingTab.LimPintado): con un tope mas alto el campo
+            // mostraba un valor que la UI despues recortaba sola, y el operario
+            // veia cambiar el numero sin haberlo tocado.
+            double pintado = b.PaintDelay ?? s.setVehicle_toolPaintDelay;
+            if (pintado >= 0) pintado = Clamp(pintado, 0.0, 10.0);
+            else pintado = -1;
+
             _engine.Tool.lookAheadOnSetting = on;
             _engine.Tool.lookAheadOffSetting = off;
             _engine.Tool.turnOffDelay = delay;
+            _engine.Tool.paintDelaySetting = pintado;
             s.setVehicle_toolLookAheadOn = on;
             s.setVehicle_toolLookAheadOff = off;
             s.setVehicle_toolOffDelay = delay;
+            s.setVehicle_toolPaintDelay = pintado;
             return ConfigResultDto.Exito();
         }
 

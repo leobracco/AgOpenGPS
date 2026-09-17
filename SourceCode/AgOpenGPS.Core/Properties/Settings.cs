@@ -161,6 +161,25 @@ namespace AgOpenGPS.Properties
         public double purePursuitIntegralGainAB = 0;
         public double setVehicle_antennaHeight = 3;
         public double setVehicle_toolLookAheadOn = 1;
+        /// <summary>
+        /// Segundos que el MAPA espera antes de empezar a pintar, contados desde
+        /// que se pide abrir la seccion. -1 = seguir usando toolLookAheadOn, que
+        /// es como venia funcionando (default: nadie nota el cambio al actualizar).
+        ///
+        /// Por que existe (2026-09-17): la valvula abre en el INSTANTE del pedido
+        /// y el mapa esperaba toolLookAheadOn. Como el pedido se levanta anticipado
+        /// —el anti-solape consulta un punto proyectado look-ahead segundos
+        /// adelante— la cuenta cierra SOLO si toolLookAheadOn es exactamente el
+        /// retardo fisico de la maquina. Cuando se lo sube de mas para que no queden
+        /// huecos de siembra —el ajuste prudente, el que todos hacen— la semilla cae
+        /// antes y el mapa pinta despues: el mapa atrasa
+        /// (toolLookAheadOn - retardo_real). Sintoma de campo: "siembra y fumiga
+        /// bien, pero arranca a pintar tarde".
+        ///
+        /// Separarlo permite bajar el retardo del PINTADO sin tocar la anticipacion
+        /// de la VALVULA, que es la que evita los huecos de siembra.
+        /// </summary>
+        public double setVehicle_toolPaintDelay = -1;
         public bool setTool_isToolTrailing = true;
         public double setVehicle_toolOffset = 0;
         public bool setTool_isToolRearFixed = false;

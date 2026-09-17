@@ -80,6 +80,10 @@ namespace AgroParallel.Models
         public double LookAheadOn { get; set; }       // s, 0.2..22
         public double LookAheadOff { get; set; }      // s, 0..20, ≤ 0.8×On
         public double TurnOffDelay { get; set; }      // s, 0..10, excluyente con Off
+        /// <summary>Segundos que espera el MAPA para empezar a pintar. -1 = seguir
+        /// el look-ahead de encendido (comportamiento historico). Ver
+        /// Settings.setVehicle_toolPaintDelay.</summary>
+        public double PaintDelay { get; set; } = -1;
     }
 
     public class ConfigSeccionesSec
@@ -258,6 +262,7 @@ namespace AgroParallel.Models
         public double? LookAheadOn { get; set; }
         public double? LookAheadOff { get; set; }
         public double? TurnOffDelay { get; set; }
+        public double? PaintDelay { get; set; }
         // secciones
         public bool? IsSectionsNotZones { get; set; }
         public int? NumSections { get; set; }

@@ -81,6 +81,8 @@ public sealed class ConfigOffsetSec
 public sealed class ConfigTimingSec
 {
     [JsonPropertyName("look_ahead_on")]  public double? LookAheadOn { get; set; }   // s
+    /// <summary>Segundos que espera el MAPA para pintar. -1 = seguir look_ahead_on.</summary>
+    [JsonPropertyName("paint_delay")]    public double? PaintDelay { get; set; }    // s
     [JsonPropertyName("look_ahead_off")] public double? LookAheadOff { get; set; }
     [JsonPropertyName("turn_off_delay")] public double? TurnOffDelay { get; set; }
 }
