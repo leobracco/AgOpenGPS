@@ -63,6 +63,35 @@ namespace AgroParallel.QuantiX
         private const int SEC_OFF_TICKS = 2;
         private readonly Dictionary<string, int[]> _secOffStreak = new Dictionary<string, int[]>();
 
+        // ── Estabilizacion del TARGET de dosis ──────────────────────────────
+        // El pps sale de la velocidad GPS, que tiembla, y se publicaba CRUDO en
+        // cada tick (200 ms). Con Ki alto —22,5 en el rig de Las Gringas, contra
+        // un Kp de 5,8— el integrador del nodo carga y descarga persiguiendo ese
+        // ruido: el motor se acelera y desacelera, la dosis PROMEDIO da bien y
+        // las semillas quedan desparejas. Sintoma reportado 2026-09-17:
+        // "dosifica bien 3 semillas por metro pero no estan parejas".
+        //
+        // Dos cosas, y las dos importan:
+        //  1. FILTRO: la velocidad real del tractor cambia despacio (tiene
+        //     inercia), asi que el temblor es del ESTIMADOR, no de la maquina.
+        //     Filtrarlo acerca el target a la verdad en vez de alejarlo.
+        //  2. BANDA MUERTA: aunque el valor filtrado se mueva poco, republicarlo
+        //     igual reinicia la persecucion. Solo se manda cuando cambio de
+        //     verdad.
+        //
+        // El salto grande NO se filtra: arrancar, frenar o cambiar de marcha
+        // tiene que llegar al motor en el tick, sin arrastre.
+        private const double PPS_ALFA        = 0.20;   // EMA, tau ~0,8 s a 200 ms
+        private const double PPS_SALTO_CRUDO = 0.25;   // >25% de cambio = pasa derecho
+        private const double PPS_BANDA       = 0.010;  // 1% para republicar
+        // El watchdog del nodo corta a los 3 s: el latido tiene que quedar MUY
+        // por debajo o el motor se para solo en una recta a velocidad pareja.
+        private const int    PPS_LATIDO_MS   = 1000;
+        private readonly Dictionary<string, double> _ppsFiltrado = new Dictionary<string, double>();
+        private readonly Dictionary<string, double> _ppsPublicado = new Dictionary<string, double>();
+        private readonly Dictionary<string, bool>   _secPublicada = new Dictionary<string, bool>();
+        private readonly Dictionary<string, long>   _ppsPublicadoMs = new Dictionary<string, long>();
+
         // "Una vez por arranque" (mismo patrón que SectionXCutAdapter): dos
         // flags independientes porque un mismo rig puede tener motores que sí
         // derivan del implemento y otros que caen al fallback por nodo.
@@ -522,9 +551,47 @@ namespace AgroParallel.QuantiX
                             }
                         }
 
+                        // Filtrado + banda muerta (ver PPS_ALFA arriba).
+                        string kPps = nodo.Uid + "#" + mi.ToString(CultureInfo.InvariantCulture);
+                        double ppsPrev;
+                        if (!_ppsFiltrado.TryGetValue(kPps, out ppsPrev)) ppsPrev = pps;
+
+                        double ppsSuave;
+                        if (pps <= 0 || ppsPrev <= 0
+                            || Math.Abs(pps - ppsPrev) > Math.Abs(ppsPrev) * PPS_SALTO_CRUDO)
+                        {
+                            // Arranque, corte o cambio brusco de velocidad: derecho.
+                            ppsSuave = pps;
+                        }
+                        else
+                        {
+                            ppsSuave = ppsPrev + (pps - ppsPrev) * PPS_ALFA;
+                        }
+                        _ppsFiltrado[kPps] = ppsSuave;
+
+                        long ahoraMs = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
+                        double ppsUlt; bool secUlt; long msUlt;
+                        bool hayPrevio = _ppsPublicado.TryGetValue(kPps, out ppsUlt);
+                        if (!_secPublicada.TryGetValue(kPps, out secUlt)) secUlt = !seccionOn;
+                        if (!_ppsPublicadoMs.TryGetValue(kPps, out msUlt)) msUlt = 0;
+
+                        bool cambioSeccion = secUlt != seccionOn;
+                        bool cambioValor = !hayPrevio
+                            // Piso chico: con dosis bajas el pps de trabajo es de pocos
+                            // pulsos y un piso grande se comia cambios reales. Igual el
+                            // latido de 1 s refresca aunque la banda no se cruce.
+                            || Math.Abs(ppsSuave - ppsUlt) > Math.Max(0.05, Math.Abs(ppsUlt) * PPS_BANDA);
+                        bool tocaLatido = (ahoraMs - msUlt) >= PPS_LATIDO_MS;
+
+                        if (!cambioSeccion && !cambioValor && !tocaLatido) continue;
+
+                        _ppsPublicado[kPps] = ppsSuave;
+                        _secPublicada[kPps] = seccionOn;
+                        _ppsPublicadoMs[kPps] = ahoraMs;
+
                         string topic = "agp/quantix/" + nodo.Uid + "/target";
                         string payload = "{\"id\":" + mi
-                            + ",\"pps\":" + Math.Round(pps, 2).ToString(CultureInfo.InvariantCulture)
+                            + ",\"pps\":" + Math.Round(ppsSuave, 2).ToString(CultureInfo.InvariantCulture)
                             + ",\"seccion_on\":" + (seccionOn ? "true" : "false")
                             + "}";
 
