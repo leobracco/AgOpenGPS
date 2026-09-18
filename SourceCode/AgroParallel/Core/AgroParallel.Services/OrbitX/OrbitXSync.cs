@@ -1172,6 +1172,14 @@ namespace AgroParallel.OrbitX
                     { "lat", lat }, { "lon", lon },
                     { "heading", heading }, { "speed", speed },
                     { "field", field },
+                    // Telemetría de guiado en vivo — para diagnosticar remotamente
+                    // desde OrbitX (cross-track, ángulo de dirección, fix, si el
+                    // piloto está enganchado) sin depender de fotos de la pantalla.
+                    { "xte", snap.CrossTrackErrorM },
+                    { "steer_angle", snap.SteerAngleDeg },
+                    { "fix", snap.FixQuality },
+                    { "autosteer", snap.IsAutoSteerOn },
+                    { "reverse", snap.IsReverse },
                     { "modules", new Dictionary<string, bool>
                         {
                             { "vistax", _cfg.SyncVistaX },
