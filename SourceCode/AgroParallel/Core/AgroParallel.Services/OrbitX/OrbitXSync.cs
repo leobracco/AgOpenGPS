@@ -408,15 +408,36 @@ namespace AgroParallel.OrbitX
         {
             try
             {
-                // Dice QUE perfil esta activo; sin el, los XML del cloud no
-                // dicen cual esta puesto en la maquina.
-                EnqueueIfChanged(
-                    Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "aog_settings.json"),
-                    "pilotx/aog_settings.json", "pilotx_settings", "pilotx");
+                // 1) TODA la config del ConfigRoot (perfil, dirección, CoreX
+                //    integrado, FlowX, nodos, secciones, etc.). Antes solo subía
+                //    aog_settings.json; ahora se sube todo para poder ver la
+                //    config completa del equipo desde el cloud sin ir al campo.
+                //    Se excluye orbitX.json (device_id + token = credencial).
+                string cfgRoot = AgroParallel.Common.AgpPaths.ConfigRoot;
+                if (!string.IsNullOrEmpty(cfgRoot) && Directory.Exists(cfgRoot))
+                {
+                    foreach (var f in Directory.GetFiles(cfgRoot, "*.json"))
+                    {
+                        if (string.Equals(Path.GetFileName(f), "orbitX.json", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        EnqueueIfChanged(f, "pilotx/" + Path.GetFileName(f), "pilotx_config", "pilotx");
+                    }
 
-                // Vehicles/ es hermano de Fields/ (ApplicationModel los crea
-                // juntos). Se deriva del snapshot y no de AgOpenGPS.Core para
-                // no meterle esa dependencia a este servicio.
+                    // Config del Engine de guiado (tool.json = geometría de la
+                    // herramienta, look-ahead de secciones, etc.).
+                    string geDir = Path.Combine(cfgRoot, "GuidanceEngineData");
+                    if (Directory.Exists(geDir))
+                        foreach (var f in Directory.GetFiles(geDir, "*.json"))
+                            EnqueueIfChanged(f, "pilotx/GuidanceEngineData/" + Path.GetFileName(f),
+                                             "pilotx_config", "pilotx");
+                }
+
+                // 2) Perfiles de vehículo (Vehicles/*.XML): geometría, offset y
+                //    altura de antena, IMU, dirección. Vehicles/ es hermano de
+                //    Fields/; se deriva del snapshot para no meterle la
+                //    dependencia de AgOpenGPS.Core a este servicio. Si no hay
+                //    campo abierto todavía no se puede ubicar, pero la config
+                //    de arriba (los .json) igual se subió.
                 var snap = _state.GetSnapshot();
                 string fieldsRoot = snap?.FieldsDirectory;
                 if (string.IsNullOrEmpty(fieldsRoot)) return;

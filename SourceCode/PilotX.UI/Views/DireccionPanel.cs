@@ -99,6 +99,12 @@ public sealed class DireccionPanel : Border
     };
     private readonly TextBlock _fdNota;
 
+    // Guiado — selector de modo (PP / Stanley)
+    private readonly Button _segPP;
+    private readonly Button _segStanley;
+    private readonly StackPanel _grpPP = new() { Spacing = 2 };
+    private readonly StackPanel _grpStanley = new() { Spacing = 2 };
+
     // Sensor
     private readonly Button _segRty;
     private readonly Button _segEncoder;
@@ -393,24 +399,41 @@ public sealed class DireccionPanel : Border
         // El wire guarda los ENTEROS crudos del slider original; la escala es
         // solo de display (hold_look_ahead=29 → 2,9 s). Igual que la página.
         _scGuiado = new StackPanel { Spacing = 2, IsVisible = false };
-        _scGuiado.Children.Add(SubTitulo("Modo suave (Pure Pursuit)"));
-        _scGuiado.Children.Add(FilaAjuste("Qué tan adelante mira", "hold_look_ahead", 10, 70, 0.1, 1, "s",
+
+        // Selector de modo: dos botones que muestran SOLO los comandos del modo
+        // activo. Reemplaza al toggle "Usar siempre Stanley" y evita tocar por
+        // error los parámetros del modo que no se está usando.
+        _segPP      = BotonSeg("Pure Pursuit");
+        _segStanley = BotonSeg("Stanley");
+        _segPP.Click      += (_, _) => { SetModoGuiado(stanley: false); MarcarSucio(); };
+        _segStanley.Click += (_, _) => { SetModoGuiado(stanley: true);  MarcarSucio(); };
+        var modoFila = new UniformGrid { Columns = 2, Margin = new Thickness(0, 0, 0, 2) };
+        modoFila.Children.Add(Envolver(_segPP, 0, 4));
+        modoFila.Children.Add(Envolver(_segStanley, 4, 0));
+        _scGuiado.Children.Add(SubTituloAyuda("Modo de guiado",
+            "Pure Pursuit: entra suave a la línea, perdona más el sensor de rueda. Stanley: más firme y preciso, pero más sensible a la calibración del WAS. Elegí uno y se muestran solo sus ajustes."));
+        _scGuiado.Children.Add(modoFila);
+
+        // Comandos de Pure Pursuit (visibles solo con PP activo).
+        _grpPP.Children.Add(FilaAjuste("Qué tan adelante mira", "hold_look_ahead", 10, 70, 0.1, 1, "s",
             "Cuántos segundos adelante mira el modo suave para decidir el giro. Más = anda tranquilo y hace curvas amplias; menos = se pega a la línea pero puede serpentear."));
-        _scGuiado.Children.Add(FilaAjuste("Multiplicador por velocidad", "look_ahead_mult", 5, 60, 0.1, 1, "",
+        _grpPP.Children.Add(FilaAjuste("Multiplicador por velocidad", "look_ahead_mult", 5, 60, 0.1, 1, "",
             "Cuánto crece la mirada al aumentar la velocidad. Si a alta velocidad serpentea, subilo."));
-        _scGuiado.Children.Add(FilaAjuste("Entrada a la línea", "acquire_factor", 20, 300, 0.01, 2, "",
+        _grpPP.Children.Add(FilaAjuste("Entrada a la línea", "acquire_factor", 20, 300, 0.01, 2, "",
             "Qué tan agresivo entra a la guía desde lejos. Alto = entra derecho y rápido; bajo = entra en una curva suave y larga."));
-        _scGuiado.Children.Add(FilaAjuste("Integral (PP)", "integral_pp", 0, 100, 1, 0, "",
+        _grpPP.Children.Add(FilaAjuste("Integral (PP)", "integral_pp", 0, 100, 1, 0, "",
             "Corrige el error que queda pegado (viento, ladera, implemento que tira). Demasiado alto = balanceo lento de un lado al otro."));
-        _scGuiado.Children.Add(SubTituloSep("Modo firme (Stanley)"));
-        _scGuiado.Children.Add(FilaAjuste("Ganancia Stanley", "stanley_gain", 1, 40, 0.1, 1, "",
+        _scGuiado.Children.Add(_grpPP);
+
+        // Comandos de Stanley (visibles solo con Stanley activo).
+        _grpStanley.Children.Add(FilaAjuste("Ganancia Stanley", "stanley_gain", 1, 40, 0.1, 1, "",
             "Cuánto pesa la distancia a la línea en el modo firme. Alto = vuelve rápido pero puede ponerse nervioso."));
-        _scGuiado.Children.Add(FilaAjuste("Ganancia de rumbo", "heading_error_gain", 1, 15, 0.1, 1, "",
+        _grpStanley.Children.Add(FilaAjuste("Ganancia de rumbo", "heading_error_gain", 1, 15, 0.1, 1, "",
             "Cuánto pesa el error de rumbo (apuntar torcido). Subilo si cruza la línea en ángulo en vez de enderezarse antes."));
-        _scGuiado.Children.Add(FilaAjuste("Integral (Stanley)", "integral_stanley", 0, 100, 1, 0, "",
+        _grpStanley.Children.Add(FilaAjuste("Integral (Stanley)", "integral_stanley", 0, 100, 1, 0, "",
             "Igual que la integral de PP pero para el modo firme: mata el corrimiento constante."));
-        _scGuiado.Children.Add(FilaToggle("Usar siempre Stanley (puro)", "stanley_pure",
-            "Usa el modo firme también para entrar a la línea (sin la entrada suave de PP). Para implementos que exigen precisión desde el primer metro."));
+        _scGuiado.Children.Add(_grpStanley);
+
         _scGuiado.Children.Add(SubTituloSep("General"));
         _scGuiado.Children.Add(FilaAjuste("Ángulo máximo de giro", "max_steer_angle", 10, 80, 1, 0, "°",
             "Tope de giro que el piloto puede pedir. Ponelo igual al tope físico real de tus ruedas: más que eso, el motor empuja contra el tope mecánico."));
@@ -875,6 +898,7 @@ public sealed class DireccionPanel : Border
     {
         if (_cfg == null) return;
         SetSeg(rty: !string.Equals(Str("conv_type"), "Differential", StringComparison.OrdinalIgnoreCase), pintar: true);
+        SetModoGuiado(Bool("stanley_pure"), pintar: true);
         _valCuentas.Text = Entero("counts_per_degree").ToString(CultureInfo.InvariantCulture);
         PintarToggle(_tglInvWas, Bool("invert_was"));
         PintarToggle(_tglInvMotor, Bool("invert_steer"));
@@ -924,6 +948,17 @@ public sealed class DireccionPanel : Border
 
 
     // ---- edición de config ---------------------------------------------------
+
+    // Selector de modo de guiado: PP oculta los comandos de Stanley y viceversa.
+    // Persiste en el mismo flag que el toggle viejo (stanley_pure = isStanleyUsed).
+    private void SetModoGuiado(bool stanley, bool pintar = false)
+    {
+        if (!pintar && _cfg != null) _cfg["stanley_pure"] = stanley;
+        _grpPP.IsVisible = !stanley;
+        _grpStanley.IsVisible = stanley;
+        PintarToggle(_segPP, !stanley);
+        PintarToggle(_segStanley, stanley);
+    }
 
     private void SetSeg(bool rty, bool pintar = false)
     {
