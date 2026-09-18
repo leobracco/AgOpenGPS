@@ -1,0 +1,212 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:PilotX.Desktop.Views"
+             x:Class="PilotX.Desktop.Views.GraficoXtePanel">
+    <!--
+        GraficoXtePanel - reemplazo nativo de pages/grafico-xte.html
+        (ex ventana WinForms FormGraphXTE).
+
+        Mismo contrato REST que la página: GET /api/aog/graph-xte devuelve
+        { heading_error_deg, xte_cm } en snake_case y esto solo lo grafica.
+        Muestreo a 5 Hz, buffer rodante de 120 muestras, eje simétrico ±escala.
+        Los tres botones de escala son 100% del lado cliente.
+
+        La página HTML queda intacta para el celular/PWA.
+
+        PALETA: la página era "dark cockpit"; acá va la paleta CLARA de panel
+        (tokens PilotXPanel*). Los COLORES DE SERIE se conservan tal cual.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <Border Name="Card"
+                Background="{StaticResource PilotXPanelCard}"
+                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                BorderThickness="1"
+                CornerRadius="14"
+                ClipToBounds="True"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="720" MaxHeight="560"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,8">
+
+            <Grid Name="ContenidoRaiz" Margin="24,20,24,24"
+                  RowDefinitions="Auto,Auto,*,Auto,Auto">
+
+                <!-- ============ Header (.page-head) ============ -->
+                <Grid Grid.Row="0" Name="DragHandle" Background="Transparent"
+                      ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+                    <StackPanel Grid.Column="0" Name="HeaderTitulo" Spacing="2">
+                        <TextBlock Text="Gráfico XTE"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock Text="Guiado en vivo · error de rumbo y de seguimiento · solo lectura"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"/>
+                    </StackPanel>
+
+                    <!-- .pill.idle: la clase nunca cambia en la página, solo el
+                         texto. El punto queda siempre gris. -->
+                    <Border Grid.Column="1" Name="HeaderPill"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="999"
+                            Padding="14,6,14,6"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Width="8" Height="8"
+                                     Fill="{StaticResource PilotXPanelIdle}"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="StatusText" Text="—"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="13"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Grid.Column="2" Name="BtnCerrar" Content="✕"
+                            Click="OnCerrarClick"
+                            ToolTip.Tip="Cerrar"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8" Width="48" Height="48"
+                            FontSize="15"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ============ Lecturas (.g-readouts) ============ -->
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,0,0,16">
+                    <Border Grid.Column="0"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9,20,9"
+                            MinWidth="160"
+                            Margin="0,0,24,0">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Error de rumbo"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Name="ValHe" Text="0.0"
+                                           Foreground="{StaticResource PilotXPanelAccentText}"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="38" FontWeight="Bold" LineHeight="42"/>
+                                <TextBlock Text="°"
+                                           Foreground="{StaticResource PilotXPanelAccentText}"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="38" FontWeight="Bold" LineHeight="42"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9,20,9"
+                            MinWidth="160">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Error de seguimiento (XTE)"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                            <StackPanel Orientation="Horizontal">
+                                <!-- #2F6E9E: variante legible sobre blanco del
+                                     azul de serie #3D87C6 (no hay token azul). -->
+                                <TextBlock Name="ValXte" Text="0"
+                                           Foreground="#2F6E9E"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="38" FontWeight="Bold" LineHeight="42"/>
+                                <TextBlock Text=" cm"
+                                           Foreground="#2F6E9E"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="38" FontWeight="Bold" LineHeight="42"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ============ Área de dibujo (.g-chart-wrap) ============ -->
+                <Border Grid.Row="2"
+                        Background="{StaticResource PilotXPanelSurface}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12"
+                        MinHeight="200">
+                    <Grid>
+                        <v:GraficoLineal Name="Lienzo"/>
+                        <TextBlock Name="AxisMax" Text="80"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   FontSize="11"
+                                   HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Margin="0,0,4,0"/>
+                        <TextBlock Name="AxisMin" Text="-80"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   FontSize="11"
+                                   HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                   Margin="0,0,4,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- ============ Leyenda (.g-legend) ============ -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="20" Margin="0,12,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Border Width="14" Height="3" CornerRadius="2"
+                                Background="{StaticResource PilotXPanelAccent}"
+                                VerticalAlignment="Center"/>
+                        <TextBlock Text="Error de rumbo (°)"
+                                   Foreground="{StaticResource PilotXPanelTextMid}"
+                                   FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Border Width="14" Height="3" CornerRadius="2"
+                                Background="#3D87C6"
+                                VerticalAlignment="Center"/>
+                        <TextBlock Text="XTE (cm)"
+                                   Foreground="{StaticResource PilotXPanelTextMid}"
+                                   FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ============ Controles de escala (.g-controls) ============ -->
+                <StackPanel Grid.Row="4" Name="FilaControles"
+                            Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
+                    <Button Name="BtnGainDown" Content="− Escala" Click="OnEscalaMenosClick"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="16,0" MinHeight="40" FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Achica el eje: la traza se ve más grande"/>
+                    <Button Name="BtnGainAuto" Content="Auto" Click="OnAutoClick"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="16,0" MinHeight="40" FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Ajusta el eje a los datos"/>
+                    <Button Name="BtnGainUp" Content="+ Escala" Click="OnEscalaMasClick"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="16,0" MinHeight="40" FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Agranda el eje: entra más recorrido"/>
+                </StackPanel>
+
+            </Grid>
+        </Border>
+    </ThemeVariantScope>
+</UserControl>

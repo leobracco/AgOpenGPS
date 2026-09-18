@@ -1,0 +1,159 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.CoreXEcuPanel">
+    <!--
+        CoreXEcuPanel - reemplazo nativo de pages/corex-ecu.html, UNIFICADO
+        en una sola card flotante con dos pestañas (pedido 2026-08-07):
+
+          · EN VIVO    - telemetria nativa 2Hz (IMU, WAS, GPS, CAN Keya,
+                         Autosteer, Sistema) contra /api/corex-ecu/status.
+          · CONFIGURAR - la pagina HTML (Estado / Calibracion / Conexion)
+                         embebida DENTRO de la card via WebView propio
+                         (?widget=1 esconde el sidebar del Hub). El WebView
+                         se crea al entrar a la pestaña y se DESTRUYE al
+                         salir: re-parentar un NativeControlHost mata los
+                         procesos de Chromium, y la config es flujo de
+                         galpon, no de labor.
+
+        La card flota sobre el mapa VIVO (mismo patron que GuiasPanel /
+        LotePanel): el mapa nunca se apaga.
+
+        Importante: NO se toca el firmware. Esto es solo la UI que lo
+        observa/configura via el Hub local.
+    -->
+    <!-- Name="Card": ModoEmbebido() (adentro de la Configuración) le
+         suelta el marco/tamaño; la instancia flotante no cambia. -->
+    <Border Name="Card"
+            Background="#FAFBFA"
+            BorderBrush="#C5CFC5"
+            BorderThickness="1"
+            CornerRadius="14"
+            Padding="14"
+            BoxShadow="0 8 26 0 #33101612"
+            MaxWidth="920" MaxHeight="640"
+            HorizontalAlignment="Stretch" VerticalAlignment="Center"
+            Margin="20,0">
+        <DockPanel>
+
+            <!-- ============ Header: titulo + tabs + pill + cerrar ============ -->
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto"
+                  Margin="4,0,0,10">
+                <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="1" VerticalAlignment="Center"
+                            Margin="0,0,16,0">
+                    <TextBlock Text="CoreX-ECU"
+                               Foreground="#101612"
+                               FontSize="16" FontWeight="Bold"/>
+                    <TextBlock Name="SubtitleText"
+                               Text="Telemetria del autosteer"
+                               Foreground="#535E54"
+                               FontSize="11"/>
+                </StackPanel>
+
+                <!-- Tabs -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                            VerticalAlignment="Center">
+                    <Button Name="BtnTabLive"
+                            Content="En vivo"
+                            Click="OnTabLiveClick"
+                            Background="#FFFFFF"
+                            Foreground="#101612"
+                            BorderBrush="#4ABA3E"
+                            BorderThickness="0,0,0,3"
+                            CornerRadius="8"
+                            Padding="16,8,16,8"
+                            FontWeight="SemiBold"/>
+                    <Button Name="BtnTabConfig"
+                            Content="Configurar"
+                            Click="OnTabConfigClick"
+                            Background="Transparent"
+                            Foreground="#535E54"
+                            BorderBrush="Transparent"
+                            BorderThickness="0,0,0,3"
+                            CornerRadius="8"
+                            Padding="16,8,16,8"/>
+                </StackPanel>
+
+                <!-- Pill: conexion con el ECU.
+                     Name="HeaderPill": la instancia embebida la entrega
+                     (PillsDeContexto) a la barra de contexto del shell —
+                     las tabs En vivo/Configurar quedan acá, son contenido. -->
+                <Border Grid.Column="2" Name="HeaderPill"
+                        Background="#FFFFFF"
+                        BorderBrush="#C5CFC5"
+                        BorderThickness="1"
+                        CornerRadius="999"
+                        Padding="12,5,12,5"
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                        <Ellipse Name="EcuDot"
+                                 Width="10" Height="10"
+                                 Fill="#8A958B"
+                                 VerticalAlignment="Center"/>
+                        <TextBlock Name="EcuText"
+                                   Text="sin datos"
+                                   Foreground="#535E54"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <Button Grid.Column="3"
+                        Name="BtnCerrar"
+                        Content="✕"
+                        Click="OnCerrarClick"
+                        Width="40" Height="40"
+                        FontSize="16"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="#FFFFFF"
+                        Foreground="#535E54"
+                        BorderBrush="#C5CFC5"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- ============ Error chip (oculto si ok) ============ -->
+            <Border DockPanel.Dock="Top"
+                    Name="ErrorChip"
+                    Background="#FBECEC"
+                    BorderBrush="#D0504A"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12,8,12,8"
+                    Margin="0,0,0,10"
+                    IsVisible="False">
+                <StackPanel Spacing="2">
+                    <TextBlock Name="ErrorCode"
+                               Foreground="#B33F3A"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               FontFamily="Consolas, Courier New, monospace"/>
+                    <TextBlock Name="ErrorMsg"
+                               Foreground="#101612"
+                               FontSize="13"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Name="ErrorTech"
+                               Foreground="#535E54"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               FontFamily="Consolas, Courier New, monospace"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ Stage: una pestaña a la vez ============ -->
+            <Panel>
+                <!-- EN VIVO: grid de 6 cards -->
+                <ScrollViewer Name="LiveRoot"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <UniformGrid Name="CardsHost" Columns="3"/>
+                </ScrollViewer>
+
+                <!-- CONFIGURAR: slot del WebView embebido (corex-ecu.html?widget=1) -->
+                <Panel Name="ConfigHost" IsVisible="False" Height="520"/>
+            </Panel>
+        </DockPanel>
+    </Border>
+</UserControl>

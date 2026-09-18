@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #F5F7F4; font-family: "Helvetica Neue", Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #4ABA3E; text-decoration: none; }
+  a:hover { color: #3A9531; }
+</style>
+</helmet>
+<div style="width: 1440px; padding: 56px 56px 72px; background: #F5F7F4; color: #101612; box-sizing: border-box; display: flex; flex-direction: column; gap: 40px;">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; border-bottom: 1px solid #E2E7E2; padding-bottom: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="font-size: 34px; font-weight: 600; letter-spacing: -0.02em;">Set de íconos · Agro Parallel</div>
+      <div style="font-size: 17px; color: #535E54; letter-spacing: 0.01em;">Lineales · trazo 2,4 px · esquinas suaves · verde solo como estado activo</div>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <div style="font-size: 12px; letter-spacing: 0.12em; color: #535E54;">ACENTO</div>
+      <div style="width: 26px; height: 26px; border-radius: 7px; background: #4ABA3E;"></div>
+      <div style="width: 26px; height: 26px; border-radius: 7px; background: #535E54;"></div>
+      <div style="width: 26px; height: 26px; border-radius: 7px; background: #C5CFC5;"></div>
+      <div style="width: 26px; height: 26px; border-radius: 7px; background: #E2E7E2;"></div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+
+    <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 18px; font-weight: 600;">AutoSteer</div>
+        <div style="font-size: 13px; color: #535E54;">Guiado automático activo / inactivo</div>
+      </div>
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+          <div style="width: 100%; height: 108px; border-radius: 14px; background: #EFF7ED; border: 1px solid #D3E8CE; display: flex; align-items: center; justify-content: center;">
+            <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#4ABA3E" stroke-width="2.4" stroke-linecap="round">
+              <circle cx="24" cy="24" r="17"></circle>
+              <circle cx="24" cy="24" r="5.6" fill="#4ABA3E" stroke="none"></circle>
+              <path d="M18.4 24 H7.2"></path>
+              <path d="M29.6 24 H40.8"></path>
+              <path d="M24 29.6 V40.8"></path>
+            </svg>
+          </div>
+          <div style="font-size: 12px; letter-spacing: 0.12em; color: #4ABA3E; font-weight: 600;">ON</div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+          <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+            <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#8B948B" stroke-width="2.4" stroke-linecap="round">
+              <circle cx="24" cy="24" r="17"></circle>
+              <circle cx="24" cy="24" r="5.6"></circle>
+              <path d="M18.4 24 H7.2"></path>
+              <path d="M29.6 24 H40.8"></path>
+              <path d="M24 29.6 V40.8"></path>
+            </svg>
+          </div>
+          <div style="font-size: 12px; letter-spacing: 0.12em; color: #8B948B; font-weight: 600;">OFF</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 18px; font-weight: 600;">Secciones · Manual</div>
+        <div style="font-size: 13px; color: #535E54;">Apertura y cierre a criterio del operario</div>
+      </div>
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+          <div style="width: 100%; height: 108px; border-radius: 14px; background: #EFF7ED; border: 1px solid #D3E8CE; display: flex; align-items: center; justify-content: center;">
+            <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#4ABA3E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="20" y="5" width="8" height="10" rx="2.2"></rect>
+              <path d="M24 15 V21.5"></path>
+              <path d="M6.5 21.5 H41.5"></path>
+              <rect x="6.5" y="27" width="6.6" height="12" rx="1.6" fill="#4ABA3E" stroke="none"></rect>
+              <rect x="13.6" y="27" width="6.6" height="12" rx="1.6"></rect>
+              <rect x="20.7" y="27" width="6.6" height="12" rx="1.6" fill="#4ABA3E" stroke="none"></rect>
+              <rect x="27.8" y="27" width="6.6" height="12" rx="1.6"></rect>
+              <rect x="34.9" y="27" width="6.6" height="12" rx="1.6" fill="#4ABA3E" stroke="none"></rect>
+            </svg>
+          </div>
+          <div style="font-size: 12px; letter-spacing: 0.12em; color: #4ABA3E; font-weight: 600;">ON</div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+          <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+            <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#8B948B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="20" y="5" width="8" height="10" rx="2.2"></rect>
+              <path d="M24 15 V21.5"></path>
+              <path d="M6.5 21.5 H41.5"></path>
+              <rect x="6.5" y="27" width="6.6" height="12" rx="1.6"></rect>
+              <rect x="13.6" y="27" width="6.6" height="12" rx="1.6"></rect>
+              <rect x="20.7" y="27" width="6.6" height="12" rx="1.6"></rect>
+              <rect x="27.8" y="27" width="6.6" height="12" rx="1.6"></rect>
+              <rect x="34.9" y="27" width="6.6" height="12" rx="1.6"></rect>
+            </svg>
+          </div>
+          <div style="font-size: 12px; letter-spacing: 0.12em; color: #8B948B; font-weight: 600;">OFF</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 18px; font-weight: 600;">Secciones · Automático</div>
+        <div style="font-size: 13px; color: #535E54;">Conmutación por mapa de cobertura</div>
+      </div>
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+          <div style="width: 100%; height: 108px; border-radius: 14px; background: #EFF7ED; border: 1px solid #D3E8CE; display: flex; align-items: center; justify-content: center;">
+            <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#4ABA3E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M24 4.5 V13"></path>
+              <path d="M17.6 9.2 A9 9 0 1 0 30.4 9.2"></path>
+              <path d="M8 22 H40"></path>
+              <rect x="8" y="27" width="32" height="12" rx="2.4" fill="#4ABA3E" stroke="none"></rect>
+              <path d="M18.6 28.6 V37.4" stroke="#EFF7ED"></path>
+              <path d="M29.4 28.6 V37.4" stroke="#EFF7ED"></path>
+            </svg>
+          </div>
+          <div style="font-size: 12px; letter-spacing: 0.12em; color: #4ABA3E; font-weight: 600;">ON</div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+          <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+            <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#8B948B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M24 4.5 V13"></path>
+              <path d="M17.6 9.2 A9 9 0 1 0 30.4 9.2"></path>
+              <path d="M8 22 H40"></path>
+              <rect x="8" y="27" width="32" height="12" rx="2.4"></rect>
+              <path d="M18.6 28.6 V37.4"></path>
+              <path d="M29.4 28.6 V37.4"></path>
+            </svg>
+          </div>
+          <div style="font-size: 12px; letter-spacing: 0.12em; color: #8B948B; font-weight: 600;">OFF</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 18px; font-weight: 600;">Izquierda</div>
+        <div style="font-size: 13px; color: #535E54;">Desplazar línea hacia la izquierda</div>
+      </div>
+      <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+        <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 7 V41" stroke="#4ABA3E"></path>
+          <path d="M33 24 H15.5" stroke="#535E54"></path>
+          <path d="M21.5 17.6 L15 24 L21.5 30.4" stroke="#535E54"></path>
+          <path d="M38 19.5 V28.5" stroke="#C5CFC5"></path>
+          <path d="M43 21 V27" stroke="#C5CFC5"></path>
+        </svg>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 18px; font-weight: 600;">Derecha</div>
+        <div style="font-size: 13px; color: #535E54;">Desplazar línea hacia la derecha</div>
+      </div>
+      <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+        <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M39 7 V41" stroke="#4ABA3E"></path>
+          <path d="M15 24 H32.5" stroke="#535E54"></path>
+          <path d="M26.5 17.6 L33 24 L26.5 30.4" stroke="#535E54"></path>
+          <path d="M10 19.5 V28.5" stroke="#C5CFC5"></path>
+          <path d="M5 21 V27" stroke="#C5CFC5"></path>
+        </svg>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 18px; font-weight: 600;">Centrar</div>
+        <div style="font-size: 13px; color: #535E54;">Ajustar a la línea de referencia</div>
+      </div>
+      <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+        <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 7 V41" stroke="#4ABA3E"></path>
+          <path d="M6 24 H17" stroke="#535E54"></path>
+          <path d="M11.5 18.5 L17.5 24 L11.5 29.5" stroke="#535E54"></path>
+          <path d="M42 24 H31" stroke="#535E54"></path>
+          <path d="M36.5 18.5 L30.5 24 L36.5 29.5" stroke="#535E54"></path>
+        </svg>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 18px; font-weight: 600;">Giro</div>
+        <div style="font-size: 13px; color: #535E54;">Giro automático en cabecera</div>
+      </div>
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+          <div style="width: 100%; height: 108px; border-radius: 14px; background: #EFF7ED; border: 1px solid #D3E8CE; display: flex; align-items: center; justify-content: center;">
+            <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#4ABA3E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M30 39 V17.5 A7.5 7.5 0 0 0 15 17.5 V29"></path>
+              <path d="M9 23.5 L15 30.5 L21 23.5"></path>
+              <path d="M36 25 H43"></path>
+              <path d="M36 32 H43"></path>
+              <path d="M36 39 H43"></path>
+            </svg>
+          </div>
+          <div style="font-size: 12px; letter-spacing: 0.12em; color: #4ABA3E; font-weight: 600;">ON</div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+          <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+            <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#8B948B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M30 39 V17.5 A7.5 7.5 0 0 0 15 17.5 V29"></path>
+              <path d="M9 23.5 L15 30.5 L21 23.5"></path>
+              <path d="M36 25 H43"></path>
+              <path d="M36 32 H43"></path>
+              <path d="M36 39 H43"></path>
+            </svg>
+          </div>
+          <div style="font-size: 12px; letter-spacing: 0.12em; color: #8B948B; font-weight: 600;">OFF</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 16px; padding-top: 8px;">
+    <div style="font-size: 12px; letter-spacing: 0.14em; color: #535E54; white-space: nowrap;">MENÚ LATERAL · VERTICAL</div>
+    <div style="flex: 1; height: 1px; background: #E2E7E2;"></div>
+  </div>
+
+  <div style="display: flex; gap: 24px; align-items: flex-start;">
+
+    <div style="width: 116px; flex: none; background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 10px 0; display: flex; flex-direction: column;">
+      <div style="padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px;">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M40 7 V41" stroke="#4ABA3E"></path>
+          <path d="M12 16 L21 24 L12 32" stroke="#535E54"></path>
+          <path d="M24 16 L33 24 L24 32" stroke="#535E54"></path>
+        </svg>
+        <div style="font-size: 10px; letter-spacing: 0.06em; color: #535E54; font-weight: 600; text-align: center;">LÍNEA +</div>
+      </div>
+      <div style="padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px;">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 7 V41" stroke="#4ABA3E"></path>
+          <path d="M36 16 L27 24 L36 32" stroke="#535E54"></path>
+          <path d="M24 16 L15 24 L24 32" stroke="#535E54"></path>
+        </svg>
+        <div style="font-size: 10px; letter-spacing: 0.06em; color: #535E54; font-weight: 600; text-align: center;">LÍNEA −</div>
+      </div>
+      <div style="padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px; background: #EFF7ED;">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#4ABA3E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9.9 18.9 A15 15 0 0 1 38.1 18.9"></path>
+          <path d="M40.3 11.7 L38.1 18.9 L31.8 14.8"></path>
+          <path d="M38.1 29.1 A15 15 0 0 1 9.9 29.1"></path>
+          <path d="M16.2 33.2 L9.9 29.1 L7.7 36.3"></path>
+          <path d="M24 16 V32"></path>
+        </svg>
+        <div style="font-size: 10px; letter-spacing: 0.06em; color: #4ABA3E; font-weight: 600; text-align: center;">AUTOTRACK</div>
+      </div>
+      <div style="padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px;">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="3" stroke-linecap="round">
+          <path d="M14 7 Q20 16 14 24 Q8 32 14 41"></path>
+          <path d="M24 7 Q30 16 24 24 Q18 32 24 41"></path>
+          <path d="M34 7 Q40 16 34 24 Q28 32 34 41"></path>
+        </svg>
+        <div style="font-size: 10px; letter-spacing: 0.06em; color: #535E54; font-weight: 600; text-align: center;">CONTORNO</div>
+      </div>
+      <div style="padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px;">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 41 V7" stroke="#535E54"></path>
+          <path d="M9 41 H19" stroke="#535E54"></path>
+          <path d="M14 9 L34 15 L14 21 Z" fill="#C2452F" stroke="#C2452F"></path>
+        </svg>
+        <div style="font-size: 10px; letter-spacing: 0.06em; color: #535E54; font-weight: 600; text-align: center;">MARCA</div>
+      </div>
+      <div style="padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px;">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15.5 16.9 A9 9 0 0 1 32.5 16.9"></path>
+          <path d="M34.7 9.7 L32.5 16.9 L26.2 12.8"></path>
+          <rect x="8" y="27" width="32" height="12" rx="2.4"></rect>
+        </svg>
+        <div style="font-size: 10px; letter-spacing: 0.06em; color: #535E54; font-weight: 600; text-align: center;">ENDEREZAR</div>
+      </div>
+      <div style="padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px;">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 6 V42" stroke="#4ABA3E"></path>
+          <circle cx="24" cy="24" r="8.5" stroke="#535E54"></circle>
+          <path d="M24 28.5 V20" stroke="#535E54"></path>
+          <path d="M20.5 23.5 L24 19.5 L27.5 23.5" stroke="#535E54"></path>
+        </svg>
+        <div style="font-size: 10px; letter-spacing: 0.06em; color: #535E54; font-weight: 600; text-align: center;">FIJAR LÍNEA</div>
+      </div>
+      <div style="padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px;">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="7" y="13" width="34" height="22" rx="5"></rect>
+          <path d="M17 18 V30"></path>
+          <path d="M24 18 V30"></path>
+          <path d="M31 18 V30"></path>
+        </svg>
+        <div style="font-size: 10px; letter-spacing: 0.06em; color: #535E54; font-weight: 600; text-align: center;">HUELLAS</div>
+      </div>
+      <div style="padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px;">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 20 C10 6 38 6 38 20"></path>
+          <path d="M10 20 V41"></path>
+          <path d="M24 20 V41"></path>
+          <path d="M38 20 V41"></path>
+        </svg>
+        <div style="font-size: 10px; letter-spacing: 0.06em; color: #535E54; font-weight: 600; text-align: center;">SALTO</div>
+      </div>
+      <div style="padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 7px;">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="8" width="36" height="32" rx="4"></rect>
+          <rect x="12" y="14" width="24" height="20" rx="2.4" stroke-dasharray="5 4"></rect>
+          <path d="M19 18 V30"></path>
+          <path d="M29 18 V30"></path>
+        </svg>
+        <div style="font-size: 10px; letter-spacing: 0.06em; color: #535E54; font-weight: 600; text-align: center;">CABECERA</div>
+      </div>
+    </div>
+
+    <div style="flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 18px; font-weight: 600;">Línea siguiente</div>
+          <div style="font-size: 13px; color: #535E54;">Ciclar líneas AB hacia adelante</div>
+        </div>
+        <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+          <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M40 7 V41" stroke="#4ABA3E"></path>
+            <path d="M12 16 L21 24 L12 32" stroke="#535E54"></path>
+            <path d="M24 16 L33 24 L24 32" stroke="#535E54"></path>
+          </svg>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 18px; font-weight: 600;">Línea anterior</div>
+          <div style="font-size: 13px; color: #535E54;">Ciclar líneas AB hacia atrás</div>
+        </div>
+        <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+          <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 7 V41" stroke="#4ABA3E"></path>
+            <path d="M36 16 L27 24 L36 32" stroke="#535E54"></path>
+            <path d="M24 16 L15 24 L24 32" stroke="#535E54"></path>
+          </svg>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 18px; font-weight: 600;">Fijar línea</div>
+          <div style="font-size: 13px; color: #535E54;">Tomar la línea actual como referencia</div>
+        </div>
+        <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+          <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M24 6 V42" stroke="#4ABA3E"></path>
+            <circle cx="24" cy="24" r="8.5" stroke="#535E54"></circle>
+            <path d="M24 28.5 V20" stroke="#535E54"></path>
+            <path d="M20.5 23.5 L24 19.5 L27.5 23.5" stroke="#535E54"></path>
+          </svg>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 18px; font-weight: 600;">AutoTrack</div>
+          <div style="font-size: 13px; color: #535E54;">Seguimiento automático de línea</div>
+        </div>
+        <div style="display: flex; gap: 16px;">
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="width: 100%; height: 108px; border-radius: 14px; background: #EFF7ED; border: 1px solid #D3E8CE; display: flex; align-items: center; justify-content: center;">
+              <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#4ABA3E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9.9 18.9 A15 15 0 0 1 38.1 18.9"></path>
+                <path d="M40.3 11.7 L38.1 18.9 L31.8 14.8"></path>
+                <path d="M38.1 29.1 A15 15 0 0 1 9.9 29.1"></path>
+                <path d="M16.2 33.2 L9.9 29.1 L7.7 36.3"></path>
+                <path d="M24 16 V32"></path>
+              </svg>
+            </div>
+            <div style="font-size: 12px; letter-spacing: 0.12em; color: #4ABA3E; font-weight: 600;">ON</div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+              <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#8B948B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9.9 18.9 A15 15 0 0 1 38.1 18.9"></path>
+                <path d="M40.3 11.7 L38.1 18.9 L31.8 14.8"></path>
+                <path d="M38.1 29.1 A15 15 0 0 1 9.9 29.1"></path>
+                <path d="M16.2 33.2 L9.9 29.1 L7.7 36.3"></path>
+                <path d="M24 16 V32"></path>
+              </svg>
+            </div>
+            <div style="font-size: 12px; letter-spacing: 0.12em; color: #8B948B; font-weight: 600;">OFF</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 18px; font-weight: 600;">Contorno</div>
+          <div style="font-size: 13px; color: #535E54;">Guiado por líneas curvas</div>
+        </div>
+        <div style="display: flex; gap: 16px;">
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="width: 100%; height: 108px; border-radius: 14px; background: #EFF7ED; border: 1px solid #D3E8CE; display: flex; align-items: center; justify-content: center;">
+              <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round">
+                <path d="M14 7 Q20 16 14 24 Q8 32 14 41" stroke="#C5CFC5"></path>
+                <path d="M24 7 Q30 16 24 24 Q18 32 24 41" stroke="#4ABA3E"></path>
+                <path d="M34 7 Q40 16 34 24 Q28 32 34 41" stroke="#C5CFC5"></path>
+              </svg>
+            </div>
+            <div style="font-size: 12px; letter-spacing: 0.12em; color: #4ABA3E; font-weight: 600;">ON</div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+              <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#8B948B" stroke-width="2.4" stroke-linecap="round">
+                <path d="M14 7 Q20 16 14 24 Q8 32 14 41"></path>
+                <path d="M24 7 Q30 16 24 24 Q18 32 24 41"></path>
+                <path d="M34 7 Q40 16 34 24 Q28 32 34 41"></path>
+              </svg>
+            </div>
+            <div style="font-size: 12px; letter-spacing: 0.12em; color: #8B948B; font-weight: 600;">OFF</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 18px; font-weight: 600;">Marca</div>
+          <div style="font-size: 13px; color: #535E54;">Banderín de punto de interés</div>
+        </div>
+        <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+          <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 41 V7" stroke="#535E54"></path>
+            <path d="M9 41 H19" stroke="#535E54"></path>
+            <path d="M14 9 L34 15 L14 21 Z" fill="#C2452F" stroke="#C2452F"></path>
+          </svg>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 18px; font-weight: 600;">Enderezar implemento</div>
+          <div style="font-size: 13px; color: #535E54;">Alinea el implemento detrás del tractor</div>
+        </div>
+        <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+          <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15.5 16.9 A9 9 0 0 1 32.5 16.9"></path>
+            <path d="M34.7 9.7 L32.5 16.9 L26.2 12.8"></path>
+            <rect x="8" y="27" width="32" height="12" rx="2.4"></rect>
+          </svg>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 18px; font-weight: 600;">Huellas</div>
+          <div style="font-size: 13px; color: #535E54;">Trochas de pulverización</div>
+        </div>
+        <div style="display: flex; gap: 16px;">
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="width: 100%; height: 108px; border-radius: 14px; background: #EFF7ED; border: 1px solid #D3E8CE; display: flex; align-items: center; justify-content: center;">
+              <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#4ABA3E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="7" y="13" width="34" height="22" rx="5"></rect>
+                <path d="M17 18 V30"></path>
+                <path d="M24 18 V30"></path>
+                <path d="M31 18 V30"></path>
+              </svg>
+            </div>
+            <div style="font-size: 12px; letter-spacing: 0.12em; color: #4ABA3E; font-weight: 600;">ON</div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+              <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#8B948B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="7" y="13" width="34" height="22" rx="5"></rect>
+                <path d="M17 18 V30"></path>
+                <path d="M24 18 V30"></path>
+                <path d="M31 18 V30"></path>
+              </svg>
+            </div>
+            <div style="font-size: 12px; letter-spacing: 0.12em; color: #8B948B; font-weight: 600;">OFF</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 18px; font-weight: 600;">Salto de pasada</div>
+          <div style="font-size: 13px; color: #535E54;">Trabajar salteando líneas</div>
+        </div>
+        <div style="display: flex; gap: 16px;">
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="width: 100%; height: 108px; border-radius: 14px; background: #EFF7ED; border: 1px solid #D3E8CE; display: flex; align-items: center; justify-content: center;">
+              <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 20 C10 6 38 6 38 20" stroke="#4ABA3E"></path>
+                <path d="M10 20 V41" stroke="#4ABA3E"></path>
+                <path d="M24 20 V41" stroke="#C5CFC5"></path>
+                <path d="M38 20 V41" stroke="#4ABA3E"></path>
+              </svg>
+            </div>
+            <div style="font-size: 12px; letter-spacing: 0.12em; color: #4ABA3E; font-weight: 600;">ON</div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+              <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#8B948B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 20 C10 6 38 6 38 20"></path>
+                <path d="M10 20 V41"></path>
+                <path d="M24 20 V41"></path>
+                <path d="M38 20 V41"></path>
+              </svg>
+            </div>
+            <div style="font-size: 12px; letter-spacing: 0.12em; color: #8B948B; font-weight: 600;">OFF</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 18px; font-weight: 600;">Cabecera</div>
+          <div style="font-size: 13px; color: #535E54;">Corte de secciones en cabecera</div>
+        </div>
+        <div style="display: flex; gap: 16px;">
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="width: 100%; height: 108px; border-radius: 14px; background: #EFF7ED; border: 1px solid #D3E8CE; display: flex; align-items: center; justify-content: center;">
+              <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#4ABA3E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="8" width="36" height="32" rx="4"></rect>
+                <rect x="12" y="14" width="24" height="20" rx="2.4" stroke-dasharray="5 4"></rect>
+                <path d="M19 18 V30"></path>
+                <path d="M29 18 V30"></path>
+              </svg>
+            </div>
+            <div style="font-size: 12px; letter-spacing: 0.12em; color: #4ABA3E; font-weight: 600;">ON</div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="width: 100%; height: 108px; border-radius: 14px; background: #F5F7F4; border: 1px solid #E2E7E2; display: flex; align-items: center; justify-content: center;">
+              <svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="#8B948B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="8" width="36" height="32" rx="4"></rect>
+                <rect x="12" y="14" width="24" height="20" rx="2.4" stroke-dasharray="5 4"></rect>
+                <path d="M19 18 V30"></path>
+                <path d="M29 18 V30"></path>
+              </svg>
+            </div>
+            <div style="font-size: 12px; letter-spacing: 0.12em; color: #8B948B; font-weight: 600;">OFF</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <sc-if value="{{ showToolbar }}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="font-size: 12px; letter-spacing: 0.14em; color: #535E54;">EN BARRA DE FUNCIONES · 28 PX</div>
+      <div style="background: #FFFFFF; border: 1px solid #E2E7E2; border-radius: 18px; display: flex; overflow: hidden;">
+
+        <div style="flex: 1; padding: 18px 12px; display: flex; flex-direction: column; align-items: center; gap: 9px; border-right: 1px solid #E2E7E2; background: #EFF7ED;">
+          <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#4ABA3E" stroke-width="3" stroke-linecap="round">
+            <circle cx="24" cy="24" r="17"></circle>
+            <circle cx="24" cy="24" r="5.6" fill="#4ABA3E" stroke="none"></circle>
+            <path d="M18.4 24 H7.2"></path>
+            <path d="M29.6 24 H40.8"></path>
+            <path d="M24 29.6 V40.8"></path>
+          </svg>
+          <div style="font-size: 11px; letter-spacing: 0.08em; color: #4ABA3E; font-weight: 600;">AUTOSTEER</div>
+        </div>
+
+        <div style="flex: 1; padding: 18px 12px; display: flex; flex-direction: column; align-items: center; gap: 9px; border-right: 1px solid #E2E7E2;">
+          <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="20" y="5" width="8" height="10" rx="2.2"></rect>
+            <path d="M24 15 V21.5"></path>
+            <path d="M6.5 21.5 H41.5"></path>
+            <rect x="6.5" y="27" width="6.6" height="12" rx="1.6"></rect>
+            <rect x="13.6" y="27" width="6.6" height="12" rx="1.6"></rect>
+            <rect x="20.7" y="27" width="6.6" height="12" rx="1.6"></rect>
+            <rect x="27.8" y="27" width="6.6" height="12" rx="1.6"></rect>
+            <rect x="34.9" y="27" width="6.6" height="12" rx="1.6"></rect>
+          </svg>
+          <div style="font-size: 11px; letter-spacing: 0.08em; color: #535E54; font-weight: 600;">SECC. MANUAL</div>
+        </div>
+
+        <div style="flex: 1; padding: 18px 12px; display: flex; flex-direction: column; align-items: center; gap: 9px; border-right: 1px solid #E2E7E2;">
+          <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M24 4.5 V13"></path>
+            <path d="M17.6 9.2 A9 9 0 1 0 30.4 9.2"></path>
+            <path d="M8 22 H40"></path>
+            <rect x="8" y="27" width="32" height="12" rx="2.4"></rect>
+            <path d="M18.6 28.6 V37.4"></path>
+            <path d="M29.4 28.6 V37.4"></path>
+          </svg>
+          <div style="font-size: 11px; letter-spacing: 0.08em; color: #535E54; font-weight: 600;">SECC. AUTO</div>
+        </div>
+
+        <div style="flex: 1; padding: 18px 12px; display: flex; flex-direction: column; align-items: center; gap: 9px; border-right: 1px solid #E2E7E2;">
+          <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 7 V41" stroke="#4ABA3E"></path>
+            <path d="M33 24 H15.5" stroke="#535E54"></path>
+            <path d="M21.5 17.6 L15 24 L21.5 30.4" stroke="#535E54"></path>
+          </svg>
+          <div style="font-size: 11px; letter-spacing: 0.08em; color: #535E54; font-weight: 600;">IZQUIERDA</div>
+        </div>
+
+        <div style="flex: 1; padding: 18px 12px; display: flex; flex-direction: column; align-items: center; gap: 9px; border-right: 1px solid #E2E7E2;">
+          <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M24 7 V41" stroke="#4ABA3E"></path>
+            <path d="M6 24 H17" stroke="#535E54"></path>
+            <path d="M11.5 18.5 L17.5 24 L11.5 29.5" stroke="#535E54"></path>
+            <path d="M42 24 H31" stroke="#535E54"></path>
+            <path d="M36.5 18.5 L30.5 24 L36.5 29.5" stroke="#535E54"></path>
+          </svg>
+          <div style="font-size: 11px; letter-spacing: 0.08em; color: #535E54; font-weight: 600;">CENTRAR</div>
+        </div>
+
+        <div style="flex: 1; padding: 18px 12px; display: flex; flex-direction: column; align-items: center; gap: 9px;">
+          <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M39 7 V41" stroke="#4ABA3E"></path>
+            <path d="M15 24 H32.5" stroke="#535E54"></path>
+            <path d="M26.5 17.6 L33 24 L26.5 30.4" stroke="#535E54"></path>
+          </svg>
+          <div style="font-size: 11px; letter-spacing: 0.08em; color: #535E54; font-weight: 600;">DERECHA</div>
+        </div>
+
+        <div style="flex: 1; padding: 18px 12px; display: flex; flex-direction: column; align-items: center; gap: 9px; border-left: 1px solid #E2E7E2;">
+          <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M30 39 V17.5 A7.5 7.5 0 0 0 15 17.5 V29"></path>
+            <path d="M9 23.5 L15 30.5 L21 23.5"></path>
+            <path d="M36 25 H43"></path>
+            <path d="M36 32 H43"></path>
+            <path d="M36 39 H43"></path>
+          </svg>
+          <div style="font-size: 11px; letter-spacing: 0.08em; color: #535E54; font-weight: 600;">GIRO</div>
+        </div>
+
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showDarkRow }}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="font-size: 12px; letter-spacing: 0.14em; color: #535E54;">MODO NOCHE</div>
+      <div style="background: #101612; border-radius: 18px; padding: 26px 32px; display: flex; gap: 40px; align-items: center;">
+        <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="#5FD152" stroke-width="2.4" stroke-linecap="round">
+          <circle cx="24" cy="24" r="17"></circle>
+          <circle cx="24" cy="24" r="5.6" fill="#5FD152" stroke="none"></circle>
+          <path d="M18.4 24 H7.2"></path>
+          <path d="M29.6 24 H40.8"></path>
+          <path d="M24 29.6 V40.8"></path>
+        </svg>
+        <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="#C5CFC5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="20" y="5" width="8" height="10" rx="2.2"></rect>
+          <path d="M24 15 V21.5"></path>
+          <path d="M6.5 21.5 H41.5"></path>
+          <rect x="6.5" y="27" width="6.6" height="12" rx="1.6"></rect>
+          <rect x="13.6" y="27" width="6.6" height="12" rx="1.6"></rect>
+          <rect x="20.7" y="27" width="6.6" height="12" rx="1.6"></rect>
+          <rect x="27.8" y="27" width="6.6" height="12" rx="1.6"></rect>
+          <rect x="34.9" y="27" width="6.6" height="12" rx="1.6"></rect>
+        </svg>
+        <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="#5FD152" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 4.5 V13"></path>
+          <path d="M17.6 9.2 A9 9 0 1 0 30.4 9.2"></path>
+          <path d="M8 22 H40"></path>
+          <rect x="8" y="27" width="32" height="12" rx="2.4" fill="#5FD152" stroke="none"></rect>
+          <path d="M18.6 28.6 V37.4" stroke="#101612"></path>
+          <path d="M29.4 28.6 V37.4" stroke="#101612"></path>
+        </svg>
+        <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 7 V41" stroke="#5FD152"></path>
+          <path d="M33 24 H15.5" stroke="#C5CFC5"></path>
+          <path d="M21.5 17.6 L15 24 L21.5 30.4" stroke="#C5CFC5"></path>
+        </svg>
+        <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 7 V41" stroke="#5FD152"></path>
+          <path d="M6 24 H17" stroke="#C5CFC5"></path>
+          <path d="M11.5 18.5 L17.5 24 L11.5 29.5" stroke="#C5CFC5"></path>
+          <path d="M42 24 H31" stroke="#C5CFC5"></path>
+          <path d="M36.5 18.5 L30.5 24 L36.5 29.5" stroke="#C5CFC5"></path>
+        </svg>
+        <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M39 7 V41" stroke="#5FD152"></path>
+          <path d="M15 24 H32.5" stroke="#C5CFC5"></path>
+          <path d="M26.5 17.6 L33 24 L26.5 30.4" stroke="#C5CFC5"></path>
+        </svg>
+        <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="#5FD152" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M30 39 V17.5 A7.5 7.5 0 0 0 15 17.5 V29"></path>
+          <path d="M9 23.5 L15 30.5 L21 23.5"></path>
+          <path d="M36 25 H43"></path>
+          <path d="M36 32 H43"></path>
+          <path d="M36 39 H43"></path>
+        </svg>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showToolbar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showDarkRow&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      showToolbar: this.props.showToolbar ?? true,
+      showDarkRow: this.props.showDarkRow ?? true
+    };
+  }
+}
+</script>
+</body>
+</html>

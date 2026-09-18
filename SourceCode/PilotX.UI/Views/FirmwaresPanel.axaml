@@ -1,0 +1,652 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.FirmwaresPanel">
+    <!--
+        FirmwaresPanel — reemplazo nativo de pages/firmwares.html.
+
+        Cache LOCAL de firmwares: lo que el FirmwareLanServer le sirve a los
+        nodos por LAN. Dos columnas, igual que la página (y con el MISMO corte
+        a una sola columna por debajo de 1100 px que hace su @media):
+
+          IZQUIERDA  · Catálogo local — agrupado por producto, versión desc,
+                       hash SHA-256 recortado, tamaño, changelog, fecha y el
+                       botón Borrar SOLO en las versiones que están en disco.
+          DERECHA    · Subir firmware desde la PC — dropzone, producto, versión
+                       semver, changelog y la barra de progreso del upload.
+
+        Mismo wire que la página (FirmwaresController): GET /api/firmwares,
+        POST /api/firmwares/upload (bytes crudos + headers X-AP-*), DELETE
+        /api/firmwares/{producto}/{version}. La página HTML NO se toca: el Hub
+        remoto y la PWA del celular la siguen usando.
+
+        Card clara flotante con el mapa VIVO detrás (misma receta que
+        ConfigPanel / Actualizar): el mapa nunca se apaga ni se tapa del todo.
+
+        NADA de ComboBox/Flyout: sobre el mapa GL no se dibujan y encima no
+        logean error. El selector de producto y los diálogos son Border +
+        IsVisible con backdrop, como en SonidosPanel/NodosPanel.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <Panel>
+
+            <!-- ============================ CARD ============================
+                 Name="Card": ModoEmbebido() (adentro de la Configuración) le
+                 suelta el marco/tamaño; la instancia flotante no cambia. -->
+            <Border Name="Card"
+                    Background="{StaticResource PilotXPanelCard}"
+                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="14"
+                    ClipToBounds="True"
+                    BoxShadow="0 8 26 0 #33101612"
+                    Padding="20,16,20,18"
+                    MaxWidth="1180" MaxHeight="700"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Margin="16,8">
+                <DockPanel>
+
+                    <!-- ========================= Header ========================= -->
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="2,0,2,14">
+                        <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="2"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="Firmwares"
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontSize="22"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Text="Catálogo local de .bin · cache servida a los nodos por LAN"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                        </StackPanel>
+
+                        <!-- Name="HeaderPills": la instancia embebida las entrega
+                             (PillsDeContexto) a la barra de contexto del shell. -->
+                        <StackPanel Grid.Column="1" Name="HeaderPills"
+                                    Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center">
+                            <Border Name="LanPillBox"
+                                    Background="{StaticResource PilotXPanelSurface2}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="999"
+                                    Padding="12,6,14,6"
+                                    VerticalAlignment="Center">
+                                <TextBlock Name="LanPill" Text="—"
+                                           Foreground="{StaticResource PilotXPanelTextDim}"
+                                           FontSize="13"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+
+                            <Button Name="BtnRefrescar" Content="Refrescar"
+                                    Click="OnRefrescarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" MinHeight="44" Padding="18,0,18,0"
+                                    FontSize="14"
+                                    VerticalContentAlignment="Center"/>
+
+                            <Button Name="BtnCerrar" Content="✕"
+                                    Click="OnCerrarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelTextDim}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" Width="44" Height="44"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    ToolTip.Tip="Cerrar"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ========================= Cuerpo =========================
+                         Grid de 2 columnas (.fw-grid). Por debajo de 1100 px de
+                         ancho útil el código lo pasa a 1 columna, igual que el
+                         @media (max-width:1100px) de la página. -->
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <Grid Name="CuerpoGrid" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto">
+
+                            <!-- ============ IZQUIERDA · Catálogo local ============ -->
+                            <Border Name="CardCatalogo" Grid.Row="0" Grid.Column="0"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="18,16,18,18"
+                                    Margin="0,0,10,0"
+                                    VerticalAlignment="Top">
+                                <StackPanel Spacing="0">
+                                    <TextBlock Text="Catálogo local"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Name="MetaCache" Text="—"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,14"/>
+                                    <!-- Lo arma el código (RenderCatalogo). -->
+                                    <StackPanel Name="FwList" Spacing="0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ============ DERECHA · Subir firmware ============ -->
+                            <Border Name="CardSubir" Grid.Row="0" Grid.Column="1"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="18,16,18,18"
+                                    Margin="10,0,0,0"
+                                    VerticalAlignment="Top">
+                                <StackPanel Spacing="0">
+                                    <TextBlock Text="Subir firmware desde la PC"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Text="Útil cuando no hay internet — el archivo queda en el cache local y los nodos lo descargan por LAN."
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,14"/>
+
+                                    <!-- Archivo (dropzone) -->
+                                    <TextBlock Text="ARCHIVO FIRMWARE"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="11"
+                                               FontWeight="Medium"
+                                               LetterSpacing="1.1"
+                                               Margin="0,0,0,6"/>
+                                    <!-- Border punteado: Avalonia no tiene borde
+                                         dash, así que el marco es un Rectangle con
+                                         StrokeDashArray abajo del contenido. -->
+                                    <Panel Name="DropZone" Background="Transparent"
+                                           MinHeight="104"
+                                           PointerPressed="OnDropZonePressed">
+                                        <Rectangle Name="DropMarco"
+                                                   Fill="{StaticResource PilotXPanelSurface}"
+                                                   Stroke="{StaticResource PilotXPanelBorderHigh}"
+                                                   StrokeThickness="2"
+                                                   StrokeDashArray="4,3"
+                                                   RadiusX="6" RadiusY="6"/>
+                                        <StackPanel Spacing="2" Margin="14"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Name="DropIcono" Text="⇪"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="28"
+                                                       HorizontalAlignment="Center"/>
+                                            <TextBlock Name="DropTexto" Text="Tocá para elegir un archivo"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="14"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"
+                                                       HorizontalAlignment="Center"/>
+                                            <TextBlock Text=".bin · .hex · .zip · máx. 8 MB"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="11"
+                                                       HorizontalAlignment="Center"
+                                                       Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Panel>
+                                    <TextBlock Name="FileMeta" Text=""
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               FontFamily="Consolas, Courier New, monospace"
+                                               TextWrapping="Wrap"
+                                               Margin="0,8,0,16"/>
+
+                                    <!-- Producto -->
+                                    <TextBlock Text="PRODUCTO"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="11"
+                                               FontWeight="Medium"
+                                               LetterSpacing="1.1"
+                                               Margin="0,0,0,6"/>
+                                    <Button Name="BtnProducto"
+                                            Content="— Elegir producto —"
+                                            Click="OnProductoClick"
+                                            Background="{StaticResource PilotXPanelSurface}"
+                                            Foreground="{StaticResource PilotXPanelText}"
+                                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            MinHeight="48"
+                                            Padding="12,0,12,0"
+                                            FontSize="14"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Left"
+                                            VerticalContentAlignment="Center"
+                                            Margin="0,0,0,16"/>
+
+                                    <!-- Version -->
+                                    <TextBlock Text="VERSIÓN (SEMVER · EJ 1.5.0)"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="11"
+                                               FontWeight="Medium"
+                                               LetterSpacing="1.1"
+                                               Margin="0,0,0,6"/>
+                                    <TextBox Name="TxtVersion"
+                                             Text=""
+                                             Watermark="1.5.0"
+                                             MinHeight="48"
+                                             FontSize="14"
+                                             CornerRadius="6"
+                                             Padding="10,0,10,0"
+                                             VerticalContentAlignment="Center"
+                                             Background="{StaticResource PilotXPanelSurface}"
+                                             Foreground="{StaticResource PilotXPanelText}"
+                                             BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                             Margin="0,0,0,16"/>
+
+                                    <!-- Changelog -->
+                                    <TextBlock Text="CHANGELOG (OPCIONAL)"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="11"
+                                               FontWeight="Medium"
+                                               LetterSpacing="1.1"
+                                               Margin="0,0,0,6"/>
+                                    <TextBox Name="TxtChangelog"
+                                             Text=""
+                                             Watermark="Qué cambia respecto a la versión anterior"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MinHeight="88"
+                                             FontSize="14"
+                                             CornerRadius="6"
+                                             Padding="10,8,10,8"
+                                             Background="{StaticResource PilotXPanelSurface}"
+                                             Foreground="{StaticResource PilotXPanelText}"
+                                             BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                             Margin="0,0,0,16"/>
+
+                                    <!-- Accion -->
+                                    <Button Name="BtnSubir"
+                                            Content="Subir al cache"
+                                            Click="OnSubirClick"
+                                            Background="{StaticResource PilotXPanelAccent}"
+                                            Foreground="{StaticResource PilotXPanelText}"
+                                            BorderThickness="0"
+                                            CornerRadius="8"
+                                            MinHeight="52"
+                                            FontSize="15"
+                                            FontWeight="SemiBold"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Center"/>
+
+                                    <!-- Barra de progreso del upload (0..100) -->
+                                    <Border Name="ProgresoRiel" IsVisible="False"
+                                            Background="{StaticResource PilotXPanelSurface2}"
+                                            BorderBrush="{StaticResource PilotXPanelBorder}"
+                                            BorderThickness="1"
+                                            CornerRadius="999"
+                                            Height="8"
+                                            ClipToBounds="True"
+                                            Margin="0,10,0,0">
+                                        <Border Name="ProgresoBarra"
+                                                Background="{StaticResource PilotXPanelAccent}"
+                                                Width="0"
+                                                HorizontalAlignment="Left"
+                                                CornerRadius="999"/>
+                                    </Border>
+
+                                    <!-- Resultado del upload (ok / err) -->
+                                    <Border Name="ResultBox" IsVisible="False"
+                                            Background="{StaticResource PilotXPanelSurface2}"
+                                            BorderBrush="{StaticResource PilotXPanelBorder}"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="12,10,12,10"
+                                            Margin="0,10,0,0">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Name="ResultText" Text=""
+                                                       Foreground="{StaticResource PilotXPanelText}"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"/>
+                                            <!-- Detalle técnico PLEGADO (convención del repo:
+                                                 código + amigable arriba, lo técnico adentro).
+                                                 Solo aparece cuando hay excepción real. -->
+                                            <Expander Name="ResultDetalle" IsVisible="False"
+                                                      Header="Detalle técnico (soporte)">
+                                                <TextBlock Name="ResultDetalleText" Text=""
+                                                           Foreground="{StaticResource PilotXPanelTextDim}"
+                                                           FontSize="12"
+                                                           TextWrapping="Wrap"/>
+                                            </Expander>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ============ ABAJO · Flashear por USB ============
+                                 Fila fija (Grid.Row=2, ColumnSpan=2): queda debajo
+                                 de las dos tarjetas de arriba en CUALQUIER layout
+                                 (AplicarAncho solo mueve Catálogo/Subir entre
+                                 fila 0 y 1, esta fila no la toca). Graba el .bin
+                                 directo al nodo por cable, sin pasar por MQTT/OTA
+                                 — útil para el chip nuevo recién soldado o cuando
+                                 el nodo quedó "ladrillado". -->
+                            <Border Name="CardUsb" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="18,16,18,18"
+                                    Margin="0,14,0,0"
+                                    VerticalAlignment="Top">
+                                <StackPanel Spacing="0">
+                                    <TextBlock Text="Flashear por USB"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Text="Graba el firmware directo al nodo por cable — sin MQTT, sin LAN, sin internet."
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,14"/>
+
+                                    <!-- Producto · Versión · Puerto COM -->
+                                    <Grid ColumnDefinitions="*,*,*" Margin="0,0,0,14">
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <TextBlock Text="PRODUCTO"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="11" FontWeight="Medium" LetterSpacing="1.1"
+                                                       Margin="0,0,0,6"/>
+                                            <Button Name="BtnUsbProducto" Content="— Elegir producto —"
+                                                    Click="OnUsbProductoClick"
+                                                    Background="{StaticResource PilotXPanelSurface}"
+                                                    Foreground="{StaticResource PilotXPanelTextDim}"
+                                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                    BorderThickness="1" CornerRadius="6"
+                                                    MinHeight="48" Padding="12,0,12,0" FontSize="14"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Left"
+                                                    VerticalContentAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Margin="8,0,8,0">
+                                            <TextBlock Text="VERSIÓN"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="11" FontWeight="Medium" LetterSpacing="1.1"
+                                                       Margin="0,0,0,6"/>
+                                            <Button Name="BtnUsbVersion" Content="— Elegir versión —"
+                                                    Click="OnUsbVersionClick" IsEnabled="False"
+                                                    Background="{StaticResource PilotXPanelSurface}"
+                                                    Foreground="{StaticResource PilotXPanelTextDim}"
+                                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                    BorderThickness="1" CornerRadius="6"
+                                                    MinHeight="48" Padding="12,0,12,0" FontSize="14"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Left"
+                                                    VerticalContentAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Margin="8,0,0,0">
+                                            <TextBlock Text="PUERTO COM"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="11" FontWeight="Medium" LetterSpacing="1.1"
+                                                       Margin="0,0,0,6"/>
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <Button Grid.Column="0" Name="BtnUsbPuerto" Content="— Elegir puerto —"
+                                                        Click="OnUsbPuertoClick"
+                                                        Background="{StaticResource PilotXPanelSurface}"
+                                                        Foreground="{StaticResource PilotXPanelTextDim}"
+                                                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                        BorderThickness="1" CornerRadius="6"
+                                                        MinHeight="48" Padding="12,0,12,0" FontSize="14"
+                                                        HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Left"
+                                                        VerticalContentAlignment="Center"
+                                                        Margin="0,0,6,0"/>
+                                                <Button Grid.Column="1" Name="BtnUsbRefrescarPuertos" Content="↻"
+                                                        Click="OnUsbRefrescarPuertosClick"
+                                                        Background="{StaticResource PilotXPanelSurface}"
+                                                        Foreground="{StaticResource PilotXPanelTextDim}"
+                                                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                        BorderThickness="1" CornerRadius="6"
+                                                        MinHeight="48" Width="48" FontSize="16"
+                                                        HorizontalContentAlignment="Center"
+                                                        VerticalContentAlignment="Center"
+                                                        ToolTip.Tip="Refrescar puertos"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Solo aparece si PuertosAsync devolvió lista vacía
+                                         (Windows sin el driver CP210x/CH340 instalado). -->
+                                    <Button Name="BtnUsbInstalarDriver" Content="Instalar driver USB"
+                                            IsVisible="False"
+                                            Click="OnUsbInstalarDriverClick"
+                                            Background="{StaticResource PilotXPanelSurface2}"
+                                            Foreground="{StaticResource PilotXPanelText}"
+                                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                            BorderThickness="1" CornerRadius="8"
+                                            MinHeight="48" Padding="18,0,18,0" FontSize="14"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Center"
+                                            Margin="0,0,0,14"/>
+
+                                    <!-- Modo: dos botones tipo segmented control (NADA de
+                                         RadioButton nativo — misma receta táctil que el resto
+                                         del panel). "Completo" se apaga solo si la versión
+                                         elegida no trae factory.bin (AplicarModoDisponible). -->
+                                    <TextBlock Text="MODO"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="11" FontWeight="Medium" LetterSpacing="1.1"
+                                               Margin="0,0,0,6"/>
+                                    <Grid ColumnDefinitions="*,*" Margin="0,0,0,14">
+                                        <Button Grid.Column="0" Name="BtnUsbModoCompleto"
+                                                Content="Completo (chip nuevo)"
+                                                Click="OnUsbModoCompletoClick"
+                                                IsEnabled="False"
+                                                Background="{StaticResource PilotXPanelSurface2}"
+                                                Foreground="{StaticResource PilotXPanelTextDim}"
+                                                BorderBrush="{StaticResource PilotXPanelBorder}"
+                                                BorderThickness="1" CornerRadius="6"
+                                                MinHeight="48" FontSize="14"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Margin="0,0,6,0"/>
+                                        <Button Grid.Column="1" Name="BtnUsbModoApp"
+                                                Content="Solo app (actualizar)"
+                                                Click="OnUsbModoAppClick"
+                                                Background="{StaticResource PilotXPanelSurface}"
+                                                Foreground="{StaticResource PilotXPanelText}"
+                                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                BorderThickness="1" CornerRadius="6"
+                                                MinHeight="48" FontSize="14"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Margin="6,0,0,0"/>
+                                    </Grid>
+
+                                    <CheckBox Name="ChkUsbBorrarAntes" Content="Borrar chip antes"
+                                              MinHeight="48" FontSize="14"
+                                              Foreground="{StaticResource PilotXPanelText}"
+                                              Margin="0,0,0,14"/>
+
+                                    <Button Name="BtnUsbFlashear" Content="Flashear"
+                                            Click="OnUsbFlashearClick"
+                                            Background="{StaticResource PilotXPanelAccent}"
+                                            Foreground="{StaticResource PilotXPanelText}"
+                                            BorderThickness="0" CornerRadius="8"
+                                            MinHeight="52" FontSize="15" FontWeight="SemiBold"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Center"/>
+
+                                    <!-- Progreso del flasheo (poller EstadoAsync cada 500 ms) -->
+                                    <Border Name="UsbProgresoRiel" IsVisible="False"
+                                            Background="{StaticResource PilotXPanelSurface2}"
+                                            BorderBrush="{StaticResource PilotXPanelBorder}"
+                                            BorderThickness="1" CornerRadius="999" Height="8"
+                                            ClipToBounds="True"
+                                            Margin="0,10,0,0">
+                                        <Border Name="UsbProgresoBarra"
+                                                Background="{StaticResource PilotXPanelAccent}"
+                                                Width="0" HorizontalAlignment="Left"
+                                                CornerRadius="999"/>
+                                    </Border>
+                                    <TextBlock Name="UsbFaseTexto" Text=""
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               Margin="0,6,0,0"/>
+
+                                    <!-- Resultado (ok / err) + log crudo plegado -->
+                                    <Border Name="UsbResultBox" IsVisible="False"
+                                            Background="{StaticResource PilotXPanelSurface2}"
+                                            BorderBrush="{StaticResource PilotXPanelBorder}"
+                                            BorderThickness="1" CornerRadius="6"
+                                            Padding="12,10,12,10"
+                                            Margin="0,10,0,0">
+                                        <TextBlock Name="UsbResultText" Text=""
+                                                   Foreground="{StaticResource PilotXPanelText}"
+                                                   FontSize="13" TextWrapping="Wrap"/>
+                                    </Border>
+                                    <Expander Name="UsbLogExpander" IsVisible="False"
+                                              Header="Log (soporte)"
+                                              Margin="0,8,0,0">
+                                        <TextBlock Name="UsbLogText" Text=""
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="11"
+                                                   FontFamily="Consolas, Courier New, monospace"
+                                                   TextWrapping="Wrap"/>
+                                    </Expander>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- =================== SELECTOR DE PRODUCTO ===================
+                 El <select> con <optgroup> del original. Border + IsVisible,
+                 NUNCA ComboBox/Flyout (sobre el mapa GL no se dibujan). -->
+            <Border Name="PickerOverlay" IsVisible="False" ZIndex="50"
+                    Background="#66101612"
+                    PointerPressed="OnPickerBackdropPressed">
+                <Border Name="PickerCard"
+                        Background="{StaticResource PilotXPanelCard}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="16"
+                        Width="380" MaxHeight="520"
+                        BoxShadow="0 8 26 0 #33101612"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        PointerPressed="OnPickerCardPressed">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top"
+                                   Text="Producto"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="16" FontWeight="SemiBold"
+                                   Margin="0,0,0,10"/>
+                        <Button DockPanel.Dock="Bottom"
+                                Name="BtnPickerCancelar"
+                                Content="Cancelar"
+                                Click="OnPickerCancelarClick"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8" MinHeight="44" Padding="20,0,20,0"
+                                HorizontalAlignment="Right"
+                                Margin="0,10,0,0"/>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Name="PickerLista" Spacing="4"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Border>
+
+            <!-- ================= SELECTOR USB (producto/versión/puerto) =================
+                 Mismo esqueleto que PickerOverlay de arriba, reusado para las
+                 TRES listas de la sección USB (AbrirUsbPicker decide el modo).
+                 Border + IsVisible, NUNCA ComboBox/Flyout. -->
+            <Border Name="UsbPickerOverlay" IsVisible="False" ZIndex="52"
+                    Background="#66101612"
+                    PointerPressed="OnUsbPickerBackdropPressed">
+                <Border Name="UsbPickerCard"
+                        Background="{StaticResource PilotXPanelCard}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="16"
+                        Width="380" MaxHeight="520"
+                        BoxShadow="0 8 26 0 #33101612"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        PointerPressed="OnUsbPickerCardPressed">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top"
+                                   Name="UsbPickerTitulo"
+                                   Text=""
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="16" FontWeight="SemiBold"
+                                   Margin="0,0,0,10"/>
+                        <Button DockPanel.Dock="Bottom"
+                                Name="BtnUsbPickerCancelar"
+                                Content="Cancelar"
+                                Click="OnUsbPickerCancelarClick"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8" MinHeight="44" Padding="20,0,20,0"
+                                HorizontalAlignment="Right"
+                                Margin="0,10,0,0"/>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Name="UsbPickerLista" Spacing="4"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Border>
+
+            <!-- ===================== DIÁLOGO (AgpModal) =====================
+                 confirm() de "Borrar firmware" y alert() de los errores del
+                 borrado. Mismo esqueleto que NodosPanel. -->
+            <Border Name="ModalOverlay" IsVisible="False" ZIndex="60"
+                    Background="#66101612"
+                    PointerPressed="OnModalBackdropPressed">
+                <Border Name="ModalCard"
+                        Background="{StaticResource PilotXPanelCard}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="16"
+                        Width="460"
+                        BoxShadow="0 8 26 0 #33101612"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        PointerPressed="OnModalCardPressed">
+                    <StackPanel Spacing="10">
+                        <TextBlock Name="ModalTitulo" Text=""
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Name="ModalMensaje" Text=""
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="13" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"
+                                    HorizontalAlignment="Right" Margin="0,4,0,0">
+                            <Button Name="BtnModalCancelar" Content="Cancelar"
+                                    Click="OnModalCancelarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" MinHeight="44" Padding="20,0,20,0"/>
+                            <Button Name="BtnModalConfirmar" Content="Aceptar"
+                                    Click="OnModalConfirmarClick"
+                                    Background="{StaticResource PilotXPanelAccent}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderThickness="0"
+                                    CornerRadius="8" MinHeight="44" Padding="20,0,20,0"
+                                    FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Border>
+        </Panel>
+    </ThemeVariantScope>
+</UserControl>

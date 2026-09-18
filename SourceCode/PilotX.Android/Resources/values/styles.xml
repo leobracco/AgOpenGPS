@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Avalonia.Android exige un theme descendiente de Theme.AppCompat para la
+       Activity que hostea la UI (AvaloniaMainActivity). NoActionBar + fullscreen
+       para el monitor de cabina. -->
+  <style name="PilotXTheme" parent="Theme.AppCompat.Light.NoActionBar">
+    <item name="windowActionBar">false</item>
+    <item name="windowNoTitle">true</item>
+    <item name="android:windowFullscreen">true</item>
+    <item name="android:windowContentOverlay">@null</item>
+  </style>
+</resources>

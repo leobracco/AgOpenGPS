@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Paths expuestos por el FileProvider (AndroidPilotXUpdateService) para
+  poder pasarle el APK descargado al instalador del sistema via content://
+  (Android 7+ no acepta file:// en el Intent de instalación).
+  "files-path" = Context.FilesDir — mismo directorio donde staging
+  descarga <version>/payload.apk (ver AndroidPilotXUpdateService.StagingRoot).
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+  <files-path name="updates" path="Updates/" />
+</paths>

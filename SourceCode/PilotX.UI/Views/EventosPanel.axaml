@@ -1,0 +1,125 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.EventosPanel">
+    <!--
+        EventosPanel - reemplazo nativo de pages/eventos.html (visor de eventos,
+        ex ventana WinForms FormEventViewer).
+
+        Mismo contrato REST que la pagina: GET /api/aog/eventos devuelve
+        { file, history, session } en snake_case y esto solo lo renderiza.
+        SIN polling (igual que el JS): carga al abrir + boton "Actualizar".
+
+        La pagina HTML queda intacta para el celular/PWA.
+    -->
+    <!--
+        Card clara flotante con el mapa VIVO detras (misma receta que
+        ConfigPanel / Hub / Sistema): el mapa nunca se apaga ni se tapa del
+        todo.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <!-- Name="Card": ModoEmbebido() (adentro de la Configuración) le
+             suelta el marco/tamaño; la instancia flotante no cambia. -->
+        <Border Name="Card"
+                Background="{StaticResource PilotXPanelCard}"
+                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                BorderThickness="1"
+                CornerRadius="14"
+                ClipToBounds="True"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="960" MaxHeight="660"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,8">
+
+            <!-- El scroll NO va aca: lo tiene el visor de log (igual que la
+                 pagina, donde .log-box scrollea sola con max-height 62vh).
+                 Fila * = el visor se come el alto que sobra. -->
+            <Grid Name="ContenidoRaiz" Margin="24,20,24,24"
+                  RowDefinitions="Auto,Auto,*">
+
+                <!-- ============ Header ============ -->
+                <!-- Name="DragHandle": de aca se agarra para CORRER la card
+                     sobre el mapa (PanelArrastrable). Doble toque = vuelve
+                     al centro. -->
+                <Grid Grid.Row="0" Name="DragHandle" Background="Transparent"
+                      ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,14">
+                    <StackPanel Grid.Column="0" Name="HeaderTitulo" Spacing="2">
+                        <TextBlock Text="Eventos"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock Text="Registro del sistema · histórico y sesión actual · solo lectura"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"/>
+                    </StackPanel>
+
+                    <!-- Mismo boton "Actualizar" que la pagina (btnRefreshLog).
+                         Se deshabilita mientras carga, igual que el JS. -->
+                    <Button Grid.Column="1"
+                            Name="BtnActualizar"
+                            Content="Actualizar"
+                            Click="OnActualizarClick"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="18,10,18,10"
+                            MinWidth="120"
+                            MinHeight="44"
+                            FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            VerticalAlignment="Center"
+                            ToolTip.Tip="Vuelve a leer el registro de eventos"/>
+
+                    <Button Grid.Column="2" Name="BtnCerrar" Content="✕"
+                            Click="OnCerrarClick"
+                            ToolTip.Tip="Cerrar"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8" Width="48" Height="48"
+                            FontSize="15"
+                            Margin="10,0,0,0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ============ Pie informativo (ruta del archivo) ============ -->
+                <!-- Es el .log-hint del HTML: arranca en "Cargando…", termina
+                     mostrando la ruta del log en disco (o el error). -->
+                <TextBlock Grid.Row="1"
+                           Name="LogHint"
+                           Text="Cargando…"
+                           Foreground="{StaticResource PilotXPanelTextDim}"
+                           FontSize="14"
+                           MinHeight="20"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,12"/>
+
+                <!-- ============ Visor de log (solo lectura) ============ -->
+                <Border Grid.Row="2"
+                        Background="{StaticResource PilotXPanelSurface}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        MinHeight="260">
+                    <ScrollViewer Name="LogScroll"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <TextBlock Name="LogBox"
+                                   Text="—"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   FontSize="14"
+                                   LineHeight="20"
+                                   TextWrapping="Wrap"
+                                   Foreground="{StaticResource PilotXPanelText}"/>
+                    </ScrollViewer>
+                </Border>
+
+            </Grid>
+        </Border>
+    </ThemeVariantScope>
+</UserControl>

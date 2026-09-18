@@ -1,0 +1,261 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PilotX.Cockpit.Bars.ViewModels"
+             xmlns:views="using:PilotX.Cockpit.Bars.Views"
+             x:Class="PilotX.Cockpit.Bars.Views.BarraSuperior"
+             x:DataType="vm:BarraSuperiorViewModel"
+             Height="52">
+  <UserControl.Resources>
+    <views:StringToBrushConverter x:Key="StringToBrush"/>
+  </UserControl.Resources>
+
+  <!-- Estilos locales espejando barra-superior.html (.tab / .tele / .wbtn /
+       .linebadge). Scopeados a este control para no chocar con BarStyles. -->
+  <UserControl.Styles>
+    <!-- Tab pill -->
+    <Style Selector="Button.tab">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="11"/>
+      <Setter Property="Height" Value="40"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#101612"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F7F9F7"/>
+      <Setter Property="BorderBrush" Value="#C8D1C8"/>
+    </Style>
+    <Style Selector="Button.tab:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="TextBlock.Foreground" Value="#B5BDB5"/>
+    </Style>
+    <!-- Window button -->
+    <Style Selector="Button.wbtn">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Width" Value="38"/>
+      <Setter Property="Height" Value="40"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#59635A"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.wbtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F5F7F5"/>
+    </Style>
+    <Style Selector="Button.wbtn.close">
+      <Setter Property="Foreground" Value="#C84E48"/>
+      <Setter Property="BorderBrush" Value="#E5C3C0"/>
+      <Setter Property="Background" Value="#FFF7F6"/>
+    </Style>
+    <Style Selector="Button.wbtn.close:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FDEBE9"/>
+    </Style>
+    <!-- linebadge arrows -->
+    <Style Selector="Button.arrow">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Width" Value="30"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="FontSize" Value="18"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#566057"/>
+      <Setter Property="CornerRadius" Value="9"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.arrow:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F2F5F2"/>
+    </Style>
+    <!-- Chip de telemetría CLICKEABLE (hoy: HA -> datos del lote). Mismo
+         aspecto que los chips de solo lectura (Border blanco, borde gris,
+         radio 10) para no romper la fila; lo único que cambia es que
+         responde al toque. -->
+    <Style Selector="Button.telebtn">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="8,2"/>
+      <Setter Property="MinWidth" Value="56"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.telebtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F5F7F5"/>
+      <Setter Property="BorderBrush" Value="#C8D1C8"/>
+    </Style>
+    <!-- Telemetría value/label -->
+    <Style Selector="TextBlock.televal">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#101612"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.telelbl">
+      <Setter Property="FontSize" Value="8"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#747D75"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,2,0,0"/>
+    </Style>
+    <!-- SISTEMA flyout items -->
+    <Style Selector="MenuItem">
+      <Setter Property="FontSize" Value="13"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="0,0,0,1">
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto,*,Auto,Auto" Margin="8,0">
+
+      <!-- ===== logo Agro Parallel ===== -->
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,8,0">
+        <Viewbox Width="30" Height="30">
+          <Canvas Width="28" Height="28">
+            <Path Fill="#4ABA3E" Data="M4 25L9.2 3h9.6L24 25h-5.3l-1.5-6.2H10.8L9.3 25H4Z"/>
+            <Path Fill="#FFFFFF" Data="M12.7 8.2h2.6l1 4.3h-4.6l1-4.3Z"/>
+            <Path Fill="#FFFFFF" Data="M13.2 13.5h1.6v9.2h-1.6zM9.9 16.1h1.5l-2 6.6H7.8l2.1-6.6ZM16.6 16.1h1.5l2.1 6.6h-1.6l-2-6.6Z"/>
+          </Canvas>
+        </Viewbox>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="AGRO" FontSize="11" FontWeight="ExtraBold" Foreground="#101612" LetterSpacing="0.8"/>
+          <TextBlock Text="PARALLEL" FontSize="11" FontWeight="Black" Foreground="#4ABA3E" LetterSpacing="0.8"/>
+        </StackPanel>
+      </StackPanel>
+
+      <!-- ===== tabs ===== -->
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+        <Button Classes="tab" Content="TRABAJO"
+                Command="{Binding SendCommand}" CommandParameter="lote_menu"/>
+        <Button Classes="tab" Command="{Binding SendCommand}" CommandParameter="datos_gps">
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                     Fill="{Binding GpsDotColor, Converter={StaticResource StringToBrush}}"/>
+            <TextBlock Text="GPS" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button Classes="tab" Content="{Binding LoteText}" IsEnabled="{Binding LoteEnabled}"
+                Command="{Binding SendCommand}" CommandParameter="lote_datos"/>
+        <!-- SISTEMA queda en DOS entradas (pedido usuario 2026-08-06):
+             Perfiles y Ayuda. Idioma, Simulador, Coordenadas del simulador,
+             Modo kiosco y Restablecer TODO salieron del menú — sus comandos
+             (idioma_*, simulador, sim_coords, kiosco, reset_all) siguen
+             cableados en RouteCockpitCommand por si se recuelgan en otro lado.
+             Ayuda abre la pantalla de Configuración parada en su módulo
+             (config.html?mod=ayuda.html), no la página suelta.
+
+             OJO: los comentarios van ACÁ AFUERA. Adentro del MenuFlyout
+             dejaban el menú sin abrir (reporte 2026-08-06: "hago click en
+             sistema y no abre", sin ninguna excepción en el log). -->
+        <!-- SIN Flyout: era el ÚNICO menú emergente de la app y no abría
+             (reporte 2026-08-06, sin excepción en el log — los popups de
+             Avalonia pelean con el mapa GL a pantalla completa). Ahora manda
+             un comando y MainWindow despliega un panel propio, el mismo
+             patrón que ya usa el menú izquierdo, que sí funciona — y encima
+             con botones grandes, que es lo que corresponde para tocar con
+             guantes. -->
+        <Button x:Name="BtnSistema" Classes="tab" Content="SISTEMA"
+                Command="{Binding SendCommand}" CommandParameter="sistema_menu"/>
+      </StackPanel>
+
+      <!-- ===== ritmo de trabajo (ha/h) =====
+           Acá estaba el contador de guías ("‹ 1/2 ›"). Se fue por pedido del
+           usuario: qué guía se está siguiendo ya se ve en el mapa y en la barra
+           derecha, y el número solo no le decía nada al operario. El ritmo de
+           trabajo, en cambio, no estaba en ninguna pantalla.
+
+           Las flechas ‹ › de guía anterior/siguiente que vivían acá NO se
+           pierden: siguen en la barra derecha como "Guía ant." y "Guía sig.",
+           donde ya estaban duplicadas. -->
+      <Border Grid.Column="3" VerticalAlignment="Center"
+              Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10"
+              Padding="12,2" MinWidth="76" IsVisible="{Binding HaHoraVisible}">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Classes="televal" Text="{Binding HaHoraText}"/>
+          <TextBlock Classes="telelbl" Text="HA/H"/>
+        </StackPanel>
+      </Border>
+
+      <!-- ===== debug de guiado (rumbo/guía/Δ/paralela/cm) ===== -->
+      <TextBlock Grid.Column="4"
+                 Text="{Binding DebugText}"
+                 FontSize="12"
+                 FontWeight="SemiBold"
+                 Foreground="#3B463D"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 TextWrapping="NoWrap"/>
+
+      <!-- ===== telemetría + botones ventana ===== -->
+      <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="60">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="televal" Text="{Binding SpeedText}"/>
+            <TextBlock Classes="telelbl" Text="KM/H"/>
+          </StackPanel>
+        </Border>
+        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="62">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="televal" FontSize="12" Text="{Binding GpsText}"/>
+            <TextBlock Classes="telelbl" Text="SEÑAL"/>
+          </StackPanel>
+        </Border>
+        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="56">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="televal" Text="{Binding FechaText}"/>
+            <TextBlock Classes="telelbl" Text="TIEMPO"/>
+          </StackPanel>
+        </Border>
+        <!-- Las hectáreas ABREN los datos del lote (pedido 2026-08-18): el
+             contador ya le dice al operario cuánto lleva hecho, y es el lugar
+             donde busca el detalle (repintado, ahorro, guía activa). Mismo
+             comando que el botón LOTE — un solo overlay, dos puertas. -->
+        <Button Classes="telebtn" ToolTip.Tip="Datos del lote"
+                Command="{Binding SendCommand}" CommandParameter="lote_datos">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="televal" Text="{Binding HaText}"/>
+            <TextBlock Classes="telelbl" Text="HA"/>
+          </StackPanel>
+        </Button>
+        <!-- Batería de la pantalla: solo existe si la máquina tiene batería
+             (tablet/notebook). Enchufada = gris; a batería = ámbar; <15% a
+             batería = rojo. El rayito ⚡ va en el texto cuando carga. -->
+        <Border Background="#FFFFFF" BorderThickness="1" CornerRadius="10"
+                Padding="8,2" MinWidth="56"
+                IsVisible="{Binding BateriaVisible}"
+                BorderBrush="{Binding BateriaColorBorde, Converter={StaticResource StringToBrush}}">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="televal" FontSize="13" Text="{Binding BateriaText}"
+                       Foreground="{Binding BateriaColorTexto, Converter={StaticResource StringToBrush}}"/>
+            <TextBlock Classes="telelbl" Text="BAT"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- En modo kiosko (PILOTX_KIOSKO=1) estos tres no existen: PilotX ES
+           la pantalla y no hay a dónde minimizar ni motivo para cerrarla. -->
+      <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="6,0,0,0"
+                  IsVisible="{Binding BotonesVentanaVisibles}">
+        <Button Classes="wbtn" Content="–" Command="{Binding SendCommand}" CommandParameter="minimizar"/>
+        <Button Classes="wbtn" Content="☐" Command="{Binding SendCommand}" CommandParameter="maximizar"/>
+        <!-- El ✕ queda DONDE ESTABA (pegado al borde derecho, memoria
+             muscular): el margen extra empuja a – y ☐ hacia la izquierda, así
+             la separación entre "maximizar" y "cerrar" pasa de 4 a 18 px. Con
+             guantes y el tractor moviéndose, 4 px no alcanzan para no errarle
+             al botón que apaga el guiado. -->
+        <Button Classes="wbtn close" Content="✕" Margin="14,0,0,0"
+                Command="{Binding SendCommand}" CommandParameter="apagar"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

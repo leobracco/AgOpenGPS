@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eventos — CoreX</title>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <link rel="stylesheet" href="/corex.css">
+  <style>
+    .log-box { font-family: Consolas, monospace; font-size: .8em;
+               line-height: 1.45; white-space: pre-wrap; word-break: break-word;
+               background: var(--cx-panel-2, #fff); border: 1px solid var(--cx-line, #e4e8e2);
+               border-radius: 10px; padding: 12px 14px; max-height: 62vh;
+               overflow-y: auto; }
+    .log-sep { color: var(--cx-muted); font-weight: 700; margin: 10px 0 6px; }
+  </style>
+</head>
+<body>
+  <div class="cx-shell">
+
+    <aside class="cx-sidebar">
+      <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
+      <div class="cx-mini">CoreX · Agro Parallel</div>
+      <a class="cx-side-item" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
+      <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
+      <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <!-- Radio salió 2026-08-18: todos sus endpoints contestan
+           "no-disponible-en-integrado". -->
+      <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
+      <!-- Módulos salió 2026-08-18: /config/modulos contesta
+           "no-disponible-en-integrado". -->
+      <a class="cx-side-item" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
+      <a class="cx-side-item active" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
+      <!-- Perfil salió 2026-08-18: todos sus endpoints contestan
+           "no-disponible-en-integrado". Ver SISTEMA › Perfiles del vehículo. -->
+      <!-- El link de vuelta ↩️ PilotX salió 2026-08-18: apuntaba a
+           http://127.0.0.1:5180/ y cargaba el Hub HTML viejo adentro de la
+           card de CoreX. Se sale con el ✕ de la card. -->
+    </aside>
+
+    <div class="cx-content">
+      <div class="cx-head">
+        <div>
+          <h2>Eventos</h2>
+          <p>Registro del sistema: histórico y sesión actual</p>
+        </div>
+        <div class="cx-pills">
+          <span class="cx-pill"><span id="hdrVersion">—</span></span>
+          <span class="cx-pill">perfil&nbsp;<span id="hdrProfile">—</span></span>
+        </div>
+      </div>
+
+      <section class="cx-panel">
+        <div style="display:flex; justify-content: space-between; align-items:center; gap: 12px; flex-wrap: wrap;">
+          <h3 style="margin:0;">Registro</h3>
+          <button class="cx-btn" id="btnRefreshLog">Actualizar</button>
+        </div>
+        <p class="cx-hint" id="logHint" style="margin: 8px 0 10px;">Cargando…</p>
+        <div class="log-box" id="logBox">—</div>
+      </section>
+    </div>
+  </div>
+
+  <script src="/js/modal.js"></script>
+  <script src="/js/hdr.js"></script>
+  <script src="/js/eventos.js"></script>
+</body>
+</html>

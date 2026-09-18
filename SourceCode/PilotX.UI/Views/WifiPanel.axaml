@@ -1,0 +1,111 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.WifiPanel">
+    <!--
+        WifiPanel — reemplazo nativo de pages/wifi.html + js/wifi.js.
+
+        WiFi PROPIO de PilotX (reemplaza el "WiFi de Windows", que abría
+        ms-settings: inservible en kiosko y sin teclado táctil). Lista de redes
+        con señal y estado real + conexión con el teclado de PilotX.
+
+        Mismo wire que la página (RedWifiController): GET /api/red/wifi,
+        POST /api/red/wifi/conectar, POST /api/red/wifi/desconectar. El escaneo
+        nativo forzado (fix 8e25bf16) vive en WifiServiceWindows.Escanear() y se
+        dispara con ese MISMO GET — acá no hay atajo que lo saltee.
+
+        La página HTML NO se toca: el Hub remoto y la PWA del celular la siguen
+        usando.
+
+        El cuerpo (lista de redes + panel de conexión) se arma en C#, igual que
+        el innerHTML del JS: acá solo está el esqueleto.
+
+        Card clara flotante con el mapa VIVO detrás (misma receta que
+        EventosPanel / FirmwaresPanel): el mapa nunca se apaga ni se tapa del
+        todo. Nada de ComboBox/Flyout — sobre el mapa GL no se dibujan.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <!-- Name="Card": ModoEmbebido() (adentro de la Configuración) le
+             suelta el marco/tamaño; la instancia flotante no cambia. -->
+        <Border Name="Card"
+                Background="{StaticResource PilotXPanelCard}"
+                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                BorderThickness="1"
+                CornerRadius="14"
+                ClipToBounds="True"
+                BoxShadow="0 8 26 0 #33101612"
+                Padding="20,16,20,18"
+                MaxWidth="760" MaxHeight="640"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,8">
+            <DockPanel>
+
+                <!-- ========================= Header ========================= -->
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="2,0,2,14">
+                    <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="2"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="Red WiFi"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock Text="Redes al alcance · señal y estado real"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"/>
+                    </StackPanel>
+
+                    <!-- Name="HeaderPills": la instancia embebida las entrega
+                         (PillsDeContexto) a la barra de contexto del shell. -->
+                    <StackPanel Grid.Column="1" Name="HeaderPills"
+                                Orientation="Horizontal" Spacing="8"
+                                VerticalAlignment="Center">
+                        <!-- .wf-pill: SSID · IP cuando hay conexión, si no
+                             "Sin conexión". -->
+                        <Border Name="EstadoPillBox"
+                                Background="{StaticResource PilotXPanelSurface2}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="999"
+                                Padding="12,6,14,6"
+                                VerticalAlignment="Center">
+                            <TextBlock Name="EstadoPill" Text="…"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="13"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+
+                        <Button Name="BtnActualizar" Content="Actualizar"
+                                Click="OnActualizarClick"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8" MinHeight="44" Padding="18,0,18,0"
+                                FontSize="14"
+                                VerticalContentAlignment="Center"/>
+
+                        <Button Name="BtnCerrar" Content="✕"
+                                Click="OnCerrarClick"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelTextDim}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8" Width="48" Height="48"
+                                FontSize="15"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                ToolTip.Tip="Cerrar"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ========================== Lista ==========================
+                     .wf-body: una fila por red; la elegida despliega abajo el
+                     panel de conexión. Todo lo arma Pintar() en C#. -->
+                <ScrollViewer Name="ListaScroll"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Name="ListaHost" Spacing="6" Margin="0,0,0,2"/>
+                </ScrollViewer>
+
+            </DockPanel>
+        </Border>
+    </ThemeVariantScope>
+</UserControl>

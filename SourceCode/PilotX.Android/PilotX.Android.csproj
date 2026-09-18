@@ -1,0 +1,94 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Shell Android Fase 1 (bloque 7 matriz): Activity + WebView contra el
+         WebHost embebido en 127.0.0.1:5180 + Foreground Service con broker
+         MQTT. Sin guiado: los servicios FormGPS-backed van con stubs. -->
+    <!-- net9.0-android: el repo pinnea SDK 9 en global.json -->
+    <TargetFramework>net9.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <!-- Sin "Android" en el root namespace: taparÃ­a al namespace Android del SDK -->
+    <RootNamespace>PilotX.Droid</RootNamespace>
+    <ApplicationId>com.agroparallel.pilotx</ApplicationId>
+    <ApplicationVersion>10044</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0.44</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>28.0</SupportedOSPlatformVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Los analyzers de estilo del Directory.Build.props apuntan al cÃ³digo
+         de escritorio; acÃ¡ generarÃ­an ruido sin valor en el scaffold. -->
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Models\AgroParallel.Models.csproj" />
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+    <ProjectReference Include="..\AgroParallel\Web\AgroParallel.WebHost\AgroParallel.WebHost.csproj" />
+    <!-- RegistrySettings/paths (toma el target netstandard2.0 del multi-target) -->
+    <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
+    <!-- GuidanceEngineHost (bloque 14, net9.0 puro) â€” reemplaza los stubs de
+         guiado/lotes de Fase 1 por implementaciones reales. Es el proyecto
+         SIN System.IO.Ports (PilotX.GuidanceEngine.Core, no el .exe de
+         consola PilotX.GuidanceEngine): net9.0-android no restaura ese
+         paquete para android-arm64/android-x64. El serial real (CoreX)
+         queda para cuando haya USB-OTG (UsbSerialForAndroid, bloque 8
+         matriz). -->
+    <ProjectReference Include="..\PilotX.GuidanceEngine.Core\PilotX.GuidanceEngine.Core.csproj" />
+    <!-- UI nativa Avalonia compartida (App + MainView + mapa GL + barras). Trae
+         Avalonia core + Silk.NET.OpenGL + PilotX.Cockpit.Bars. Es el mapa nativo
+         que reemplaza al WebView del Hub (S1 del port Android). -->
+    <ProjectReference Include="..\PilotX.UI\PilotX.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Backend Avalonia para Android (hostea App/MainView en la Activity). -->
+    <PackageReference Include="Avalonia.Android" Version="11.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- CNmeaParser/INmeaParserHost (AgIO) para el bridge LAN sin serie
+         (HubBootstrap.cs): mismo criterio que PilotX.GuidanceEngine.csproj
+         (linkear por archivo en vez de ProjectReference a todo AgIO.csproj,
+         que necesita System.IO.Ports/WinForms) â€” permite parsear NMEA crudo
+         ($GPGGA/$GPVTG/$PANDA) que llegue por WiFi y armar el PGN 0xD6 que
+         espera GuidanceEngineHost, sin arrastrar nada de eso a Android. -->
+    <Compile Include="..\CoreX.Shared\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
+    <Compile Include="..\CoreX.Shared\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
+    <Compile Include="..\CoreX.Shared\CGLM.cs" Link="AgIO\CGLM.cs" />
+    <!-- Adaptadores del engine compartidos con Windows, linkeados por archivo
+         (no se puede referenciar PilotX.GuidanceEngine entero: trae
+         System.IO.Ports). Antes había una copia Android de cada uno y se
+         desincronizaban: ICoverageService ganó GetSnapshot(string) y el APK
+         dejó de compilar (2026-09-03). Un solo archivo, dos targets. -->
+    <Compile Include="..\PilotX.GuidanceEngine\Adapters\*.cs"
+             Exclude="..\PilotX.GuidanceEngine\Adapters\EngineSistemaService.cs;..\PilotX.GuidanceEngine\Adapters\EngineSistemaServiceLinux.cs;..\PilotX.GuidanceEngine\Adapters\EnginePilotXUpdateService.cs"
+             Link="Adapters\%(Filename)%(Extension)" />
+    <!-- Excluidos a proposito: EngineSistemaService (WMI/dxva2 Windows) y
+         EngineSistemaServiceLinux (sysfs/brightnessctl) -> AndroidSistemaService;
+         EnginePilotXUpdateService (Updater.exe) -> AndroidPilotXUpdateService. -->
+    <!-- Anti-solape de secciones (Program.cs de Windows lo engancha siempre)
+         y config de direccion (mismo archivo que linkea PilotX.GuidanceEngine). -->
+    <Compile Include="..\PilotX.GuidanceEngine\AntiSolapeSecciones.cs" Link="Adapters\AntiSolapeSecciones.cs" />
+    <Compile Include="..\AgroParallel\Adapters\SteerConfigService.cs" Link="Adapters\SteerConfigService.cs" />
+    <Compile Include="..\AgroParallel\Adapters\ShapefileLayer.cs" Link="Adapters\ShapefileLayer.cs" />
+    <Compile Include="..\AgroParallel\Adapters\TramLineMapper.cs" Link="Adapters\TramLineMapper.cs" />
+    <!-- Triangulador de poligonos (internal) que usa ShapefileLayer; mismo link que PilotX.GuidanceEngine y PilotX.UI. -->
+    <Compile Include="..\AgroParallel\Common\EarClipper.cs" Link="Adapters\EarClipper.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Todo el Hub HTML viaja como assets y se extrae a files/wwwroot en el
+         primer arranque (el WebHost sirve desde disco). -->
+    <AndroidAsset Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\**\*"
+                  Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- FileProvider (self-update, bloque 12): expone el APK bajado como
+         content:// para el Intent de instalaciÃ³n (Android 7+ no acepta
+         file://). -->
+    <PackageReference Include="Xamarin.AndroidX.Core" Version="1.12.0.2" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monitor — CoreX</title>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <link rel="stylesheet" href="/corex.css">
+  <style>
+    .mon-box { font-family: Consolas, monospace; font-size: .78em;
+               line-height: 1.4; white-space: pre-wrap; word-break: break-all;
+               background: var(--cx-panel-2, #fff); border: 1px solid var(--cx-line, #e4e8e2);
+               border-radius: 10px; padding: 10px 12px; height: 34vh;
+               overflow-y: auto; }
+    .mon-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+               margin-bottom: 10px; }
+    .mon-bar h3 { margin: 0; flex: 1 1 auto; }
+    .mon-chk { display: inline-flex; align-items: center; gap: 6px;
+               color: var(--cx-muted); font-size: .85em; min-height: 40px; }
+    .pgn-table { width: 100%; border-collapse: collapse; font-size: .85em; }
+    .pgn-table td { padding: 6px 10px; border-bottom: 1px solid var(--cx-line, #e4e8e2); }
+    .pgn-table td:first-child { font-weight: 750; font-variant-numeric: tabular-nums;
+                                width: 64px; }
+    details.pgn > summary { cursor: pointer; font-weight: 700; min-height: 40px;
+                            display: flex; align-items: center; }
+  </style>
+</head>
+<body>
+  <div class="cx-shell">
+
+    <aside class="cx-sidebar">
+      <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
+      <div class="cx-mini">CoreX · Agro Parallel</div>
+      <a class="cx-side-item" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
+      <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
+      <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <!-- Radio salió 2026-08-18: todos sus endpoints contestan
+           "no-disponible-en-integrado". -->
+      <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
+      <!-- Módulos salió 2026-08-18: /config/modulos contesta
+           "no-disponible-en-integrado". -->
+      <a class="cx-side-item active" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
+      <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
+      <!-- Perfil salió 2026-08-18: todos sus endpoints contestan
+           "no-disponible-en-integrado". Ver SISTEMA › Perfiles del vehículo. -->
+      <!-- El link de vuelta ↩️ PilotX salió 2026-08-18: apuntaba a
+           http://127.0.0.1:5180/ y cargaba el Hub HTML viejo adentro de la
+           card de CoreX. Se sale con el ✕ de la card. -->
+    </aside>
+
+    <div class="cx-content">
+      <div class="cx-head">
+        <div>
+          <h2>Monitor de GPS</h2>
+          <p>Flujo NMEA crudo tal como llega del receptor</p>
+        </div>
+        <div class="cx-pills">
+          <span class="cx-pill"><span id="hdrVersion">—</span></span>
+          <span class="cx-pill">perfil&nbsp;<span id="hdrProfile">—</span></span>
+        </div>
+      </div>
+
+      <!-- La consola de Tráfico UDP (PGN) y su guía de PGN salieron 2026-08-18:
+           /api/corex/monitor/udp y /monitor/udp/flags contestan
+           "no-disponible-en-integrado" desde que CoreX dejó de ser proceso
+           propio, así que la consola quedaba muda para siempre. La de GPS
+           crudo (/api/corex/monitor/gps) SÍ funciona y es la que queda. -->
+
+      <section class="cx-panel">
+        <div class="mon-bar">
+          <h3>GPS crudo (NMEA)</h3>
+          <button class="cx-btn" id="btnRawPause">Pausar</button>
+          <button class="cx-btn" id="btnRawClear">Limpiar</button>
+          <button class="cx-btn" id="btnRawSave">Guardar</button>
+        </div>
+        <div class="mon-box" id="rawBox"></div>
+        <p class="cx-hint" style="margin: 8px 0 0;">
+          Flujo de sentencias tal como llega del receptor (serial o red),
+          con marca de tiempo mm:ss.mseg.
+        </p>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="/js/modal.js"></script>
+  <script src="/js/hdr.js"></script>
+  <script src="/js/monitor.js"></script>
+</body>
+</html>

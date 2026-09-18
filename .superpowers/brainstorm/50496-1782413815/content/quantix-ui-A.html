@@ -1,0 +1,113 @@
+<h2>QuantiX · N motores — diseño de la pantalla</h2>
+<p class="subtitle">Un solo diagrama de la sembradora (planter strip) que sirve para configurar Y para monitorear en vivo. Abajo, dos estados de la misma pantalla. Decime si este es el camino.</p>
+
+<style>
+  .qx { background:#0e1410; border:1px solid #283128; border-radius:12px; padding:14px; margin-top:12px; color:#C5CFC5; font-size:12px; }
+  .qx-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .qx-title { color:#E2E7E2; font-weight:700; font-size:14px; }
+  .seg { display:flex; background:#0a0f0c; border:1px solid #283128; border-radius:8px; overflow:hidden; margin-left:auto; }
+  .seg button { background:transparent; border:0; color:#7e8a80; padding:6px 12px; font-size:11px; font-weight:600; cursor:pointer; }
+  .seg button.on { background:#1c2a1e; color:#4ABA3E; }
+  /* planter */
+  .planter-wrap { background:#0a0f0c; border:1px solid #283128; border-radius:10px; padding:10px; }
+  .planter-cap { display:flex; justify-content:space-between; color:#7e8a80; font-size:10px; margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
+  .strip { display:flex; gap:3px; flex-wrap:wrap; }
+  .cell { width:20px; height:30px; border-radius:4px; font-size:9px; color:#0a0f0c; display:flex; align-items:center; justify-content:center; font-weight:800; position:relative; cursor:pointer; }
+  .c1{background:#4ABA3E}.c2{background:#7F6BE0}.c3{background:#E0A33E}.c4{background:#3E9BE0}.c5{background:#E06B8B}.c6{background:#46C5B0}
+  .coff{background:#2c352e;color:#5f6a61;box-shadow:inset 0 0 0 1px #3a443c}
+  .cell.brush{outline:2px solid #fff; outline-offset:1px}
+  /* toolbar */
+  .qx-tools { display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+  .brushchip { display:flex; align-items:center; gap:6px; background:#16201a; border:1px solid #2f3a31; border-radius:20px; padding:5px 12px; color:#E2E7E2; font-weight:600; }
+  .brushchip .sw { width:14px; height:14px; border-radius:4px; }
+  .btn { background:#16201a; border:1px solid #2f3a31; border-radius:8px; color:#C5CFC5; padding:7px 12px; font-size:11px; font-weight:600; cursor:pointer; }
+  .btn.accent { background:#173d18; border-color:#2e6b2f; color:#7fe06f; }
+  .btn.warn { color:#e0a; }
+  /* motor list */
+  .mlist { margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+  .mrow { display:flex; align-items:center; gap:10px; background:#121a14; border:1px solid #283128; border-radius:9px; padding:9px 11px; }
+  .mrow.sel { border-color:#4ABA3E; box-shadow:0 0 0 1px #4ABA3E inset; }
+  .mrow .sw { width:16px; height:16px; border-radius:5px; flex:0 0 auto; }
+  .mrow .nm { width:74px; color:#E2E7E2; font-weight:700; }
+  .mrow .cnt { color:#7e8a80; font-size:10px; width:64px; }
+  .dosebox { display:flex; align-items:center; gap:5px; }
+  .dosebox input { width:54px; background:#0a0f0c; border:1px solid #2f3a31; border-radius:6px; color:#4ABA3E; padding:5px 6px; font-size:12px; text-align:right; font-variant-numeric:tabular-nums; }
+  .dosebox .u { color:#5f6a61; font-size:10px; }
+  .eff { margin-left:6px; font-size:10px; padding:2px 7px; border-radius:10px; }
+  .eff.mapa { background:#13233a; color:#5fb0e0; } .eff.fija { background:#2a2418; color:#e0a33e; }
+  .pps { margin-left:auto; color:#9fb0a4; font-variant-numeric:tabular-nums; }
+  .bar { width:70px; height:6px; background:#0a0f0c; border-radius:4px; overflow:hidden; margin-left:8px; }
+  .bar > i { display:block; height:100%; background:#4ABA3E; }
+  .bar.warn > i { background:#e0a33e; }
+  .badge { font-size:9px; padding:2px 6px; border-radius:8px; background:#2c352e; color:#9fb0a4; margin-left:8px; }
+  .badge.cut { background:#3a2230; color:#e08bb0; }
+  .hint { color:#5f6a61; font-size:10px; margin-top:8px; }
+</style>
+
+<!-- ESTADO 1: CONFIGURAR -->
+<div class="qx">
+  <div class="qx-head">
+    <span class="qx-title">Motores · Configurar</span>
+    <div class="seg"><button class="on">Planter</button><button>Tabla</button></div>
+  </div>
+
+  <div class="planter-wrap">
+    <div class="planter-cap"><span>Sembradora · 24 surcos · color = motor</span><span>tocá un surco para pintarlo con el motor activo</span></div>
+    <div class="strip">
+      <div class="cell c1">1</div><div class="cell c1">2</div><div class="cell c2 brush">3</div><div class="cell c2 brush">4</div><div class="cell c3">5</div><div class="cell c3">6</div>
+      <div class="cell c4">7</div><div class="cell c4">8</div><div class="cell c1">9</div><div class="cell c1">10</div><div class="cell c5">11</div><div class="cell c5">12</div>
+      <div class="cell c6">13</div><div class="cell c6">14</div><div class="cell c2 brush">15</div><div class="cell c2 brush">16</div><div class="cell c3">17</div><div class="cell c3">18</div>
+      <div class="cell c4">19</div><div class="cell c4">20</div><div class="cell c5">21</div><div class="cell c5">22</div><div class="cell c6">23</div><div class="cell c6">24</div>
+    </div>
+  </div>
+
+  <div class="qx-tools">
+    <span class="brushchip"><span class="sw c2"></span>Pincel: Motor 2</span>
+    <button class="btn accent">+ Motor</button>
+    <button class="btn">Auto-repartir ▾</button>
+    <button class="btn warn">Quitar surco</button>
+  </div>
+  <div class="hint">Tap un motor (abajo) = lo elegís como pincel. Arrastrá el dedo por la tira para pintar varios surcos. "Auto-repartir": 1 motor por surco, o en N grupos parejos.</div>
+
+  <div class="mlist">
+    <div class="mrow"><span class="sw c1"></span><span class="nm">Motor 1</span><span class="cnt">surcos 1,2,9,10</span><span class="dosebox"><input value="60.0"><span class="u">kg/ha</span></span><span class="eff mapa">mapa 62.0</span></div>
+    <div class="mrow sel"><span class="sw c2"></span><span class="nm">Motor 2</span><span class="cnt">surcos 3,4,15,16</span><span class="dosebox"><input value="58.5"><span class="u">kg/ha</span></span><span class="eff fija">fija</span></div>
+    <div class="mrow"><span class="sw c3"></span><span class="nm">Motor 3</span><span class="cnt">surcos 5,6,17,18</span><span class="dosebox"><input value="70.0"><span class="u">kg/ha</span></span><span class="eff mapa">mapa 70.0</span></div>
+  </div>
+</div>
+
+<!-- ESTADO 2: EN MARCHA -->
+<div class="qx">
+  <div class="qx-head">
+    <span class="qx-title">Monitor · En marcha</span>
+    <div class="seg"><button class="on">Planter</button><button>Tabla</button></div>
+  </div>
+
+  <div class="planter-wrap">
+    <div class="planter-cap"><span>Sembradora en vivo · gris = surco cortado</span><span>9.2 km/h · 14.3 ha</span></div>
+    <div class="strip">
+      <div class="cell c1">1</div><div class="cell c1">2</div><div class="cell c2">3</div><div class="cell c2">4</div><div class="cell c3">5</div><div class="cell c3">6</div>
+      <div class="cell c4">7</div><div class="cell c4">8</div><div class="cell c1">9</div><div class="cell c1">10</div><div class="cell coff">11</div><div class="cell coff">12</div>
+      <div class="cell coff">13</div><div class="cell coff">14</div><div class="cell c2">15</div><div class="cell c2">16</div><div class="cell c3">17</div><div class="cell c3">18</div>
+      <div class="cell c4">19</div><div class="cell c4">20</div><div class="cell c5">21</div><div class="cell c5">22</div><div class="cell c6">23</div><div class="cell c6">24</div>
+    </div>
+  </div>
+
+  <div class="mlist">
+    <div class="mrow"><span class="sw c1"></span><span class="nm">Motor 1</span><span class="dosebox"><span class="u">obj</span> <b style="color:#4ABA3E">62.0</b></span><span class="pps">24.1 / 24.0 pps</span><span class="bar"><i style="width:96%"></i></span><span class="badge">OK</span></div>
+    <div class="mrow"><span class="sw c2"></span><span class="nm">Motor 2</span><span class="dosebox"><span class="u">obj</span> <b style="color:#4ABA3E">58.5</b></span><span class="pps">22.7 / 22.9 pps</span><span class="bar"><i style="width:92%"></i></span><span class="badge">OK</span></div>
+    <div class="mrow"><span class="sw c5"></span><span class="nm">Motor 5</span><span class="dosebox"><span class="u">obj</span> <b style="color:#9fb0a4">—</b></span><span class="pps">0.0 pps</span><span class="bar"><i style="width:0%"></i></span><span class="badge cut">corte</span></div>
+    <div class="mrow"><span class="sw c3"></span><span class="nm">Motor 3</span><span class="dosebox"><span class="u">obj</span> <b style="color:#4ABA3E">70.0</b></span><span class="pps">29.0 / 33.5 pps</span><span class="bar warn"><i style="width:74%"></i></span><span class="badge" style="background:#3a2f18;color:#e0a33e">desvío</span></div>
+  </div>
+</div>
+
+<div class="options" style="margin-top:16px">
+  <div class="option" data-choice="ok" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content"><h3>Sí, este es el camino</h3><p>Planter unificado config+live, pincel para asignar, lista de motores con dosis y desvío. Avanzamos al spec.</p></div>
+  </div>
+  <div class="option" data-choice="tweak" onclick="toggleSelect(this)">
+    <div class="letter">~</div>
+    <div class="content"><h3>Casi, pero ajustar algo</h3><p>Decime qué cambiar (interacción de asignado, qué datos por motor, alarmas, etc.).</p></div>
+  </div>
+</div>

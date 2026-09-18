@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instalador PilotX</title>
+<style>
+  :root { --bg:#0f1720; --card:#172230; --line:#26364a; --txt:#e6edf3; --muted:#8ea0b5; --ok:#3fb950; --err:#f85149; --acc:#58a6ff; --warn:#d29922; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.45 system-ui, Segoe UI, sans-serif; }
+  header { display:flex; align-items:center; gap:14px; padding:14px 22px; border-bottom:1px solid var(--line); background:#111a24; }
+  header h1 { margin:0; font-size:19px; font-weight:600; }
+  header .est { margin-left:auto; color:var(--muted); font-size:13px; }
+  main { max-width:1100px; margin:0 auto; padding:18px 22px 60px; display:grid; gap:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .card h2 { margin:0 0 10px; font-size:16px; }
+  .fila { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+  label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted); }
+  input, select { background:#0d141c; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:9px 10px; font-size:15px; min-width:180px; }
+  input[type=checkbox] { min-width:auto; width:20px; height:20px; }
+  button { background:#1f6feb; color:#fff; border:0; border-radius:8px; padding:10px 16px; font-size:15px; cursor:pointer; }
+  button.sec { background:#30363d; } button.peligro { background:#8e2a2a; }
+  button:disabled { opacity:.5; cursor:default; }
+  .nota { color:var(--muted); font-size:13px; }
+  .ok { color:var(--ok); } .err { color:var(--err); } .warn { color:var(--warn); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  code, pre { font-family:Consolas, monospace; }
+  pre.cmd { background:#0d141c; border:1px dashed var(--acc); border-radius:8px; padding:12px 14px; font-size:18px; margin:8px 0; white-space:pre-wrap; word-break:break-all; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#243447; }
+  .pill.esperando { background:#3b3f46; } .pill.instalando { background:#5a4a12; } .pill.registrado { background:#1e4c7a; } .pill.instalado { background:#1f5c2e; }
+  .log { max-height:220px; overflow:auto; font:12px/1.5 Consolas, monospace; color:var(--muted); background:#0d141c; padding:8px 10px; border-radius:8px; white-space:pre-wrap; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; } @media (max-width:800px){ .grid2 { grid-template-columns:1fr; } }
+  .msg { min-height:20px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Instalador PilotX <span class="nota">· servidor del taller</span></h1>
+  <div class="est" id="estServidor">…</div>
+</header>
+<main>
+
+  <div class="grid2">
+    <section class="card">
+      <h2>1 · OrbitX</h2>
+      <div id="loginBox">
+        <div class="fila">
+          <label>Email (superadmin) <input id="email" type="email" autocomplete="username"></label>
+          <label>Contraseña <input id="password" type="password" autocomplete="current-password"></label>
+          <button id="btnLogin">Entrar</button>
+        </div>
+        <div class="msg" id="loginMsg"></div>
+      </div>
+      <div id="logueado" hidden>
+        <div>Conectado a OrbitX como <b id="usuario"></b> <button class="sec" id="btnLogout" style="margin-left:10px">Salir</button></div>
+        <p class="nota">El token queda en esta PC. A la tablet solo le llega su propio token de equipo.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2 · Cliente (organización en OrbitX)</h2>
+      <div class="fila">
+        <label>Nombre del cliente <input id="orgNombre" placeholder="Bernardo Clancy"></label>
+        <label>Slug <input id="orgSlug" placeholder="bernardo_clancy"></label>
+        <button id="btnOrg">Crear cliente</button>
+      </div>
+      <div class="msg" id="orgMsg"></div>
+      <p class="nota">Si el cliente ya existe, elegilo directamente en el pedido.</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>3 · Nuevo pedido de instalación</h2>
+    <div class="fila">
+      <label>Cliente / organización <select id="pedOrg"></select></label>
+      <label>CUIT (opcional) <input id="pedCuit" placeholder="20-12345678-9"></label>
+      <label>Nombre del equipo (opcional) <input id="pedEquipo" placeholder="PILOTX-CLANCY"></label>
+      <label>Clave del usuario soporte <input id="pedPass" placeholder="se genera sola" style="min-width:140px"></label>
+      <label>Versión PilotX <select id="pedVersion"></select></label>
+      <label style="flex-direction:row;align-items:center;gap:8px;padding-bottom:10px"><input id="pedKiosko" type="checkbox" checked> Modo kiosko</label>
+      <button id="btnPedido">Crear pedido</button>
+    </div>
+    <div class="msg" id="pedMsg"></div>
+    <div id="pedResultado" hidden>
+      <p>En la tablet nueva, en la misma red, abrí <b>PowerShell</b> y pegá:</p>
+      <pre class="cmd" id="pedCmd"></pre>
+      <button class="sec" id="btnCopiar">Copiar comando</button>
+      <p class="nota">Pide permisos de administrador, baja el kit y PilotX desde esta PC, da de alta el equipo en OrbitX asignado al cliente, crea el usuario <b>soporte</b> con la clave del pedido, deja el kiosko y pide reiniciar. El avance y la clave quedan en la tabla de abajo.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Pedidos</h2>
+    <table>
+      <thead><tr><th>Código</th><th>Cliente</th><th>Org</th><th>Versión</th><th>Estado</th><th>Equipo</th><th>Clave soporte</th><th>RustDesk</th><th>Último paso</th><th></th></tr></thead>
+      <tbody id="pedidos"></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Equipos en OrbitX <button class="sec" id="btnEquipos" style="margin-left:8px;padding:6px 10px;font-size:13px">Actualizar</button></h2>
+    <div class="msg" id="eqMsg"></div>
+    <table>
+      <thead><tr><th>Device</th><th>Nombre</th><th>Org</th><th>Versión</th><th>Visto</th><th>Asignar a</th></tr></thead>
+      <tbody id="equipos"></tbody>
+    </table>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <h2>Paquetes y kit</h2>
+      <div id="paquetes"></div>
+      <div id="kit" style="margin-top:8px"></div>
+      <button class="sec" id="btnRuntimes" style="margin-top:8px">Bajar runtimes que falten</button>
+      <div class="msg" id="kitMsg"></div>
+    </section>
+    <section class="card">
+      <h2>Actividad</h2>
+      <div class="log" id="eventos"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var estado = null, orgs = [];
+
+  function api(metodo, ruta, body) {
+    return fetch(ruta, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); });
+  }
+  function msg(id, texto, clase) { var e = $(id); e.textContent = texto || ''; e.className = 'msg ' + (clase || ''); }
+  function fecha(t) { if (!t) return '—'; var d = new Date(t); return d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }); }
+  function mb(b) { return (b / 1048576).toFixed(0) + ' MB'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function slugDe(n) { return n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40); }
+
+  function pintarEstado() {
+    var e = estado;
+    $('estServidor').textContent = 'http://' + e.ip + ':' + e.puerto + '  ·  OrbitX: ' + e.orbitx_url;
+    $('loginBox').hidden = e.logueado; $('logueado').hidden = !e.logueado; $('usuario').textContent = e.usuario || '';
+    var v = $('pedVersion'); v.innerHTML = e.paquetes.map(function (p) { return '<option value="' + p.version + '">' + p.version + ' (' + mb(p.bytes) + ')</option>'; }).join('');
+    $('paquetes').innerHTML = '<b>Paquetes:</b> ' + (e.paquetes.length ? e.paquetes.map(function (p) { return '<a href="/paquetes/' + encodeURIComponent(p.archivo) + '">' + p.version + '</a>'; }).join(' · ') : '<span class="err">no hay PilotX_v*.zip: correr build.ps1</span>');
+    $('kit').innerHTML = '<b>Kit:</b> ' + e.kit.map(function (k) { return '<span class="' + (k.existe ? 'ok' : (k.req ? 'err' : 'warn')) + '">' + (k.existe ? '✔' : '✖') + ' ' + esc(k.nombre) + '</span>'; }).join(' &nbsp; ');
+    $('eventos').textContent = e.eventos.join('\n');
+    $('pedidos').innerHTML = e.pedidos.map(function (p) {
+      var ult = p.pasos.length ? p.pasos[p.pasos.length - 1].msg : '';
+      return '<tr><td><code>' + p.codigo + '</code></td><td>' + esc(p.cliente) + '</td><td>' + esc(p.estab_slug) + '</td><td>' + p.version + '</td>' +
+        '<td><span class="pill ' + p.estado + '">' + p.estado + '</span></td><td>' + esc(p.device_id || '') + (p.hostname ? '<br><span class="nota">' + esc(p.hostname) + '</span>' : '') + '</td>' +
+        '<td><code>' + esc(p.soporte_pass || '—') + '</code> <button class="sec" data-clave="' + p.codigo + '" style="padding:3px 7px;font-size:11px" title="Cargar o corregir la clave">✎</button></td>' +
+        '<td>' + (p.rustdesk_id ? '<code>' + esc(p.rustdesk_id) + '</code><br><span class="nota">clave <code>' + esc(p.rustdesk_pass || '') + '</code></span>' : '<span class="nota">—</span>') + '</td>' +
+        '<td class="nota">' + esc(ult) + '</td><td><button class="sec" data-cmd="' + p.codigo + '" style="padding:5px 9px;font-size:12px">comando</button> <button class="peligro" data-del="' + p.codigo + '" style="padding:5px 9px;font-size:12px">borrar</button></td></tr>';
+    }).join('') || '<tr><td colspan="10" class="nota">Sin pedidos todavía.</td></tr>';
+  }
+  function cargarEstado() { return api('GET', '/api/estado').then(function (e) { estado = e; pintarEstado(); }); }
+
+  function pintarOrgs() {
+    var s = $('pedOrg');
+    s.innerHTML = '<option value="">— elegir —</option>' + orgs.map(function (o) { return '<option value="' + esc(o.slug) + '">' + esc(o.nombre || o.slug) + ' (' + esc(o.slug) + ')</option>'; }).join('');
+  }
+  function cargarOrgs() {
+    if (!estado || !estado.logueado) return Promise.resolve();
+    return api('GET', '/api/orgs').then(function (r) { orgs = r.orgs || []; pintarOrgs(); pintarEquipos(); }).catch(function (e) { msg('orgMsg', 'No pude listar organizaciones: ' + e.message, 'err'); });
+  }
+
+  var equipos = [];
+  function pintarEquipos() {
+    $('equipos').innerHTML = equipos.map(function (d) {
+      var opts = '<option value="">— sin asignar —</option>' + orgs.map(function (o) { return '<option value="' + esc(o.slug) + '"' + (o.slug === d.estab_slug ? ' selected' : '') + '>' + esc(o.nombre || o.slug) + '</option>'; }).join('');
+      return '<tr><td><code>' + esc(d.device_id) + '</code></td><td>' + esc(d.nombre) + '</td><td>' + esc(d.estab_slug || '') + '</td><td>' + esc(d.version || '') + '</td><td class="nota">' + fecha(d.ultimo_visto) + '</td>' +
+        '<td><select data-dev="' + esc(d.device_id) + '">' + opts + '</select> <button class="sec" data-asig="' + esc(d.device_id) + '" style="padding:6px 10px;font-size:13px">Asignar</button></td></tr>';
+    }).join('') || '<tr><td colspan="6" class="nota">Sin equipos (o sin login).</td></tr>';
+  }
+  function cargarEquipos() {
+    if (!estado || !estado.logueado) return Promise.resolve();
+    return api('GET', '/api/equipos').then(function (r) { equipos = r.equipos || []; pintarEquipos(); msg('eqMsg', equipos.length + ' equipos'); }).catch(function (e) { msg('eqMsg', e.message, 'err'); });
+  }
+
+  $('btnLogin').onclick = function () {
+    msg('loginMsg', 'Entrando…');
+    api('POST', '/api/login', { email: $('email').value.trim(), password: $('password').value })
+      .then(function () { msg('loginMsg', ''); $('password').value = ''; return cargarEstado(); }).then(cargarOrgs).then(cargarEquipos)
+      .catch(function (e) { msg('loginMsg', e.message, 'err'); });
+  };
+  $('btnLogout').onclick = function () { api('POST', '/api/logout').then(cargarEstado); };
+  $('orgNombre').oninput = function () { $('orgSlug').value = slugDe($('orgNombre').value); };
+  $('btnOrg').onclick = function () {
+    msg('orgMsg', 'Creando…');
+    api('POST', '/api/orgs', { nombre: $('orgNombre').value.trim(), slug: $('orgSlug').value.trim() })
+      .then(function (r) { msg('orgMsg', 'Cliente creado: ' + r.slug, 'ok'); return cargarOrgs(); }).then(function () { $('pedOrg').value = $('orgSlug').value.trim(); })
+      .catch(function (e) { msg('orgMsg', e.message, 'err'); });
+  };
+  $('btnPedido').onclick = function () {
+    var org = $('pedOrg').value; var o = orgs.filter(function (x) { return x.slug === org; })[0];
+    msg('pedMsg', 'Creando pedido…');
+    api('POST', '/api/pedidos', { cliente: o ? (o.nombre || o.slug) : '', estab_slug: org, cuit: $('pedCuit').value, nombre_equipo: $('pedEquipo').value, version: $('pedVersion').value, kiosko: $('pedKiosko').checked, soporte_pass: $('pedPass').value })
+      .then(function (r) { msg('pedMsg', 'Pedido ' + r.pedido.codigo + ' creado', 'ok'); $('pedResultado').hidden = false; $('pedCmd').textContent = r.comando; return cargarEstado(); })
+      .catch(function (e) { msg('pedMsg', e.message, 'err'); });
+  };
+  $('btnCopiar').onclick = function () { navigator.clipboard.writeText($('pedCmd').textContent).then(function () { msg('pedMsg', 'Copiado', 'ok'); }); };
+  $('pedidos').onclick = function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.cmd) { fetch('/comando?p=' + b.dataset.cmd).then(function (r) { return r.text(); }).then(function (t) { $('pedResultado').hidden = false; $('pedCmd').textContent = t; window.scrollTo({ top: $('pedResultado').offsetTop - 80, behavior: 'smooth' }); }); }
+    if (b.dataset.del && confirm('¿Borrar el pedido ' + b.dataset.del + '?')) api('DELETE', '/api/pedidos', { codigo: b.dataset.del }).then(cargarEstado);
+    if (b.dataset.clave) { var v = prompt('Clave del usuario soporte del pedido ' + b.dataset.clave + ':'); if (v !== null) api('POST', '/api/pedidos/clave', { codigo: b.dataset.clave, soporte_pass: v }).then(cargarEstado); }
+  };
+  $('equipos').onclick = function (ev) {
+    var b = ev.target.closest('button'); if (!b || !b.dataset.asig) return;
+    var sel = document.querySelector('select[data-dev="' + b.dataset.asig + '"]'); if (!sel.value) { msg('eqMsg', 'Elegí una organización', 'err'); return; }
+    msg('eqMsg', 'Asignando…');
+    api('POST', '/api/equipos/asignar', { device_id: b.dataset.asig, estab_slug: sel.value }).then(function () { msg('eqMsg', 'Asignado', 'ok'); return cargarEquipos(); }).catch(function (e) { msg('eqMsg', e.message, 'err'); });
+  };
+  $('btnEquipos').onclick = cargarEquipos;
+  $('btnRuntimes').onclick = function () { msg('kitMsg', 'Bajando (puede tardar)…'); api('POST', '/api/runtimes').then(function (r) { msg('kitMsg', r.bajados.length ? 'Bajados: ' + r.bajados.join(', ') : 'No faltaba nada', 'ok'); return cargarEstado(); }).catch(function (e) { msg('kitMsg', e.message, 'err'); }); };
+
+  cargarEstado().then(cargarOrgs).then(cargarEquipos);
+  setInterval(function () { cargarEstado(); }, 4000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chequeo de roll · Agro Parallel</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Chequeo de roll en vivo (reemplazo del WinForms FormCorrection): distancia
+       de corrección por roll, easting crudo del GPS y easting sin corregir, en un
+       buffer rodante centrado en cero. Solo lectura — la escala y los toggles
+       (Congelar / Poste-Movimiento) son 100% del lado cliente. */
+    .g-readouts { display: flex; gap: var(--agp-sp-5); flex-wrap: wrap; margin-bottom: var(--agp-sp-4); }
+    .g-read {
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3) var(--agp-sp-5); min-width: 150px;
+    }
+    .g-read .g-label { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); }
+    .g-read .g-value {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-display);
+      font-weight: var(--agp-fw-bold); line-height: 1.1;
+    }
+    .g-read.corr .g-value { color: var(--agp-accent); }
+    .g-read.east .g-value { color: #3D87C6; }
+    .g-read.uncorr .g-value { color: #E0A030; }
+    .g-read.roll .g-value { color: var(--agp-text); }
+
+    .g-chart-wrap {
+      position: relative;
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3);
+    }
+    #corrCanvas { display: block; width: 100%; height: 50vh; }
+    .g-axis {
+      position: absolute; right: var(--agp-sp-4); font-family: var(--agp-font-mono);
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+    }
+    .g-axis.max { top: var(--agp-sp-3); }
+    .g-axis.min { bottom: var(--agp-sp-3); }
+
+    .g-legend { display: flex; gap: var(--agp-sp-5); margin-top: var(--agp-sp-3); font-size: var(--agp-fs-sm); flex-wrap: wrap; }
+    .g-legend span::before {
+      content: ''; display: inline-block; width: 14px; height: 3px;
+      vertical-align: middle; margin-right: 6px; border-radius: 2px;
+    }
+    .g-legend .lg-corr::before   { background: var(--agp-accent); }
+    .g-legend .lg-east::before   { background: #3D87C6; }
+    .g-legend .lg-uncorr::before { background: #E0A030; }
+
+    .g-controls { display: flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-4); flex-wrap: wrap; }
+    #btnFreeze.on, #btnMode.on { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Chequeo de roll</h1>
+        <div class="subtitle">Corrección por roll del IMU vs deriva GPS · solo lectura</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="statusText">—</span></span>
+    </div>
+
+    <div class="g-readouts">
+      <div class="g-read corr">
+        <div class="g-label">Corrección</div>
+        <div class="g-value"><span id="valCorr">0.00</span> m</div>
+      </div>
+      <div class="g-read east">
+        <div class="g-label">Este GPS</div>
+        <div class="g-value"><span id="valEast">0.00</span> m</div>
+      </div>
+      <div class="g-read uncorr">
+        <div class="g-label">Este sin corregir</div>
+        <div class="g-value"><span id="valUncorr">0.00</span> m</div>
+      </div>
+      <div class="g-read roll">
+        <div class="g-label">Roll IMU</div>
+        <div class="g-value"><span id="valRoll">—</span></div>
+      </div>
+    </div>
+
+    <div class="g-chart-wrap">
+      <div class="g-axis max" id="axisMax">0.1</div>
+      <div class="g-axis min" id="axisMin">-0.1</div>
+      <canvas id="corrCanvas"></canvas>
+    </div>
+
+    <div class="g-legend">
+      <span class="lg-corr">Corrección (m)</span>
+      <span class="lg-east">Este GPS (m)</span>
+      <span class="lg-uncorr">Este sin corregir (m)</span>
+    </div>
+
+    <div class="g-controls">
+      <button class="btn compact" id="btnGainDown">− Escala</button>
+      <button class="btn compact" id="btnGainAuto">Auto</button>
+      <button class="btn compact" id="btnGainUp">+ Escala</button>
+      <button class="btn compact" id="btnFreeze">Congelar</button>
+      <button class="btn compact on" id="btnMode">Poste</button>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/grafico-correccion.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

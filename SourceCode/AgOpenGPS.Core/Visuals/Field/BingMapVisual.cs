@@ -12,7 +12,7 @@ namespace AgOpenGPS.Core.Visuals
         public BingMapVisual(BingMap bingMap)
         {
             _bingMap = bingMap;
-            _bingMapTexture = new GeoTexture2D(bingMap.Bitmap);
+            _bingMapTexture = new GeoTexture2D(bingMap.PngBytes);
         }
 
         public void Draw()

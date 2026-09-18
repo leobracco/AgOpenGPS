@@ -1,0 +1,53 @@
+#cloud-config
+# ============================================================================
+# autoinstall-pilotx.yaml — instalación DESATENDIDA y MÍNIMA para una pantalla
+# PilotX (Ubuntu Server 24.04, instalador subiquity).
+#
+# Deja: base mínima sin escritorio + SSH + usuario pilotx listo para correr
+# Tools/linux/kiosk/instalar-kiosko.sh, que agrega lightdm+openbox+deps y deja
+# la máquina booteando directo a PilotX.
+#
+# CLAVE: NO se versiona ningún hash de password (SSH queda abierto). Antes de
+# usar este archivo, generá el hash de TU clave y pegalo en identity.password:
+#     openssl passwd -6      (o: mkpasswd -m sha-512)
+#
+# Uso en VM (VirtualBox) — la clave la inyecta VBoxManage, no hace falta tocar
+# el YAML:
+#   VBoxManage unattended install <vm> --iso=ubuntu-server.iso \
+#       --script-template=autoinstall-pilotx.yaml --user=pilotx --password=<TU_CLAVE> \
+#       --install-additions --start-vm=headless
+# Uso en pantalla real: USB con el ISO server + este archivo como user-data
+#   (ds=nocloud) — mismo resultado.
+# ============================================================================
+autoinstall:
+  version: 1
+  # Instalación mínima: server base SIN snaps ni extras.
+  source:
+    id: ubuntu-server-minimal
+    search_drivers: false
+  locale: es_AR.UTF-8
+  keyboard:
+    layout: latam
+  timezone: America/Argentina/Buenos_Aires
+  storage:
+    layout:
+      name: direct
+    swap:
+      size: 0
+  identity:
+    hostname: pilotx
+    username: pilotx
+    realname: PilotX
+    # Pegá acá el hash de TU clave (openssl passwd -6). NO commitear un hash
+    # real: SSH queda abierto (allow-pw) y esto es repo público.
+    password: "REEMPLAZAR-CON-HASH-openssl-passwd-6"
+  ssh:
+    install-server: true
+    allow-pw: true
+  # Solo lo imprescindible acá; el resto lo instala instalar-kiosko.sh.
+  packages:
+    - sudo
+  late-commands:
+    # Serie + brillo + audio sin pedir permisos después.
+    - curtin in-target -- usermod -aG dialout,video,audio pilotx
+  shutdown: reboot

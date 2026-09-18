@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Políticas del device-admin de PilotX. Sólo se usa para Reboot cuando la app
+     es device-owner; no pide ninguna política de bloqueo/borrado. -->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-policies />
+</device-admin>

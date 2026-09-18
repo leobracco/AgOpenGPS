@@ -1,0 +1,392 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:PilotX.Desktop.Views"
+             x:Class="PilotX.Desktop.Views.MapasPanel">
+    <!--
+        MapasPanel — reemplazo nativo de pages/mapas.html + js/mapas.js.
+
+        Preview de los mapas del lote: heatmap y puntos por surco de una sesión
+        VistaX, más el boundary y la cabecera del lote. Mismo wire que la página
+        (MapasController): GET /api/mapas/sesiones, /sesion/{ts}/heatmap,
+        /sesion/{ts}/puntos, /boundary y /headland, todo GeoJSON en WGS84.
+
+        Leaflet se reemplaza por un lienzo propio (MapaLienzo, en el .cs) que
+        proyecta en Web Mercator igual que Leaflet y arrastra/acerca con el
+        dedo. NO es el mapa GL de la cabina: es dibujo adentro de la card, así
+        que no pelea con el compositor y el mapa vivo sigue detrás.
+
+        La página HTML queda intacta: la usa la PWA del celular.
+
+        NADA de ComboBox/Flyout sobre el mapa GL: el <select> de la sesión es
+        Border + IsVisible (patrón de FirmwaresPanel).
+
+        NOTA DE COLOR: el visor del mapa conserva el fondo oscuro del original
+        (#16181A). Es la ÚNICA excepción a los tokens claros y es a propósito:
+        el boundary se dibuja BLANCO y las 4 clases del heatmap están calibradas
+        contra ese fondo. El marco, la barra lateral y la card son la paleta
+        clara de PilotX.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <Panel>
+
+            <!-- ============================ CARD ============================
+                 Name="Card": ModoEmbebido() (adentro de la Configuración) le
+                 suelta el marco/tamaño; la instancia flotante no cambia. -->
+            <Border Name="Card"
+                    Background="{StaticResource PilotXPanelCard}"
+                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="14"
+                    ClipToBounds="True"
+                    BoxShadow="0 8 26 0 #33101612"
+                    Padding="20,16,20,18"
+                    MaxWidth="1180" MaxHeight="720"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Margin="16,8">
+                <DockPanel>
+
+                    <!-- ========================= Header ========================= -->
+                    <Grid DockPanel.Dock="Top" Name="DragHandle" Background="Transparent"
+                          ColumnDefinitions="*,Auto" Margin="2,0,2,14">
+                        <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="2"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="Mapas"
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontSize="22"
+                                       FontWeight="SemiBold"/>
+                            <!-- #mpLote -->
+                            <TextBlock Name="LoteSub" Text="Lote · –"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Name="HeaderPills"
+                                    Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center">
+                            <Button Name="BtnCerrar" Content="✕"
+                                    Click="OnCerrarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelTextDim}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" Width="48" Height="48"
+                                    FontSize="15"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    ToolTip.Tip="Cerrar"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ======================== map-shell ========================
+                         Barra lateral de 280 px + área de mapa. -->
+                    <Grid ColumnDefinitions="280,*">
+
+                        <!-- .map-side -->
+                        <ScrollViewer Grid.Column="0"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto"
+                                      Margin="0,0,12,0">
+                            <StackPanel Spacing="12">
+
+                                <!-- Sesión VistaX -->
+                                <Border Background="{StaticResource PilotXPanelSurface}"
+                                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="12">
+                                    <StackPanel Spacing="0">
+                                        <TextBlock Text="Sesión VistaX"
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="11"
+                                                   FontWeight="Medium"
+                                                   LetterSpacing="1.1"
+                                                   Margin="0,0,0,8"/>
+                                        <!-- El <select> del original. -->
+                                        <Button Name="BtnSesion" Content=""
+                                                Click="OnSesionClick"
+                                                Background="{StaticResource PilotXPanelSurface}"
+                                                Foreground="{StaticResource PilotXPanelText}"
+                                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                BorderThickness="1"
+                                                CornerRadius="6"
+                                                MinHeight="42"
+                                                Padding="10,0,10,0"
+                                                FontSize="14"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Left"
+                                                VerticalContentAlignment="Center"/>
+                                        <TextBlock Name="SesionMeta" Text="–"
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Capas -->
+                                <Border Background="{StaticResource PilotXPanelSurface}"
+                                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="12">
+                                    <StackPanel Spacing="0">
+                                        <TextBlock Text="Capas"
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="11"
+                                                   FontWeight="Medium"
+                                                   LetterSpacing="1.1"
+                                                   Margin="0,0,0,8"/>
+
+                                        <CheckBox Name="LayHeatmap" IsChecked="True"
+                                                  IsCheckedChanged="OnCapaCambio"
+                                                  MinHeight="40" Margin="0,2,0,2">
+                                            <StackPanel Orientation="Horizontal" Spacing="8"
+                                                        VerticalAlignment="Center">
+                                                <Border Width="16" Height="16" CornerRadius="3"
+                                                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                        BorderThickness="1"
+                                                        VerticalAlignment="Center">
+                                                    <Border.Background>
+                                                        <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                                                            <GradientStop Color="#2ecc40" Offset="0"/>
+                                                            <GradientStop Color="#ffdc00" Offset="0.33"/>
+                                                            <GradientStop Color="#ff851b" Offset="0.66"/>
+                                                            <GradientStop Color="#ff4136" Offset="1"/>
+                                                        </LinearGradientBrush>
+                                                    </Border.Background>
+                                                </Border>
+                                                <TextBlock Text="Mapa de calor"
+                                                           Foreground="{StaticResource PilotXPanelText}"
+                                                           FontSize="14"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </CheckBox>
+
+                                        <CheckBox Name="LayPuntos" IsChecked="False"
+                                                  IsCheckedChanged="OnCapaCambio"
+                                                  MinHeight="40" Margin="0,2,0,2">
+                                            <StackPanel Orientation="Horizontal" Spacing="8"
+                                                        VerticalAlignment="Center">
+                                                <Border Width="16" Height="16" CornerRadius="3"
+                                                        Background="#4BA63F"
+                                                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                        BorderThickness="1"
+                                                        VerticalAlignment="Center"/>
+                                                <TextBlock Text="Puntos por surco"
+                                                           Foreground="{StaticResource PilotXPanelText}"
+                                                           FontSize="14"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </CheckBox>
+
+                                        <CheckBox Name="LayBoundary" IsChecked="True"
+                                                  IsCheckedChanged="OnCapaCambio"
+                                                  MinHeight="40" Margin="0,2,0,2">
+                                            <StackPanel Orientation="Horizontal" Spacing="8"
+                                                        VerticalAlignment="Center">
+                                                <Border Width="16" Height="16" CornerRadius="3"
+                                                        Background="#ffffff"
+                                                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                        BorderThickness="1"
+                                                        VerticalAlignment="Center"/>
+                                                <TextBlock Text="Boundary lote"
+                                                           Foreground="{StaticResource PilotXPanelText}"
+                                                           FontSize="14"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </CheckBox>
+
+                                        <CheckBox Name="LayHeadland" IsChecked="False"
+                                                  IsCheckedChanged="OnCapaCambio"
+                                                  MinHeight="40" Margin="0,2,0,2">
+                                            <StackPanel Orientation="Horizontal" Spacing="8"
+                                                        VerticalAlignment="Center">
+                                                <Border Width="16" Height="16" CornerRadius="3"
+                                                        Background="#7d8b80"
+                                                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                        BorderThickness="1"
+                                                        VerticalAlignment="Center"/>
+                                                <TextBlock Text="Cabecera"
+                                                           Foreground="{StaticResource PilotXPanelText}"
+                                                           FontSize="14"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </CheckBox>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Vista -->
+                                <Border Background="{StaticResource PilotXPanelSurface}"
+                                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="12">
+                                    <StackPanel Spacing="0">
+                                        <TextBlock Text="Vista"
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="11"
+                                                   FontWeight="Medium"
+                                                   LetterSpacing="1.1"
+                                                   Margin="0,0,0,8"/>
+                                        <Button Name="BtnFitLote" Content="Encajar al lote"
+                                                Click="OnFitLoteClick"
+                                                Background="{StaticResource PilotXPanelSurface}"
+                                                Foreground="{StaticResource PilotXPanelText}"
+                                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                MinHeight="42"
+                                                FontSize="14"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"/>
+                                        <Border Height="8" Background="Transparent"/>
+                                        <Button Name="BtnFitSesion" Content="Encajar a la sesión"
+                                                Click="OnFitSesionClick"
+                                                Background="{StaticResource PilotXPanelSurface}"
+                                                Foreground="{StaticResource PilotXPanelText}"
+                                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                MinHeight="42"
+                                                FontSize="14"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- .map-area -->
+                        <Border Grid.Column="1"
+                                Background="#16181A"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                ClipToBounds="True">
+                            <Panel>
+                                <v:MapaLienzo Name="Lienzo"/>
+
+                                <!-- Zoom del mapa (el zoomControl de Leaflet).
+                                     Táctil: nada de rueda obligatoria. -->
+                                <StackPanel Orientation="Vertical" Spacing="6"
+                                            HorizontalAlignment="Left" VerticalAlignment="Top"
+                                            Margin="12">
+                                    <Button Name="BtnZoomMas" Content="+"
+                                            Click="OnZoomMasClick"
+                                            Width="44" Height="44"
+                                            FontSize="20"
+                                            CornerRadius="8"
+                                            BorderThickness="1"
+                                            Background="{StaticResource PilotXPanelSurface}"
+                                            Foreground="{StaticResource PilotXPanelText}"
+                                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                            HorizontalContentAlignment="Center"
+                                            VerticalContentAlignment="Center"/>
+                                    <Button Name="BtnZoomMenos" Content="−"
+                                            Click="OnZoomMenosClick"
+                                            Width="44" Height="44"
+                                            FontSize="20"
+                                            CornerRadius="8"
+                                            BorderThickness="1"
+                                            Background="{StaticResource PilotXPanelSurface}"
+                                            Foreground="{StaticResource PilotXPanelText}"
+                                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                            HorizontalContentAlignment="Center"
+                                            VerticalContentAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- .legend — caja translúcida abajo a la derecha.
+                                     Va oscura porque vive SOBRE el visor oscuro, y
+                                     por eso el texto sale de la paleta OSCURA
+                                     (PilotXTextHi), no de la clara: es la misma
+                                     excepción documentada de los widgets sobre el
+                                     mapa. -->
+                                <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Margin="12"
+                                        Background="#D9101612"
+                                        BorderBrush="#33FFFFFF"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="12,8,12,8"
+                                        IsHitTestVisible="False">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="Heatmap · clase"
+                                                   Foreground="{StaticResource PilotXTextHi}"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   Margin="0,0,0,2"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Border Width="12" Height="12" CornerRadius="2"
+                                                    Background="#2ecc40" VerticalAlignment="Center"/>
+                                            <TextBlock Text="1 — bueno" Foreground="{StaticResource PilotXTextHi}"
+                                                       FontSize="11" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Border Width="12" Height="12" CornerRadius="2"
+                                                    Background="#ffdc00" VerticalAlignment="Center"/>
+                                            <TextBlock Text="2 — medio" Foreground="{StaticResource PilotXTextHi}"
+                                                       FontSize="11" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Border Width="12" Height="12" CornerRadius="2"
+                                                    Background="#ff851b" VerticalAlignment="Center"/>
+                                            <TextBlock Text="3 — bajo" Foreground="{StaticResource PilotXTextHi}"
+                                                       FontSize="11" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Border Width="12" Height="12" CornerRadius="2"
+                                                    Background="#ff4136" VerticalAlignment="Center"/>
+                                            <TextBlock Text="4 — falla" Foreground="{StaticResource PilotXTextHi}"
+                                                       FontSize="11" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </Panel>
+                        </Border>
+                    </Grid>
+                </DockPanel>
+            </Border>
+
+            <!-- =============== SELECTOR DE SESIÓN (el <select>) =============== -->
+            <Border Name="PickerOverlay" IsVisible="False" ZIndex="50"
+                    Background="#66101612"
+                    PointerPressed="OnPickerBackdropPressed">
+                <Border Name="PickerCard"
+                        Background="{StaticResource PilotXPanelCard}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="16"
+                        Width="400" MaxHeight="520"
+                        BoxShadow="0 8 26 0 #33101612"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        PointerPressed="OnPickerCardPressed">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top"
+                                   Text="Sesión VistaX"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="16" FontWeight="SemiBold"
+                                   Margin="0,0,0,10"/>
+                        <Button DockPanel.Dock="Bottom"
+                                Name="BtnPickerCancelar"
+                                Content="Cancelar"
+                                Click="OnPickerCancelarClick"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8" MinHeight="44" Padding="20,0,20,0"
+                                HorizontalAlignment="Right"
+                                Margin="0,10,0,0"/>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Name="PickerLista" Spacing="4"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Border>
+        </Panel>
+    </ThemeVariantScope>
+</UserControl>

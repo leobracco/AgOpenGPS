@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contorno</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ============================================================================
+       Widget CONTORNO — ventana chica sobre PilotX (reemplazo de FormBoundary +
+       FormBoundaryPlayer). Sin sidebar del Hub, estilo banderas/ab-rapido.
+       Tres vistas: lista de contornos (drive-thru/borrar), crear (manejando/
+       KML/Google Earth/mapa/desde guías) y grabación manejando con stats live.
+       API: /api/contorno/*.
+       ============================================================================ */
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: var(--agp-bg); color: var(--agp-text);
+    }
+    body {
+      font-family: var(--agp-font-sans);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .bd-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: clamp(3px, 1vh, 6px) 10px;
+      background: var(--agp-surface);
+      border-bottom: 1px solid var(--agp-border);
+      flex-shrink: 0;
+    }
+    .bd-head .title { font-weight: var(--agp-fw-bold); font-size: 13px; flex: 1; }
+    .bd-head .pill {
+      padding: 2px 10px; border-radius: var(--agp-radius-pill);
+      font-size: 10px; font-weight: var(--agp-fw-bold);
+      background: var(--agp-surface-2, var(--agp-bg)); color: var(--agp-text-muted);
+      border: 1px solid var(--agp-border);
+    }
+    .bd-head .pill.rec { background: #5a2c2c; color: #fff; border-color: #5a2c2c; }
+
+    .bd-body {
+      flex: 1; overflow: hidden;
+      padding: clamp(4px, 1.2vh, 8px);
+      display: flex; flex-direction: column; gap: clamp(3px, 1vh, 8px);
+    }
+
+    .btn {
+      min-height: clamp(28px, 7.5vh, 48px);
+      font-family: var(--agp-font-sans); font-size: clamp(11px, 2.4vh, 14px);
+      background: var(--agp-surface); color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .bd-accent { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .bd-danger { background: #5a2c2c; color: #fff; border-color: #5a2c2c; }
+
+    .bd-pane { display: flex; flex-direction: column; gap: inherit; flex: 1; min-height: 0; }
+    .hiddenTab { display: none !important; }
+
+    .bd-warn {
+      display: none; background: #5a2c2c; color: #fff;
+      border-radius: var(--agp-radius-sm);
+      padding: 6px 8px; font-size: clamp(10px, 2.2vh, 12px);
+      flex-shrink: 0;
+    }
+    .bd-warn.show { display: block; }
+
+    /* ── Lista ── */
+    .bd-list {
+      flex: 1; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 3px;
+      min-height: clamp(48px, 14vh, 120px);
+    }
+    .bd-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: clamp(4px, 1.2vh, 8px) 8px;
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      cursor: pointer; flex-shrink: 0;
+    }
+    .bd-row.sel { border-color: var(--agp-accent); background: var(--agp-surface-2, var(--agp-surface)); }
+    .bd-name {
+      flex: 1; font-size: clamp(11px, 2.4vh, 14px);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .bd-area {
+      font-family: var(--agp-font-mono); font-size: clamp(11px, 2.4vh, 14px);
+      font-weight: var(--agp-fw-bold); color: var(--agp-accent);
+    }
+    .bd-thru {
+      min-height: clamp(22px, 5.5vh, 34px);
+      font-size: clamp(10px, 2.2vh, 12px);
+      background: var(--agp-surface-2, var(--agp-bg)); color: var(--agp-text-muted);
+      border: 1px solid var(--agp-border); border-radius: var(--agp-radius-pill);
+      padding: 0 10px; cursor: pointer; flex-shrink: 0;
+    }
+    .bd-thru.on { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .bd-empty {
+      text-align: center; color: var(--agp-text-muted);
+      font-size: clamp(10px, 2.2vh, 13px); padding: 12px 4px;
+    }
+    .bd-actions { display: flex; gap: clamp(4px, 1vw, 8px); }
+    .bd-actions .btn { flex: 1 1 0; }
+
+    /* ── Crear ── */
+    .bd-label { font-size: clamp(10px, 2.2vh, 13px); color: var(--agp-text-muted); }
+
+    /* ── Grabación ── */
+    .rec-stats {
+      display: flex; gap: clamp(4px, 1vw, 8px);
+    }
+    .rec-stat {
+      flex: 1 1 0; text-align: center;
+      background: var(--agp-surface); border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      padding: clamp(3px, 1vh, 6px) 4px;
+    }
+    .rec-stat .v {
+      font-family: var(--agp-font-mono); font-size: clamp(14px, 3.4vh, 20px);
+      font-weight: var(--agp-fw-bold);
+    }
+    .rec-stat .l { font-size: clamp(9px, 2vh, 11px); color: var(--agp-text-muted); }
+    .rec-opt-row { display: flex; gap: clamp(4px, 1vw, 8px); align-items: center; }
+    .rec-opt-row .btn { flex: 1 1 0; }
+    /* Ajustes plegados: presentes pero fuera del camino. */
+    .rec-adv { flex-shrink: 0; }
+    .rec-adv > summary {
+      cursor: pointer; list-style: none;
+      font-size: clamp(10px, 2.2vh, 12px); color: var(--agp-text-muted);
+      padding: 4px 2px;
+    }
+    .rec-adv > summary::-webkit-details-marker { display: none; }
+    .rec-adv > summary::before { content: "▸ "; }
+    .rec-adv[open] > summary::before { content: "▾ "; }
+    .rec-adv .rec-opt-row { margin-top: 4px; }
+    .rec-off-input {
+      flex: 1 1 auto; min-height: clamp(28px, 7.5vh, 44px);
+      font-family: var(--agp-font-mono); font-size: clamp(12px, 2.6vh, 15px);
+      background: var(--agp-bg); color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      min-width: 0; padding: 0 8px; text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="bd-head">
+    <span class="title">Contorno</span>
+    <span class="pill" id="statePill">0</span>
+  </div>
+
+  <div class="bd-body">
+    <div id="warnBox" class="bd-warn"></div>
+
+    <!-- ── Vista lista ── -->
+    <div id="paneList" class="bd-pane">
+      <div class="bd-list" id="bndList">
+        <div class="bd-empty" id="emptyMsg">El lote no tiene contorno todavía.</div>
+      </div>
+      <!-- Importar KML / Agregar desde KML / Cerco desde guías SALIERON de la
+           pantalla (pedido usuario 2026-08-05): contorno simple, se crea
+           manejando y listo. El backend /import-kml-upload y /from-tracks
+           quedan vivos por si vuelven. -->
+      <div class="bd-actions">
+        <button class="btn bd-danger" id="btnDelete">Borrar</button>
+        <button class="btn bd-accent" id="btnCreate">Crear manejando</button>
+      </div>
+    </div>
+
+    <!-- ── Vista grabación manejando ──
+         "Crear" entra DIRECTO acá. Antes había una pantalla intermedia con
+         cinco formas de crear el contorno (KML, Google Earth, dibujar sobre el
+         mapa, desde guías); las otras cuatro abren ventana de WinForms y contra
+         el motor headless devuelven "no-disponible-sin-ui", así que eran un
+         menú de cuatro callejones sin salida y un camino bueno. -->
+    <div id="paneRec" class="bd-pane hiddenTab">
+      <div class="rec-stats">
+        <div class="rec-stat"><div class="v" id="recPts">0</div><div class="l">puntos</div></div>
+        <div class="rec-stat"><div class="v" id="recArea">0.00</div><div class="l">ha</div></div>
+      </div>
+      <div class="rec-opt-row">
+        <button class="btn bd-accent" id="btnRecPause">Grabar</button>
+        <button class="btn" id="btnAddPoint">Punto</button>
+        <button class="btn" id="btnUndo">Deshacer</button>
+      </div>
+      <!-- Ajustes del trazado: se tocan una vez al empezar y no se miran más,
+           así que van abajo y chicos, sin robarle lugar a puntos/ha ni a los
+           botones de grabar. -->
+      <details class="rec-adv">
+        <summary>Ajustes</summary>
+        <div class="rec-opt-row">
+          <span class="bd-label">Offset</span>
+          <input id="inpOffset" class="rec-off-input" type="text" inputmode="numeric" />
+          <span class="bd-label">cm</span>
+          <button class="btn" id="btnSide">Derecha</button>
+        </div>
+        <div class="rec-opt-row">
+          <button class="btn" id="btnAtPivot">Antena</button>
+          <button class="btn" id="btnSectionRec">Solo con secciones: No</button>
+        </div>
+      </details>
+      <div class="bd-actions" style="margin-top:auto;">
+        <button class="btn" id="btnRestart">Reiniciar</button>
+        <button class="btn bd-danger" id="btnCancelRec">Cancelar</button>
+        <button class="btn bd-accent" id="btnSaveRec">Terminar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/contorno.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

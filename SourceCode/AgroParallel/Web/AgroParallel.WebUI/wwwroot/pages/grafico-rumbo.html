@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gráfico de rumbo · Agro Parallel</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Gráfico de rumbo en vivo (reemplazo del WinForms FormGraphHeading): rumbo
+       GPS (°) vs rumbo IMU corregido (°), con la diferencia como lectura. Los
+       rumbos son absolutos (0-360°), así que el eje se auto-encuadra al rango
+       de datos (no centrado en cero). Solo lectura. */
+    .g-readouts { display: flex; gap: var(--agp-sp-6); flex-wrap: wrap; margin-bottom: var(--agp-sp-4); }
+    .g-read {
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3) var(--agp-sp-5); min-width: 150px;
+    }
+    .g-read .g-label { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); }
+    .g-read .g-value {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-display);
+      font-weight: var(--agp-fw-bold); line-height: 1.1;
+    }
+    .g-read.gps .g-value  { color: var(--agp-accent); }
+    .g-read.imu .g-value  { color: #3D87C6; }
+    .g-read.diff .g-value { color: var(--agp-text); }
+
+    .g-chart-wrap {
+      position: relative;
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3);
+    }
+    #headingCanvas { display: block; width: 100%; height: 52vh; }
+    .g-axis {
+      position: absolute; right: var(--agp-sp-4); font-family: var(--agp-font-mono);
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+    }
+    .g-axis.max { top: var(--agp-sp-3); }
+    .g-axis.min { bottom: var(--agp-sp-3); }
+
+    .g-legend { display: flex; gap: var(--agp-sp-5); margin-top: var(--agp-sp-3); font-size: var(--agp-fs-sm); }
+    .g-legend span::before {
+      content: ''; display: inline-block; width: 14px; height: 3px;
+      vertical-align: middle; margin-right: 6px; border-radius: 2px;
+    }
+    .g-legend .lg-gps::before { background: var(--agp-accent); }
+    .g-legend .lg-imu::before { background: #3D87C6; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Gráfico de rumbo</h1>
+        <div class="subtitle">Rumbo GPS vs IMU corregido · solo lectura</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="statusText">—</span></span>
+    </div>
+
+    <div class="g-readouts">
+      <div class="g-read gps">
+        <div class="g-label">Rumbo GPS</div>
+        <div class="g-value"><span id="valGps">0.0</span>°</div>
+      </div>
+      <div class="g-read imu">
+        <div class="g-label">Rumbo IMU corregido</div>
+        <div class="g-value"><span id="valImu">0.0</span>°</div>
+      </div>
+      <div class="g-read diff">
+        <div class="g-label">Diferencia</div>
+        <div class="g-value"><span id="valDiff">0.0</span>°</div>
+      </div>
+    </div>
+
+    <div class="g-chart-wrap">
+      <div class="g-axis max" id="axisMax">—</div>
+      <div class="g-axis min" id="axisMin">—</div>
+      <canvas id="headingCanvas"></canvas>
+    </div>
+
+    <div class="g-legend">
+      <span class="lg-gps">Rumbo GPS (°)</span>
+      <span class="lg-imu">Rumbo IMU corregido (°)</span>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/grafico-rumbo.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,557 @@
+// ============================================================================
+// AgroParallel.Updater - applier de auto-update
+//
+// Uso:
+//   AgroParallel.Updater.exe --pid <pid> --zip <path> --install <dir> --exe <path>
+//
+// Flujo:
+//   1. Espera a que el proceso PID (PilotX) termine (max 60 s). Si no, lo mata.
+//   1b.Cierra el RESTO de procesos que corren desde el install dir (típicamente
+//      CoreX). Comparten DLLs (AgLibrary.dll, etc.) con PilotX, así que si
+//      siguen vivos mantienen esos archivos bloqueados y la extracción falla.
+//   2. Hace backup del install dir actual a <install>\AgroParallel\Backups\<ts>\
+//      (solo .exe + .dll + Branding\ + AgroParallel\wwwroot\, no Fields/).
+//   3. Extrae el ZIP encima de <install> (salteando el propio Updater en uso).
+//   4. Relanza CoreX (y demás apps cerradas) primero, PilotX al final.
+//   5. Si algo falla, restaura desde backup y relanza igual el estado previo.
+//
+// Log: <install>\AgroParallel\Updates\updater.log
+// ============================================================================
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.Threading;
+
+namespace AgroParallel.Updater
+{
+    internal static class Program
+    {
+        private static string _logPath;
+
+        private static int Main(string[] args)
+        {
+            int pid = 0;
+            string zip = null, install = null, exe = null;
+
+            for (int i = 0; i < args.Length - 1; i++)
+            {
+                switch (args[i])
+                {
+                    case "--pid":     int.TryParse(args[++i], out pid); break;
+                    case "--zip":     zip = args[++i]; break;
+                    case "--install": install = args[++i]; break;
+                    case "--exe":     exe = args[++i]; break;
+                }
+            }
+
+            if (string.IsNullOrEmpty(zip) || string.IsNullOrEmpty(install))
+            {
+                Console.Error.WriteLine("Faltan argumentos: --zip y --install son obligatorios.");
+                return 2;
+            }
+            if (string.IsNullOrEmpty(exe))
+                exe = Path.Combine(install, "Desktop",
+                    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                        System.Runtime.InteropServices.OSPlatform.Windows)
+                        ? "PilotX.Desktop.exe" : "PilotX.Desktop");
+
+            try { _logPath = Path.Combine(install, "AgroParallel", "Updates", "updater.log"); } catch { }
+            Log("==== AgroParallel.Updater iniciando ====");
+            Log("pid=" + pid + " zip=" + zip);
+            Log("install=" + install);
+            Log("exe=" + exe);
+
+            // ── Parche: validar ANTES de tocar nada ───────────────────────
+            // Un parche trae SOLO los archivos que cambiaron, mas todos los
+            // ensamblados propios. Se aplica encima, sin borrar nada. Por eso
+            // exige que la instalacion sea exactamente la version base para la
+            // que se armo: los ensamblados se referencian por version exacta y
+            // aplicar un parche sobre otra base deja la app sin arrancar. Ya
+            // paso con DLL sueltas mal versionadas y costo una pantalla de
+            // cliente parada.
+            //
+            // Si algo no cierra, se aborta SIN tocar la instalacion: no se
+            // matan procesos, no se hace backup, no se extrae. La pantalla
+            // sigue funcionando con lo que tenia.
+            string motivo = ValidarParche(zip, exe);
+            if (motivo != null)
+            {
+                Log("PARCHE RECHAZADO: " + motivo);
+                Console.Error.WriteLine(motivo);
+                return 3;
+            }
+
+
+            // Frenar al vigilante de Lanzar-PilotX.bat: cuando en 1b matemos a
+            // PilotX.Desktop, el .bat lo ve salir con error y lo RELANZA a los
+            // 3 s — justo en medio de la extracción, con las DLLs lockeadas de
+            // nuevo. Con este flag presente el .bat sale sin relanzar. Se
+            // borra antes del relaunch final para que el vigilante vuelva a
+            // funcionar en la versión nueva.
+            string flagVigilante = null;
+            try
+            {
+                flagVigilante = Path.Combine(install, "actualizando.flag");
+                File.WriteAllText(flagVigilante, "Updater " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                Log("Flag del vigilante creado: " + flagVigilante);
+            }
+            catch (Exception ex) { Log("No pude crear actualizando.flag: " + ex.Message); }
+
+            // 1. Esperar a que PilotX salga.
+            if (pid > 0)
+            {
+                try
+                {
+                    var p = Process.GetProcessById(pid);
+                    Log("Esperando exit de PID " + pid + " (max 60s)...");
+                    if (!p.WaitForExit(60_000))
+                    {
+                        Log("Timeout — matando proceso.");
+                        try { p.Kill(); } catch (Exception ex) { Log("Kill fallo: " + ex.Message); }
+                        Thread.Sleep(2000);
+                    }
+                    else Log("Proceso salio limpio.");
+                }
+                catch (ArgumentException) { Log("Proceso PID " + pid + " ya no existe."); }
+                catch (Exception ex) { Log("Error esperando proceso: " + ex.Message); }
+            }
+
+            // 1b. Cerrar el resto de apps que corren desde el install dir (CoreX,
+            // etc.). Comparten DLLs con PilotX; si siguen vivas, AgLibrary.dll y
+            // compañía quedan bloqueadas y la extracción falla. Las relanzamos al
+            // final (CoreX antes que PilotX para que el broker esté arriba).
+            List<string> closedExes = CloseInstallDirProcesses(install, pid);
+
+            // Pausa extra para que liberen los file handles (DLLs).
+            Thread.Sleep(1500);
+
+            // 2. Backup (best-effort).
+            string ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string backupDir = Path.Combine(install, "AgroParallel", "Backups", ts);
+            try
+            {
+                Directory.CreateDirectory(backupDir);
+                BackupTopLevel(install, backupDir);
+                Log("Backup en " + backupDir);
+            }
+            catch (Exception ex)
+            {
+                Log("Backup fallo (continuando igual): " + ex.Message);
+            }
+
+            // 3. Extracción.
+            bool extractOk = false;
+            try
+            {
+                Log("Extrayendo " + zip + " -> " + install);
+                ExtractZipOverwrite(zip, install);
+                extractOk = true;
+                Log("Extraccion OK.");
+            }
+            catch (Exception ex)
+            {
+                Log("Extraccion FALLO: " + ex.Message);
+            }
+
+            // 3b. Si falló, restaurar.
+            if (!extractOk)
+            {
+                try
+                {
+                    Log("Restaurando backup...");
+                    RestoreTopLevel(backupDir, install);
+                    Log("Restore OK. Relanzando version anterior.");
+                }
+                catch (Exception ex)
+                {
+                    Log("Restore FALLO: " + ex.Message);
+                }
+            }
+
+            // 3c. Update aplicado OK: borrar el payload staged (carpeta de la
+            // version) para no acumular ZIPs de ~200 MB en cada tractor y para
+            // que Check no lo vea como "listo para aplicar". Best-effort, y SOLO
+            // si el zip vivia dentro de <install>\AgroParallel\Updates\ — un
+            // update desde USB (--zip en el pendrive) NO se toca.
+            if (extractOk)
+            {
+                try
+                {
+                    string updatesRoot = Path.GetFullPath(Path.Combine(install, "AgroParallel", "Updates"))
+                                             .TrimEnd(Path.DirectorySeparatorChar);
+                    string verDir = Path.GetFullPath(Path.GetDirectoryName(zip) ?? "")
+                                        .TrimEnd(Path.DirectorySeparatorChar);
+                    if (verDir.StartsWith(updatesRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(verDir, updatesRoot, StringComparison.OrdinalIgnoreCase)
+                        && Directory.Exists(verDir))
+                    {
+                        Directory.Delete(verDir, true);
+                        Log("Staging borrado: " + verDir);
+                    }
+                }
+                catch (Exception ex) { Log("No pude borrar staging (continuando): " + ex.Message); }
+            }
+
+            // 4. Relanzar. Devolverle el vigilante a la versión nueva ANTES de
+            // relanzar: si el flag queda, el .bat nunca más relanza la pantalla
+            // caída.
+            if (!string.IsNullOrEmpty(flagVigilante))
+            {
+                try { if (File.Exists(flagVigilante)) File.Delete(flagVigilante); }
+                catch (Exception ex) { Log("No pude borrar actualizando.flag: " + ex.Message); }
+            }
+
+            // Si el exe final es el launcher (.bat), ÉL levanta el stack entero
+            // (Engine minimizado + Desktop + vigilante): relanzar además los
+            // procesos cerrados en 1b duplicaría la pantalla. Si es un exe
+            // suelto, comportamiento histórico: primero las apps cerradas en 1b
+            // (CoreX → el broker MQTT tiene que estar arriba antes que PilotX),
+            // PilotX al final.
+            bool exeEsLauncher = string.Equals(Path.GetExtension(exe), ".bat", StringComparison.OrdinalIgnoreCase);
+            if (exeEsLauncher)
+            {
+                Log("Exe final es el launcher .bat — no se relanzan los procesos de 1b (los levanta el .bat).");
+            }
+            else
+            {
+                foreach (var path in closedExes)
+                {
+                    if (string.Equals(Path.GetFileName(path), Path.GetFileName(exe), StringComparison.OrdinalIgnoreCase))
+                        continue; // PilotX va al final
+                    RelaunchExe(path, install);
+                    Thread.Sleep(1500); // dar tiempo a que el broker levante
+                }
+            }
+
+            if (File.Exists(exe)) RelaunchExe(exe, install);
+            else Log("ERROR: exe no existe tras update: " + exe);
+
+            Log("==== Updater terminado ====");
+            return extractOk ? 0 : 1;
+        }
+
+        // Cierra todo proceso cuyo ejecutable vive dentro de install dir, salvo
+        // el PID ya manejado (PilotX) y el propio Updater. Devuelve las rutas de
+        // los exes cerrados para poder relanzarlos después. CloseMainWindow primero
+        // (cierre ordenado, p.ej. CoreX baja el broker), Kill como último recurso.
+        private static List<string> CloseInstallDirProcesses(string install, int skipPid)
+        {
+            var closed = new List<string>();
+            string installFull;
+            try { installFull = Path.GetFullPath(install).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar; }
+            catch { return closed; }
+
+            int selfPid = Process.GetCurrentProcess().Id;
+            foreach (var p in Process.GetProcesses())
+            {
+                if (p.Id == skipPid || p.Id == selfPid) continue;
+                string path = null;
+                try { path = p.MainModule != null ? p.MainModule.FileName : null; }
+                catch { continue; } // acceso denegado / sin main module → no es nuestro
+                if (string.IsNullOrEmpty(path)) continue;
+                if (!path.StartsWith(installFull, StringComparison.OrdinalIgnoreCase)) continue;
+
+                try
+                {
+                    Log("Cerrando proceso del install dir: " + Path.GetFileName(path) + " (PID " + p.Id + ")");
+                    bool exited = false;
+                    try { if (p.CloseMainWindow()) exited = p.WaitForExit(8000); } catch { }
+                    if (!exited && !p.HasExited)
+                    {
+                        Log("No cerró ordenado — matando PID " + p.Id);
+                        try { p.Kill(); p.WaitForExit(5000); } catch (Exception ex) { Log("Kill fallo: " + ex.Message); }
+                    }
+                    closed.Add(path);
+                }
+                catch (Exception ex) { Log("No pude cerrar PID " + p.Id + ": " + ex.Message); }
+            }
+            return closed;
+        }
+
+        private static void RelaunchExe(string exe, string install)
+        {
+            try
+            {
+                Log("Relanzando " + exe);
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exe,
+                    UseShellExecute = true,
+                    WorkingDirectory = install
+                };
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                Log("Relanzar fallo (" + Path.GetFileName(exe) + "): " + ex.Message);
+            }
+        }
+
+        // Backup superficial: copia archivos del top-level del install dir
+        // (.exe / .dll / .json / .ico / .config) + las carpetas claves del shell
+        // + los .json de config del motor (top-level de Engine\ — el Engine
+        // corre desde ahí y escribe sus configs en su BaseDirectory).
+        // No copia Fields/ ni firmware-cache/ ni AgroParallel/WebView2Data/.
+        private static void BackupTopLevel(string src, string dst)
+        {
+            foreach (var f in Directory.GetFiles(src))
+            {
+                string ext = Path.GetExtension(f).ToLowerInvariant();
+                if (ext == ".exe" || ext == ".dll" || ext == ".json" || ext == ".config" || ext == ".ico" || ext == ".pdb")
+                {
+                    try { File.Copy(f, Path.Combine(dst, Path.GetFileName(f)), true); } catch { }
+                }
+            }
+            CopyTreeIfExists(Path.Combine(src, "Branding"),               Path.Combine(dst, "Branding"));
+            CopyTreeIfExists(Path.Combine(src, "AgroParallel", "wwwroot"), Path.Combine(dst, "AgroParallel", "wwwroot"));
+            CopyEngineConfigs(Path.Combine(src, "Engine"),                 Path.Combine(dst, "Engine"));
+        }
+
+        private static void RestoreTopLevel(string src, string dst)
+        {
+            foreach (var f in Directory.GetFiles(src))
+            {
+                try { File.Copy(f, Path.Combine(dst, Path.GetFileName(f)), true); } catch { }
+            }
+            CopyTreeIfExists(Path.Combine(src, "Branding"),                Path.Combine(dst, "Branding"));
+            CopyTreeIfExists(Path.Combine(src, "AgroParallel", "wwwroot"), Path.Combine(dst, "AgroParallel", "wwwroot"));
+            CopyEngineConfigs(Path.Combine(src, "Engine"),                 Path.Combine(dst, "Engine"));
+        }
+
+        // Solo los *.json del top-level de Engine\ (configs del motor: orbitX,
+        // nodos, vistaX…). NO el árbol entero: Engine\ trae el runtime .NET
+        // self-contained (~cientos de MB) y copiarlo duplicaría la instalación
+        // en cada backup.
+        private static void CopyEngineConfigs(string srcEngine, string dstEngine)
+        {
+            try
+            {
+                if (!Directory.Exists(srcEngine)) return;
+                Directory.CreateDirectory(dstEngine);
+                foreach (var f in Directory.GetFiles(srcEngine, "*.json"))
+                {
+                    try { File.Copy(f, Path.Combine(dstEngine, Path.GetFileName(f)), true); } catch { }
+                }
+            }
+            catch { }
+        }
+
+        private static void CopyTreeIfExists(string src, string dst)
+        {
+            if (!Directory.Exists(src)) return;
+            Directory.CreateDirectory(dst);
+            foreach (var f in Directory.GetFiles(src, "*", SearchOption.AllDirectories))
+            {
+                string rel = f.Substring(src.Length).TrimStart(Path.DirectorySeparatorChar);
+                string outP = Path.Combine(dst, rel);
+                Directory.CreateDirectory(Path.GetDirectoryName(outP));
+                try { File.Copy(f, outP, true); } catch { }
+            }
+        }
+
+        // Extrae sobrescribiendo. .NET Framework 4.8 trae ZipArchive
+        /// <summary>
+        /// Si el ZIP es un parche (trae parche.json en la raiz), comprueba que
+        /// la version instalada sea la base esperada. Devuelve null si todo
+        /// esta bien o si no es un parche; si no, el motivo del rechazo.
+        /// </summary>
+        private static string ValidarParche(string zipPath, string exePath)
+        {
+            string json = null;
+            try
+            {
+                using (var za = ZipFile.OpenRead(zipPath))
+                {
+                    var entrada = za.GetEntry("parche.json");
+                    if (entrada == null) return null;   // paquete completo
+                    using (var sr = new StreamReader(entrada.Open()))
+                        json = sr.ReadToEnd();
+                }
+            }
+            catch (Exception ex)
+            {
+                return "No pude leer el paquete: " + ex.Message;
+            }
+
+            string baseEsperada = CampoJson(json, "version_base");
+            string versionNueva = CampoJson(json, "version_nueva");
+            if (string.IsNullOrEmpty(baseEsperada))
+                return "El parche no dice para que version fue armado. No se aplica.";
+
+            // Version instalada. OJO: --exe suele ser Lanzar-PilotX.bat (el
+            // launcher del kiosko), que NO tiene version: leerla de ahi
+            // devolvia null y el parche se rechazaba SIEMPRE en las pantallas
+            // con kiosko (2026-09-09, pantalla de Fran: 5 intentos, todos
+            // vueltos a 1.0.62). Se busca en los ejecutables reales de la
+            // instalacion, y --exe queda como ultimo recurso.
+            string instalada = LeerVersionInstalada(exePath);
+
+            if (string.IsNullOrEmpty(instalada))
+                return "Es un parche para la version " + baseEsperada +
+                       ", pero no pude determinar que version hay instalada. " +
+                       "Instala el paquete completo.";
+
+            // Un parche armado desde la base X hacia la version Y trae TODOS los
+            // archivos que cambiaron entre X e Y. Por eso sirve para cualquier
+            // version instalada V con X <= V < Y: lo que cambio entre V e Y es un
+            // subconjunto de lo que trae el parche (los releases son lineales).
+            // Antes se exigia V == X y un parche 1.0.55->1.0.58 no se podia
+            // aplicar sobre una 1.0.56, aunque fuera identico para ella.
+            bool sirve = MismaVersion(instalada, baseEsperada)
+                || (CompararVersion(instalada, baseEsperada) > 0
+                    && (string.IsNullOrEmpty(versionNueva) || CompararVersion(instalada, versionNueva) < 0));
+
+            if (!sirve)
+                return "Este parche es para equipos entre la " + baseEsperada +
+                       " y la " + (string.IsNullOrEmpty(versionNueva) ? "version nueva" : versionNueva) +
+                       ", y este tiene la " + Corta(instalada) + ". " +
+                       "Aplicarlo dejaria la pantalla sin arrancar. " +
+                       "Hace falta el paquete completo de la " +
+                       (string.IsNullOrEmpty(versionNueva) ? "version nueva" : versionNueva) + ".";
+
+            Log("Parche valido: base " + baseEsperada + " -> " + versionNueva + " (instalada " + Corta(instalada) + ")");
+            return null;
+        }
+
+        // Version instalada: primero los ejecutables reales de la instalacion
+        // (Desktop\PilotX.Desktop.exe, Engine\PilotX.GuidanceEngine.exe), y
+        // --exe solo si es un .exe con version. Se prueba con la carpeta del
+        // --exe y con su padre (cuando --exe vive en Desktop\).
+        private static string LeerVersionInstalada(string exePath)
+        {
+            var candidatos = new List<string>();
+            try
+            {
+                string dir = string.IsNullOrEmpty(exePath) ? null : Path.GetDirectoryName(Path.GetFullPath(exePath));
+                foreach (string raiz in new[] { dir, dir == null ? null : Path.GetDirectoryName(dir) })
+                {
+                    if (string.IsNullOrEmpty(raiz)) continue;
+                    candidatos.Add(Path.Combine(raiz, "Desktop", "PilotX.Desktop.exe"));
+                    candidatos.Add(Path.Combine(raiz, "Desktop", "PilotX.exe"));
+                    candidatos.Add(Path.Combine(raiz, "Engine", "PilotX.GuidanceEngine.exe"));
+                    candidatos.Add(Path.Combine(raiz, "PilotX.exe"));
+                }
+                if (!string.IsNullOrEmpty(exePath) && exePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    candidatos.Add(exePath);
+            }
+            catch (Exception ex) { Log("Armando candidatos de version: " + ex.Message); }
+
+            foreach (string c in candidatos)
+            {
+                try
+                {
+                    if (!File.Exists(c)) continue;
+                    string v = FileVersionInfo.GetVersionInfo(c).FileVersion;
+                    if (!string.IsNullOrEmpty(v) && Corta(v) != "1.0.0" && Corta(v) != "0.0.0")
+                    {
+                        Log("Version instalada " + Corta(v) + " (de " + c + ")");
+                        return v;
+                    }
+                }
+                catch (Exception ex) { Log("No pude leer la version de " + c + ": " + ex.Message); }
+            }
+            return null;
+        }
+
+        // Compara "a.b.c" numericamente: <0 si a<b, 0 si iguales, >0 si a>b.
+        private static int CompararVersion(string a, string b)
+        {
+            var pa = Corta(a).Split('.');
+            var pb = Corta(b).Split('.');
+            for (int i = 0; i < 3; i++)
+            {
+                int na = 0, nb = 0;
+                if (i < pa.Length) int.TryParse(pa[i], out na);
+                if (i < pb.Length) int.TryParse(pb[i], out nb);
+                if (na != nb) return na.CompareTo(nb);
+            }
+            return 0;
+        }
+
+        // Lee "campo": "valor" de un JSON chato. Alcanza: el archivo lo genera
+        // build-parche.ps1, no viene de afuera. net48 no trae System.Text.Json
+        // y no vale la pena arrastrar una dependencia por dos campos.
+        private static string CampoJson(string json, string campo)
+        {
+            if (string.IsNullOrEmpty(json)) return null;
+            var m = System.Text.RegularExpressions.Regex.Match(
+                json, "\"" + campo + "\"\\s*:\\s*\"([^\"]*)\"");
+            return m.Success ? m.Groups[1].Value : null;
+        }
+
+        // "1.0.50.0" y "1.0.50" son la misma version: FileVersion siempre trae
+        // cuatro componentes y el manifiesto usa tres.
+        private static bool MismaVersion(string a, string b)
+        {
+            return Corta(a) == Corta(b);
+        }
+
+        private static string Corta(string v)
+        {
+            if (string.IsNullOrEmpty(v)) return "";
+            var partes = v.Trim().Split('.');
+            if (partes.Length < 3) return v.Trim();
+            return partes[0] + "." + partes[1] + "." + partes[2];
+        }
+
+        // pero ZipFile.ExtractToDirectory(overwrite) recién en 4.6.2+.
+        private static void ExtractZipOverwrite(string zipPath, string targetDir)
+        {
+            // El Updater está corriendo desde el install dir, así que no puede
+            // sobrescribir su propio .exe (Windows lo tiene bloqueado). Lo salteamos:
+            // si el Updater cambia, viaja en el ZIP igual y se aplica en el próximo
+            // update (cuando ya no esté en uso este).
+            string selfExe = null;
+            try { selfExe = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName); } catch { }
+
+            using (var fs = File.OpenRead(zipPath))
+            using (var zip = new ZipArchive(fs, ZipArchiveMode.Read))
+            {
+                foreach (var entry in zip.Entries)
+                {
+                    if (string.IsNullOrEmpty(entry.Name)) // entrada de directorio
+                    {
+                        Directory.CreateDirectory(Path.Combine(targetDir, entry.FullName));
+                        continue;
+                    }
+                    if (!string.IsNullOrEmpty(selfExe) &&
+                        string.Equals(entry.Name, selfExe, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Log("Salteando self (en uso): " + entry.FullName);
+                        continue;
+                    }
+                    string dst = Path.GetFullPath(Path.Combine(targetDir, entry.FullName));
+                    // Zip-slip defense: si la entrada sale del target, abortar.
+                    if (!dst.StartsWith(Path.GetFullPath(targetDir), StringComparison.OrdinalIgnoreCase))
+                        throw new IOException("Entrada ZIP fuera del target: " + entry.FullName);
+                    Directory.CreateDirectory(Path.GetDirectoryName(dst));
+                    // Reintentos cortos si el archivo está bloqueado por antivirus.
+                    int retries = 5;
+                    while (true)
+                    {
+                        try { entry.ExtractToFile(dst, true); break; }
+                        catch (IOException) when (--retries > 0) { Thread.Sleep(400); }
+                    }
+                }
+            }
+        }
+
+        private static void Log(string line)
+        {
+            try
+            {
+                string row = "[" + DateTime.Now.ToString("HH:mm:ss") + "] " + line + Environment.NewLine;
+                Console.Out.Write(row);
+                if (!string.IsNullOrEmpty(_logPath))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(_logPath));
+                    File.AppendAllText(_logPath, row);
+                }
+            }
+            catch { }
+        }
+    }
+}

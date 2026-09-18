@@ -1,0 +1,85 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PilotX.UI â€” UI compartida de PilotX (Avalonia), portable entre plataformas.
+
+    Es el resultado de L1 del port Android (ver COORDINACION-SESIONES.md): toda
+    la UI nativa (App, MainWindow, Views, Services, mapa GL) vive acÃ¡ como
+    LIBRARY net9.0 PURO (sin `-windows`), sin ninguna dependencia de plataforma.
+    Cada "head" la referencia y aporta lo especÃ­fico:
+      Â· PilotX.Desktop      (net9.0-windows, WinExe)      â€” WebView.Avalonia + Program.cs
+      Â· PilotX.Android.App  (net9.0-android)  [Santiago]  â€” WebView nativo Android
+
+    El Ãºnico punto no portable (el WebView) estÃ¡ abstraÃ­do tras
+    Services/IWebViewHost.cs â€” la UI acÃ¡ NO referencia ningÃºn paquete WebView.
+
+    Namespace: se mantiene `PilotX.Desktop.*` (el rename masivo estÃ¡ diferido
+    hasta despuÃ©s de la migraciÃ³n, ver memoria project_android_port_deferred).
+    Por eso AssemblyName = PilotX.UI pero RootNamespace = PilotX.Desktop.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <RootNamespace>PilotX.Desktop</RootNamespace>
+    <AssemblyName>PilotX.UI</AssemblyName>
+    <NoWarn>$(NoWarn);CS8618;CS8600;CS8601;CS8602;IDE0055</NoWarn>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- AllowUnsafeBlocks: para los pointer ops de Silk.NET.OpenGL en
+         Views/MapGlSurface (BufferData/UniformMatrix4 toman void*). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Solo Avalonia CORE + temas + fuentes. La plataforma (Avalonia.Desktop /
+         Avalonia.Android) la aporta cada head. NADA de WebView acÃ¡. -->
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.3" />
+
+    <!-- CommunityToolkit.Mvvm: source generators, sin reflexiÃ³n en runtime. -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+
+    <!-- Silk.NET.OpenGL: bindings GL para Views/MapGlSurface (GL ES vÃ­a el
+         GlInterface que expone OpenGlControlBase; mismos shaders #version 300 es
+         corren en ANGLE/Windows y GL ES/Android). -->
+    <PackageReference Include="Silk.NET.OpenGL" Version="2.21.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Iconos propios de la UI (hoy: los 4 tipos de vehiculo de Configuracion,
+         rasterizados desde los SVG del handoff con
+         Tools/rasterizar-iconos-vehiculo.py). Los iconos de las barras del
+         cockpit siguen viviendo en PilotX.Cockpit.Bars/Assets. -->
+    <AvaloniaResource Include="Assets/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Barras del cockpit (menÃºs superior/derecha/abajo/izquierda). -->
+    <ProjectReference Include="..\PilotX.Cockpit.Bars\PilotX.Cockpit.Bars.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      AgpErrorMapper ENLAZADO, no por referencia de proyecto.
+
+      El mapeo excepciÃ³n â†’ cÃ³digo AGP-* tiene que ser el MISMO en todos lados:
+      si el shell inventara sus propios cÃ³digos, el nÃºmero que el operario nos
+      pasa por telÃ©fono no significarÃ­a lo mismo segÃºn de dÃ³nde saliÃ³.
+
+      Pero AgroParallel.Services arrastra MQTTnet, NetTopologySuite y
+      System.Text.Json, y no tiene sentido cargarle todo eso al shell por un
+      archivo que solo usa System. Enlazar el .cs deja una sola fuente de
+      verdad sin las dependencias.
+    -->
+    <Compile Include="..\AgroParallel\Core\AgroParallel.Services\AgpErrorMapper.cs"
+             Link="Servicios\AgpErrorMapper.cs" />
+    <!-- Ear clipping para el fill de la prescripciÃ³n (.shp) en el mapa GL: el
+         MISMO triangulador que usa el WinForms, asÃ­ los dos mapas rellenan las
+         zonas idÃ©ntico. Es geometrÃ­a pura (System.Drawing.PointF solamente). -->
+    <Compile Include="..\AgroParallel\Common\EarClipper.cs"
+             Link="Servicios\EarClipper.cs" />
+  </ItemGroup>
+
+</Project>

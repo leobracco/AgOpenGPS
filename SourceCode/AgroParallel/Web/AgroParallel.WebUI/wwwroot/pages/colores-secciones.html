@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Colores de secciones · Agro Parallel</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    /* Colores de secciones (reemplazo del WinForms FormColorSection): asigna un
+       color a cada una de las 16 secciones y activa/desactiva el modo multicolor.
+       El estado inicial viene de /api/aog/section-colors; aplicar escribe por
+       POST /api/aog/guidance/command (sec_colors_<hex1>_..._<hex16>_<0|1>).
+       Los colores de sección sólo se ven en el mapa con el modo multicolor activo,
+       por eso los selectores quedan deshabilitados cuando está apagado. */
+    .cs-multi {
+      display: flex; align-items: center; gap: var(--agp-sp-3);
+      max-width: 640px; margin-bottom: var(--agp-sp-4);
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-4) var(--agp-sp-5);
+    }
+    .cs-multi input[type="checkbox"] { width: 26px; height: 26px; accent-color: var(--agp-accent); }
+    .cs-multi label { font-size: var(--agp-fs-lg); color: var(--agp-text); cursor: pointer; }
+
+    .cs-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: var(--agp-sp-3); max-width: 640px;
+    }
+    .cs-cell {
+      display: flex; flex-direction: column; align-items: center; gap: var(--agp-sp-2);
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3);
+    }
+    .cs-cell .cs-num { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); font-weight: var(--agp-fw-bold); }
+    .cs-cell input[type="color"] {
+      width: 100%; height: 44px; padding: 0;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: var(--agp-bg); cursor: pointer;
+    }
+    .cs-cell input[type="color"]:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .cs-note {
+      margin-top: var(--agp-sp-4); font-size: var(--agp-fs-sm);
+      color: var(--agp-text-muted); max-width: 640px;
+    }
+    .cs-foot { display: flex; gap: var(--agp-sp-3); margin-top: var(--agp-sp-5); max-width: 640px; }
+    .cs-foot .btn { flex: 1; }
+    .btn.primary { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .btn.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Colores de secciones</h1>
+        <div class="subtitle">Un color por sección para el mapa de cobertura</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="statusText">—</span></span>
+    </div>
+
+    <div class="cs-multi">
+      <input type="checkbox" id="chkMulti" />
+      <label for="chkMulti">Modo multicolor (un color por sección)</label>
+    </div>
+
+    <div class="cs-grid" id="grid"></div>
+
+    <div class="cs-note">
+      Con el modo multicolor apagado, todas las secciones se dibujan con un único
+      color y los selectores quedan deshabilitados.
+    </div>
+
+    <div class="cs-foot">
+      <button class="btn" id="btnReset">Restablecer</button>
+      <button class="btn primary" id="btnApply">Aplicar</button>
+    </div>
+  </main>
+
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/colores-secciones.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

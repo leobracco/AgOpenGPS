@@ -1,0 +1,322 @@
+﻿# deploy-taller.ps1 — publica y despliega PilotX en la pantalla del taller
+# (192.168.1.78) por WinRM. Flujo local->taller: aca se desarrolla, el taller
+# prueba (2026-08-05).
+#
+#   Tools\deploy-taller.ps1                  -> Desktop + wwwroot (ciclo visual)
+#   Tools\deploy-taller.ps1 -ConEngine       -> + binarios del Engine (DTOs, API)
+#   Tools\deploy-taller.ps1 -SinPublish      -> re-desplegar lo ya publicado
+#   Tools\deploy-taller.ps1 -Forzar          -> saltear el guard de prueba en curso
+#
+# El default NO toca el Engine a proposito: el ciclo de cambios visuales es
+# wwwroot + Desktop, y el Engine solo hace falta cuando cambian DTOs o
+# controllers. Menos piezas movidas = menos que puede salir mal a distancia.
+#
+# Que hay que saber del taller:
+#   · WinRM :5985, usuario Admin sin password (red del taller, no exponer).
+#   · Layout: C:\PilotX\{Desktop,Engine,AgroParallel\wwwroot,logs}.
+#   · La GUI nace en la SESION FISICA via tarea programada /it (lanzar-diag.bat,
+#     stderr en C:\PilotX\logs\stderr-diag.log: latido, espia, caja negra).
+#   · El Engine se actualiza POR ENCIMA (overlay), nunca rename-replace:
+#     adentro viven Fields/Vehicles (GuidanceEngineData), data/prescripciones,
+#     y TODOS los .json de config/estado — incluido orbitX.json con la
+#     IDENTIDAD del taller (OX-E15F6994C295). Pisarla hace que dos maquinas se
+#     reporten al cloud como el mismo equipo. Por eso: se copian solo
+#     binarios; de los .json viajan UNICAMENTE *.deps.json y
+#     *.runtimeconfig.json (lista blanca, no negra: un config nuevo de un
+#     producto futuro queda excluido por defecto, no clobbereado por olvido).
+#   · Lote de prueba: "Taller 100ha" (3 franjas DOSIS 4/5/6 sem/m).
+
+param(
+    [switch]$SinPublish,
+    [switch]$ConEngine,
+    # BenchX (simulador de banco) para demo/Expo: se publica AUTOCONTENIDO
+    # (net9 self-contained, ~100 MB) porque el taller solo tiene el runtime
+    # .NET 8; va a C:\PilotX\BenchX con acceso directo "BenchX" en el
+    # escritorio. Manda NMEA + modulos por UDP broadcast :9999 a la misma PC.
+    [switch]$ConBenchX,
+    # Solo BenchX: no toca Desktop, wwwroot ni Engine ni reinicia PilotX.
+    [switch]$SoloBenchX,
+    # Desplegar un paquete ZIP especifico (PilotX_vX.Y.Z.zip) en vez de lo
+    # compilado: sirve para poner el taller en una version vieja y reproducir
+    # una actualizacion de campo (2026-09-09: parche 1.0.62 -> 1.0.64 fallaba).
+    # Implica -SinPublish; Desktop, wwwroot y (con -ConEngine) Engine salen del ZIP.
+    [string]$DesdeZip = "",
+    [switch]$Forzar,
+    [string]$Taller = "192.168.1.78"
+)
+
+$ErrorActionPreference = "Stop"
+if ($SoloBenchX) { $SinPublish = $true; $ConBenchX = $true; $ConEngine = $false; $Forzar = $true }
+if ($DesdeZip) {
+    if (-not (Test-Path $DesdeZip)) { Write-Host "No existe el ZIP: $DesdeZip" -ForegroundColor Red; exit 1 }
+    $DesdeZip = (Resolve-Path $DesdeZip).Path
+    $SinPublish = $true
+}
+$root = Split-Path $PSScriptRoot -Parent
+$tmp = Join-Path $env:TEMP "pilotx-deploy-taller"
+
+# Guard: lote abierto en el taller = probable prueba en curso; desplegar ahora
+# la mataria a mitad de camino. Se salta con -Forzar. API caida NO bloquea
+# (puede ser justamente lo que el deploy arregla).
+if (-not $Forzar) {
+    try {
+        $cur = (Invoke-WebRequest "http://${Taller}:5180/api/lotes/current" -UseBasicParsing -TimeoutSec 5).Content
+        if ($cur -match '"name":"(?!null)[^"]+"') {
+            Write-Host "El taller tiene un lote abierto ($cur) — probable prueba en curso." -ForegroundColor Yellow
+            Write-Host "No se despliega. Reintentar cuando termine, o -Forzar si es a proposito." -ForegroundColor Yellow
+            exit 2
+        }
+    } catch { }
+}
+
+if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
+New-Item -ItemType Directory -Force $tmp | Out-Null
+
+if (-not $SinPublish) {
+    # Publish a STAGING propio, nunca sobre Build\: el PilotX local corre
+    # desde Build\Desktop y publicar ahi con la app abierta se traba en locks
+    # de DLL (MSB3026 en bucle de reintentos — pasó 2026-08-05). El deploy no
+    # tiene por qué molestar a la instancia de desarrollo.
+    Write-Host "== publish PilotX.Desktop (staging) ==" -ForegroundColor Cyan
+    dotnet publish "$root\SourceCode\PilotX.Desktop\PilotX.Desktop.csproj" `
+        -c Release -r win-x64 --self-contained true `
+        -p:PublishReadyToRun=false -p:PublishReadyToRunComposite=false -o "$tmp\Desktop" -v q --nologo
+    if ($LASTEXITCODE -ne 0) { Write-Host "publish Desktop FALLO" -ForegroundColor Red; exit 1 }
+
+    # PRUEBA DE ARRANQUE antes de mandar nada a 200 km de distancia.
+    # La 1.0.48 se publico, se subio y se instalo en un tractor sin que nadie
+    # la hubiera ejecutado nunca: moria al arrancar con FailFast y sin ningun
+    # mensaje, por una mezcla de flags de compilacion. Compilar no prueba nada.
+    Write-Host "== prueba de arranque (staging) ==" -ForegroundColor Cyan
+    $smErr = Join-Path $env:TEMP "taller_smoke.err.txt"
+    $smp = Start-Process "$tmp\Desktop\PilotX.Desktop.exe" -PassThru -WorkingDirectory "$tmp" -RedirectStandardError $smErr
+    if ($smp.WaitForExit(25000)) {
+        Write-Host "La app murio al arrancar. NO se despliega al taller." -ForegroundColor Red
+        $txt = ""
+        try { $txt = (Get-Content $smErr -Raw -ErrorAction SilentlyContinue) } catch { }
+        if ($txt -and $txt.Trim()) { Write-Host $txt.Trim() -ForegroundColor Red }
+        else { Write-Host "Sin mensaje: suele ser FailFast por ReadyToRun/Composite." -ForegroundColor Red }
+        if (-not $Forzar) { exit 1 }
+        Write-Host "-Forzar activo: se despliega igual, bajo tu responsabilidad." -ForegroundColor Yellow
+    } else {
+        try { $smp.Kill() } catch { }
+        Get-Process WerFault, WerFaultSecure -ErrorAction SilentlyContinue | Stop-Process -Force
+        Write-Host "OK: abrio." -ForegroundColor Green
+    }
+    if ($ConEngine) {
+        Write-Host "== publish PilotX.GuidanceEngine (staging) ==" -ForegroundColor Cyan
+        dotnet publish "$root\SourceCode\PilotX.GuidanceEngine\PilotX.GuidanceEngine.csproj" `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishReadyToRun=true -p:PublishReadyToRunComposite=false -o "$tmp\Engine" -v q --nologo
+        if ($LASTEXITCODE -ne 0) { Write-Host "publish Engine FALLO" -ForegroundColor Red; exit 1 }
+    }
+} else {
+    # -SinPublish: copiar lo ya publicado en Build\ (excluyendo el cache de
+    # WebView2, lockeado si la app corre, y los logs).
+    # Origen: Build\ (lo compilado) o un ZIP de version (-DesdeZip).
+    $origen = "$root\Build"
+    if ($DesdeZip) {
+        Write-Host "== expandiendo $DesdeZip ==" -ForegroundColor Cyan
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($DesdeZip, "$tmp\zip")
+        $origen = "$tmp\zip"
+        if (-not (Test-Path "$origen\Desktop\PilotX.Desktop.exe")) { Write-Host "El ZIP no trae Desktop\PilotX.Desktop.exe" -ForegroundColor Red; exit 1 }
+    }
+    if (-not $SoloBenchX) {
+        robocopy "$origen\Desktop" "$tmp\Desktop" /E /XD "PilotX.Desktop.exe.WebView2" "Logs" /XF "*.log" /NFL /NDL /NJH /NJS | Out-Null
+    }
+    if ($ConEngine) {
+        robocopy "$origen\Engine" "$tmp\Engine-src" /E /NFL /NDL /NJH /NJS | Out-Null
+    }
+}
+
+Write-Host "== staging ==" -ForegroundColor Cyan
+if (-not $SoloBenchX) {
+    Compress-Archive -Path "$tmp\Desktop\*" -DestinationPath "$tmp\desktop.zip" -CompressionLevel Optimal
+
+    # wwwroot del Hub: EL DEL SOURCE (fuente de verdad de la UI), completo.
+    # Con -DesdeZip, el que trae ese paquete (coherente con su Desktop/Engine).
+    $wwwOrigen = if ($DesdeZip) { "$tmp\zip\AgroParallel\wwwroot" } else { "$root\SourceCode\AgroParallel\Web\AgroParallel.WebUI\wwwroot" }
+    Compress-Archive -Path "$wwwOrigen\*" -DestinationPath "$tmp\wwwroot.zip" -CompressionLevel Optimal
+}
+
+if ($ConEngine) {
+    # Engine: SOLO binarios. Dos pasadas: (1) todo menos json/log/datos,
+    # (2) lista blanca de los json de runtime que si tienen que viajar.
+    # El origen depende del camino: publish fresco ($tmp\Engine, que ya nace
+    # sin configs de usuario) o la copia de Build ($tmp\Engine-src, que los
+    # arrastra porque el runtime los escribe ahi). El filtro corre igual en
+    # ambos: mas vale filtrar de mas que clobberear la identidad del taller.
+    $engOrigen = if (Test-Path "$tmp\Engine-src") { "$tmp\Engine-src" } else { "$tmp\Engine" }
+    robocopy $engOrigen "$tmp\Engine-filtrado" /E `
+        /XD "data" "GuidanceEngineData" "implementos" "firmware-cache" "AgroParallel" "logs" "Logs" `
+        /XF "*.json" "*.log" /NFL /NDL /NJH /NJS | Out-Null
+    Copy-Item "$engOrigen\*.deps.json" "$tmp\Engine-filtrado\" -Force
+    Copy-Item "$engOrigen\*.runtimeconfig.json" "$tmp\Engine-filtrado\" -Force
+    Compress-Archive -Path "$tmp\Engine-filtrado\*" -DestinationPath "$tmp\engine.zip" -CompressionLevel Optimal
+}
+
+if ($ConBenchX) {
+    # Siempre publish fresco y autocontenido: Build\BenchX es framework-dependent
+    # (net9) y en el taller no hay runtime 9. ~100 MB, se acepta por ser demo.
+    Write-Host "== publish BenchX autocontenido (win-x64) ==" -ForegroundColor Cyan
+    dotnet publish "$root\SourceCode\BenchX\BenchX.csproj" -c Release -r win-x64 --self-contained true `
+        -o "$tmp\BenchX" -v q --nologo
+    if ($LASTEXITCODE -ne 0) { Write-Host "publish BenchX FALLO" -ForegroundColor Red; exit 1 }
+    if (-not (Test-Path "$tmp\BenchX\BenchX.exe")) { Write-Host "publish BenchX sin exe" -ForegroundColor Red; exit 1 }
+    Compress-Archive -Path "$tmp\BenchX\*" -DestinationPath "$tmp\benchx.zip" -CompressionLevel Optimal
+}
+
+Get-ChildItem "$tmp\*.zip" | ForEach-Object { Write-Host ("  {0}: {1:N1} MB" -f $_.Name, ($_.Length / 1MB)) }
+
+Write-Host "== deploy a $Taller ==" -ForegroundColor Cyan
+$cred = New-Object System.Management.Automation.PSCredential(
+    "Admin", (New-Object System.Security.SecureString))
+$s = New-PSSession -ComputerName $Taller -Credential $cred
+
+if (-not $SoloBenchX) {
+    Copy-Item "$tmp\desktop.zip" -Destination "C:\PilotX\deploy-desktop.zip" -ToSession $s
+    Copy-Item "$tmp\wwwroot.zip" -Destination "C:\PilotX\deploy-wwwroot.zip" -ToSession $s
+}
+if ($ConEngine) { Copy-Item "$tmp\engine.zip" -Destination "C:\PilotX\deploy-engine.zip" -ToSession $s }
+if ($ConEngine) {
+    # El Updater de la RAIZ tambien viaja (2026-09-09): el taller tenia uno
+    # de agosto sin validacion de parches y no reproducia lo del campo.
+    $updSrc = if ($DesdeZip) { "$tmp\zip\AgroParallel.Updater.exe" } else { "$root\Build\AgroParallel.Updater.exe" }
+    if (Test-Path $updSrc) { Copy-Item $updSrc -Destination "C:\PilotX\AgroParallel.Updater.exe" -ToSession $s; Write-Host "  Updater raiz: $updSrc" }
+    else { Write-Host "  (sin AgroParallel.Updater.exe en $updSrc)" -ForegroundColor Yellow }
+}
+if ($ConBenchX) { Copy-Item "$tmp\benchx.zip" -Destination "C:\PilotX\deploy-benchx.zip" -ToSession $s }
+
+Invoke-Command -Session $s -ScriptBlock {
+    param($conEngine, $conBenchX, $soloBenchX)
+
+    # Cualquier error aca adentro tiene que ABORTAR: seguir con un rename
+    # fallido termina en Expand-Archive sobre la carpeta vieja (mezcla de
+    # versiones = pantalla que no arranca, leccion 1.0.48). 2026-09-07: el
+    # rename de Desktop fallo con "acceso denegado" y el script siguio.
+    $ErrorActionPreference = "Stop"
+
+    # Expand-Archive en el taller carga el modulo Archive con un error de
+    # recursos localizados (es-MX) que con ErrorActionPreference=Stop aborta
+    # (2026-09-07: dejo la pantalla sin Desktop). Se descomprime con .NET.
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    function Expandir([string]$zip, [string]$destino, [bool]$pisar) {
+        New-Item -ItemType Directory -Force $destino | Out-Null
+        $za = [System.IO.Compression.ZipFile]::OpenRead($zip)
+        try {
+            foreach ($e in $za.Entries) {
+                # Compress-Archive de Windows PowerShell escribe las entradas
+                # con "\" como separador; las de carpeta terminan en "\" o "/"
+                # y tienen Name vacio. Normalizar antes de extraer.
+                $rel = $e.FullName.Replace('/', '\').TrimStart('\')
+                if ([string]::IsNullOrEmpty($rel)) { continue }
+                $ruta = Join-Path $destino $rel
+                if ($rel.EndsWith('\') -or [string]::IsNullOrEmpty($e.Name)) { New-Item -ItemType Directory -Force $ruta | Out-Null; continue }
+                $dir = Split-Path $ruta -Parent
+                if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
+                if ((Test-Path $ruta) -and -not $pisar) { continue }
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($e, $ruta, $true)
+            }
+        } finally { $za.Dispose() }
+    }
+
+    if (-not $soloBenchX) {
+        # El vigilante de Lanzar-PilotX.bat relanza la pantalla a los 3 s si
+        # muere con error (matarla cuenta como error). Con este flag presente
+        # NO relanza y el bucle termina; se borra antes de relanzar al final.
+        New-Item -ItemType File -Path "C:\PilotX\actualizando.flag" -Force | Out-Null
+        Get-Process PilotX.Desktop -EA SilentlyContinue | Stop-Process -Force
+        # Los hijos del WebView2 (msedgewebview2) sobreviven al Desktop y
+        # mantienen abierta Desktop\PilotX.Desktop.exe.WebView2: con ellos
+        # vivos la carpeta no se puede renombrar.
+        Get-Process msedgewebview2 -EA SilentlyContinue | Stop-Process -Force
+    }
+    if ($conEngine) { Get-Process PilotX.GuidanceEngine -EA SilentlyContinue | Stop-Process -Force }
+    if ($conBenchX) { Get-Process BenchX -EA SilentlyContinue | Stop-Process -Force }
+    Start-Sleep -Seconds 3
+    if (-not $soloBenchX) {
+        $vivos = @(Get-Process PilotX.Desktop, msedgewebview2 -EA SilentlyContinue)
+        if ($vivos.Count -gt 0) { throw "Siguen vivos: " + (($vivos | ForEach-Object { $_.ProcessName }) -join ", ") }
+    }
+
+    # BenchX: rename-replace (no tiene datos de usuario que importen; su
+    # benchx.json de config se conserva si existia). Lanzador + acceso directo
+    # en el escritorio publico para la demo.
+    if ($conBenchX) {
+        $bxCfg = $null
+        if (Test-Path "C:\PilotX\BenchX\benchx.json") { $bxCfg = Get-Content "C:\PilotX\BenchX\benchx.json" -Raw }
+        $bxBak = "C:\PilotX\BenchX-anterior"
+        if (Test-Path $bxBak) { Remove-Item $bxBak -Recurse -Force }
+        if (Test-Path "C:\PilotX\BenchX") { Rename-Item "C:\PilotX\BenchX" $bxBak }
+        Expandir "C:\PilotX\deploy-benchx.zip" "C:\PilotX\BenchX" $true
+        Remove-Item "C:\PilotX\deploy-benchx.zip" -Force
+        if ($bxCfg) { Set-Content "C:\PilotX\BenchX\benchx.json" $bxCfg -Encoding UTF8 }
+
+        Set-Content "C:\PilotX\Lanzar-BenchX.bat" "@echo off`r`ncd /d C:\PilotX\BenchX`r`nstart `"BenchX`" C:\PilotX\BenchX\BenchX.exe" -Encoding ascii
+        $ws = New-Object -ComObject WScript.Shell
+        $lnk = $ws.CreateShortcut("C:\Users\Public\Desktop\BenchX.lnk")
+        $lnk.TargetPath = "C:\PilotX\BenchX\BenchX.exe"
+        $lnk.WorkingDirectory = "C:\PilotX\BenchX"
+        $lnk.Description = "BenchX - simulador de GPS y modulos para PilotX (demo)"
+        $lnk.Save()
+        "BenchX instalado: " + (Test-Path "C:\PilotX\BenchX\BenchX.exe") + " (acceso directo en el escritorio)"
+    }
+
+    if ($soloBenchX) { return }
+
+    # Desktop: rename-replace (no tiene datos de usuario adentro). Un solo
+    # backup; el taller no es archivo historico.
+    $bak = "C:\PilotX\Desktop-anterior"
+    if (Test-Path $bak) { Remove-Item $bak -Recurse -Force }
+    if (Test-Path "C:\PilotX\Desktop") { Rename-Item "C:\PilotX\Desktop" $bak }
+    Expandir "C:\PilotX\deploy-desktop.zip" "C:\PilotX\Desktop" $true
+    Remove-Item "C:\PilotX\deploy-desktop.zip" -Force
+
+    # wwwroot: rename-replace (estaticos, la fuente de verdad es el source).
+    $wbak = "C:\PilotX\AgroParallel\wwwroot-anterior"
+    if (Test-Path $wbak) { Remove-Item $wbak -Recurse -Force }
+    if (Test-Path "C:\PilotX\AgroParallel\wwwroot") { Rename-Item "C:\PilotX\AgroParallel\wwwroot" $wbak }
+    Expandir "C:\PilotX\deploy-wwwroot.zip" "C:\PilotX\AgroParallel\wwwroot" $true
+    Remove-Item "C:\PilotX\deploy-wwwroot.zip" -Force
+
+    # Engine: OVERLAY sobre el existente — los datos y configs del taller
+    # (Fields, prescripciones, orbitX.json con su identidad) quedan intactos.
+    if ($conEngine) {
+        Expandir "C:\PilotX\deploy-engine.zip" "C:\PilotX\Engine" $true
+        Remove-Item "C:\PilotX\deploy-engine.zip" -Force
+    }
+
+    # Relanzar en la sesion fisica. lanzar-diag.bat levanta el Engine si no
+    # esta corriendo y la pantalla con stderr redirigido.
+    if (-not (Test-Path "C:\PilotX\lanzar-diag.bat")) {
+        Set-Content "C:\PilotX\lanzar-diag.bat" "@echo off`r`ncd /d C:\PilotX`r`ntasklist | find /i `"PilotX.GuidanceEngine.exe`" >nul || start `"PilotX Engine`" /min C:\PilotX\Engine\PilotX.GuidanceEngine.exe --webhost --corex`r`ntimeout /t 6 /nobreak >nul`r`nC:\PilotX\Desktop\PilotX.Desktop.exe 2> C:\PilotX\logs\stderr-diag.log" -Encoding ascii
+    }
+    # /rl LIMITED, nunca highest: WebView2 no lanza su proceso hijo bajo un
+    # proceso elevado — con la tarea elevada TODA pagina HTML (lote, cabecera,
+    # overlays) queda en negro aunque el server :5180 responda (2026-08-05).
+    # Relanzar con el lanzador del kiosko (Lanzar-PilotX.bat: Engine + pantalla
+    # + vigilante) si existe; si no, con lanzar-diag.bat. Primero se saca el
+    # flag que frena al vigilante. Las tareas se manejan via cmd /c para no
+    # disparar NativeCommandError con $ErrorActionPreference = Stop.
+    Remove-Item "C:\PilotX\actualizando.flag" -Force -EA SilentlyContinue
+    $lanzador = if (Test-Path "C:\PilotX\Lanzar-PilotX.bat") { "C:\PilotX\Lanzar-PilotX.bat" } else { "C:\PilotX\lanzar-diag.bat" }
+    $tarea = if ($lanzador -like "*Lanzar-PilotX*") { "PilotX-Kiosk" } else { "PilotX-Diag" }
+    cmd /c "schtasks /query /tn $tarea >nul 2>&1"
+    if ($LASTEXITCODE -ne 0) {
+        cmd /c "schtasks /create /tn $tarea /tr `"$lanzador`" /sc once /st 23:59 /it /f /rl limited >nul 2>&1"
+    }
+    cmd /c "schtasks /run /tn $tarea >nul 2>&1"
+    Start-Sleep -Seconds 20
+    $d = Get-Process PilotX.Desktop -EA SilentlyContinue
+    $e = Get-Process PilotX.GuidanceEngine -EA SilentlyContinue
+    if ($d -and $e) { "OK: Desktop (PID $($d.Id)) + Engine (PID $($e.Id)) corriendo" }
+    else { "ERROR: falta " + $(if (-not $d) { "Desktop " }) + $(if (-not $e) { "Engine" }) + " -- mirar C:\PilotX\logs\stderr-diag.log" }
+} -ArgumentList ([bool]$ConEngine), ([bool]$ConBenchX), ([bool]$SoloBenchX)
+
+Remove-PSSession $s
+Write-Host "== listo ==" -ForegroundColor Green
+
+# Salida limpia: el ultimo comando nativo (schtasks via cmd) deja un exit code
+# que si no se pisa la consola lo muestra como fallo aunque todo haya ido bien.
+exit 0

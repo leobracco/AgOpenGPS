@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vehículo · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ---- tabstrip ---- */
+    .tabs {
+      display: flex; gap: var(--agp-sp-1);
+      border-bottom: var(--agp-border-w) solid var(--agp-border);
+      margin: 0 0 var(--agp-sp-3) 0;
+      flex-wrap: wrap;
+    }
+    .tabs .tab {
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      min-height: var(--agp-touch-min);
+      background: transparent; border: 0;
+      color: var(--agp-text-muted);
+      font: inherit; cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+    .tabs .tab.on {
+      color: var(--agp-accent);
+      border-bottom-color: var(--agp-accent);
+      font-weight: var(--agp-fw-semi);
+    }
+    .panel { display: none; }
+    .panel.on { display: block; }
+
+    /* ---- tipo de vehículo: tarjetas grandes con SVG ---- */
+    .veh-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--agp-sp-3);
+    }
+    .veh-card {
+      display: flex; flex-direction: column; align-items: center;
+      gap: var(--agp-sp-2);
+      padding: var(--agp-sp-3);
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s, transform 0.05s;
+      min-height: 170px;
+    }
+    .veh-card:hover { background: var(--agp-bg); }
+    .veh-card:active { transform: translateY(1px); }
+    .veh-card.on {
+      border-color: var(--agp-accent);
+      background: var(--agp-accent-soft, rgba(74,186,62,0.10));
+    }
+    .veh-card .veh-icon {
+      width: 92px; height: 64px;
+      color: var(--agp-text-muted);
+    }
+    .veh-card.on .veh-icon { color: var(--agp-accent); }
+    /* Sprites reales de PilotX dentro de las cards: grayscale leve cuando idle,
+       tinte de acento cuando seleccionado. */
+    .veh-card .veh-img {
+      width: 100px; height: 100px;
+      object-fit: contain;
+      filter: grayscale(0.55) brightness(0.95) contrast(1.05);
+      transition: filter 0.15s, transform 0.05s;
+    }
+    .veh-card.on .veh-img {
+      filter: grayscale(0) brightness(1) contrast(1.05) drop-shadow(0 2px 6px rgba(74,186,62,0.35));
+    }
+    .veh-card .veh-name {
+      font-weight: var(--agp-fw-semi);
+      color: var(--agp-text);
+      text-align: center;
+    }
+    .veh-card .veh-hint {
+      font-size: var(--agp-fs-xs);
+      color: var(--agp-text-muted);
+      text-align: center;
+    }
+    .veh-card input { display: none; }
+
+    /* ---- geometría con diagrama ---- */
+    .geo-split {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
+      gap: var(--agp-sp-4);
+      align-items: start;
+    }
+    @media (max-width: 980px) { .geo-split { grid-template-columns: 1fr; } }
+
+    .diagram {
+      background: var(--agp-bg-soft);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3);
+      text-align: center;
+    }
+    .diagram svg { width: 100%; max-width: 460px; height: auto; }
+    /* Wrapper para superponer SVG de cotas sobre una imagen real */
+    .diagram-stack {
+      position: relative;
+      max-width: 460px;
+      margin: 0 auto;
+    }
+    .diagram-stack img.base {
+      width: 100%;
+      max-width: 460px;
+      height: auto;
+      display: block;
+      filter: grayscale(0.55) brightness(0.95);
+    }
+    .diagram-stack svg.over {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    .diagram .legend {
+      margin-top: var(--agp-sp-2);
+      font-size: var(--agp-fs-xs);
+      color: var(--agp-text-muted);
+      text-align: left;
+    }
+    .diagram .legend b { color: var(--agp-text); }
+    .lbl-num { fill: var(--agp-accent); font-weight: 700; font-size: 13px; }
+    .lbl-txt { fill: var(--agp-text); font-size: 11px; }
+    .arrow   { stroke: var(--agp-accent); stroke-width: 1.5; fill: none; }
+    .axle    { stroke: var(--agp-text-muted); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; }
+
+    .veh-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--agp-sp-3);
+    }
+    .veh-grid .field { display: flex; flex-direction: column; gap: 4px; }
+    .veh-grid .field input {
+      min-height: var(--agp-touch-min);
+      width: 100%;
+    }
+    .field .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px;
+      border-radius: 11px;
+      background: var(--agp-accent); color: #fff;
+      font-size: var(--agp-fs-xs); font-weight: 700;
+      margin-right: 6px;
+    }
+    .field label { display: flex; align-items: center; }
+
+    /* ---- panel antena (rediseño mockup) ---- */
+    .ant-split {
+      display: grid;
+      grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+      gap: var(--agp-sp-3);
+      align-items: stretch;
+    }
+    @media (max-width: 980px) { .ant-split { grid-template-columns: 1fr; } }
+
+    .ant-block { display: flex; flex-direction: column; gap: var(--agp-sp-3); align-items: center; }
+
+    .ant-field { text-align: center; }
+    .ant-field label {
+      display: block;
+      font-weight: var(--agp-fw-semi);
+      margin-bottom: 4px;
+    }
+    .ant-input-row {
+      display: inline-flex; align-items: center; gap: 10px;
+    }
+    .ant-big {
+      width: 150px;
+      min-height: 56px;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft);
+      color: var(--agp-text);
+      font-size: 32px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .ant-big:focus { outline: 2px solid var(--agp-accent); }
+    .ant-big:disabled { opacity: 0.45; }
+    .ant-unit { font-weight: var(--agp-fw-semi); color: var(--agp-text-muted); }
+
+    .ant-diagram svg { width: 100%; max-width: 340px; height: auto; }
+    /* Sprites reales del FormConfig sobre fondo blanco (los PNG traen fondo) */
+    .diagram img.real, .ant-diagram img.real {
+      width: 100%; max-width: 420px; height: auto;
+      background: #fff; border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-2); box-sizing: border-box;
+    }
+    .ant-side .ant-side-img {
+      width: 108px; height: 108px; object-fit: contain;
+      background: #fff; border-radius: var(--agp-radius-sm, 6px);
+      filter: grayscale(0.5);
+      transition: filter 0.15s;
+    }
+    .ant-side.on .ant-side-img { filter: none; }
+    .cota-pivote { stroke: var(--agp-accent); stroke-width: 4; }
+    .cota-pivote-fill { fill: var(--agp-accent); }
+    .cota-altura { stroke: #c026a8; stroke-width: 4; }
+    .cota-altura-fill { fill: #c026a8; }
+
+    .ant-top-row {
+      display: flex; gap: var(--agp-sp-3);
+      align-items: center; justify-content: center;
+      flex-wrap: wrap;
+    }
+    .ant-top svg { width: 150px; height: auto; }
+
+    .ant-side-select { display: flex; gap: var(--agp-sp-2); justify-content: center; flex-wrap: wrap; }
+    .ant-side {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      width: 128px; min-height: var(--agp-touch-min);
+      padding: var(--agp-sp-2);
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      color: var(--agp-text-muted);
+      font: inherit; font-size: var(--agp-fs-sm);
+      cursor: pointer;
+    }
+    .ant-side svg { width: 74px; height: 58px; }
+    .ant-side.on {
+      border-color: var(--agp-accent);
+      background: var(--agp-accent-soft, rgba(74,186,62,0.12));
+      color: var(--agp-text);
+      font-weight: var(--agp-fw-semi);
+    }
+
+    /* ---- panel IMU ---- */
+    .imu-split {
+      display: grid;
+      grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+      gap: var(--agp-sp-3);
+      align-items: start;
+    }
+    @media (max-width: 980px) { .imu-split { grid-template-columns: 1fr; } }
+
+    .imu-src { display: flex; gap: var(--agp-sp-2); }
+    .imu-src .src-btn {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      min-height: var(--agp-touch-min);
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      color: var(--agp-text-muted);
+      font: inherit; cursor: pointer;
+    }
+    .imu-src .src-btn.on {
+      border-color: var(--agp-accent);
+      background: var(--agp-accent-soft, rgba(74,186,62,0.12));
+      color: var(--agp-text);
+      font-weight: var(--agp-fw-semi);
+    }
+    .imu-src .src-btn .src-hint { font-size: var(--agp-fs-xs); font-weight: 400; }
+
+    .chk-row {
+      display: flex; align-items: center; gap: var(--agp-sp-2);
+      min-height: var(--agp-touch-min);
+      cursor: pointer;
+    }
+    .chk-row input[type="checkbox"] {
+      width: 26px; height: 26px;
+      accent-color: var(--agp-accent);
+      flex: none;
+    }
+    .chk-row .chk-txt { display: flex; flex-direction: column; }
+    .chk-row .chk-txt .help { margin-top: 0; }
+
+    .slider-row { display: flex; align-items: center; gap: var(--agp-sp-2); }
+    .slider-row input[type="range"] {
+      flex: 1; min-height: var(--agp-touch-min);
+      accent-color: var(--agp-accent);
+    }
+    .slider-row .slider-val {
+      min-width: 84px; text-align: right;
+      font-weight: var(--agp-fw-semi);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .imu-field { display: flex; flex-direction: column; gap: 4px; margin-top: var(--agp-sp-3); }
+    .imu-field > label { font-weight: var(--agp-fw-semi); }
+    .imu-num-row { display: flex; align-items: center; gap: 10px; }
+    .imu-num-row input {
+      width: 130px; min-height: var(--agp-touch-min);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft); color: var(--agp-text);
+      font-size: 22px; font-weight: 700; text-align: center;
+    }
+    .imu-num-row input:disabled { opacity: 0.45; }
+
+    .roll-live {
+      display: flex; gap: var(--agp-sp-3); justify-content: center;
+      text-align: center; margin: var(--agp-sp-2) 0;
+    }
+    .roll-live .roll-box {
+      flex: 1; max-width: 200px;
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-2);
+    }
+    .roll-live .roll-val {
+      font-size: 34px; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--agp-text);
+    }
+    .roll-live .roll-lbl { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+
+    .roll-btns { display: flex; flex-wrap: wrap; gap: var(--agp-sp-2); justify-content: center; }
+    .roll-btns .btn { min-height: var(--agp-touch-min); min-width: 84px; }
+
+    .msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: var(--agp-sp-3); min-height: 18px; }
+    .msg.ok  { color: var(--agp-state-ok); }
+    .msg.err { color: var(--agp-state-bad); }
+    .help { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="vehiculo"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>Vehículo</h1><div class="subtitle">Tipo, geometría, antena GPS y rumbo/IMU</div></div>
+      <span class="pill" id="vehStatus"><span class="dot"></span> Cargando…</span>
+    </div>
+
+    <!-- tabstrip -->
+    <div class="tabs">
+      <button class="tab on" data-panel="tipo">Tipo</button>
+      <button class="tab"    data-panel="geometria">Geometría</button>
+      <button class="tab"    data-panel="antena">Antena GPS</button>
+      <button class="tab"    data-panel="imu">Rumbo / IMU</button>
+    </div>
+
+    <!-- =================== TIPO =================== -->
+    <section class="panel on" id="panel-tipo">
+      <div class="card">
+        <h3 style="margin-top:0">¿Qué vehículo es?</h3>
+        <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+          Elegí el tipo de máquina que más se parece. Cambia cómo se dibuja el tractor en el mapa y cómo se interpreta la geometría.
+        </p>
+        <!-- Flujo UNIFICADO (usuario 2026-07-10): 1) elegís el TIPO acá,
+             2) abajo se despliegan los vehículos disponibles de ese tipo
+             (sprites propios de img/vehiculos/ + el estándar de PilotX).
+             data-tiposlug enlaza cada tipo con la convención de archivo
+             tipo_marca_modelo.png -->
+        <div class="veh-cards" id="tipoCards">
+          <!-- 0 = Tractor (común). Sprite real de PilotX (vista superior). -->
+          <label class="veh-card" data-vt="0" data-variant="tractor" data-tiposlug="rigido">
+            <input type="radio" name="vehicleType" value="0">
+            <img class="veh-img" src="../img/tractors/TractorAoG.png" alt="Tractor común" loading="lazy">
+            <div class="veh-name">Tractor rígido</div>
+            <div class="veh-hint">Común con enganche trasero</div>
+          </label>
+
+          <!-- 0 = Tractor (variante pulverizadora) — mapea al mismo PilotX type
+               pero el sprite NewHolland es de chasis más alto, característico. -->
+          <label class="veh-card" data-vt="0" data-variant="sprayer" data-tiposlug="pulverizadora">
+            <input type="radio" name="vehicleType" value="0">
+            <img class="veh-img" src="../img/tractors/TractorNewHolland.png" alt="Pulverizadora" loading="lazy">
+            <div class="veh-name">Pulverizadora</div>
+            <div class="veh-hint">Autopropulsada, botalón ancho</div>
+          </label>
+
+          <!-- 1 = Harvester -->
+          <label class="veh-card" data-vt="1" data-variant="harvester" data-tiposlug="cosechadora">
+            <input type="radio" name="vehicleType" value="1">
+            <img class="veh-img" src="../img/harvesters/HarvesterAoG.png" alt="Cosechadora" loading="lazy">
+            <div class="veh-name">Cosechadora</div>
+            <div class="veh-hint">Dirección por eje trasero</div>
+          </label>
+
+          <!-- 2 = Articulated (usamos sprite Rear que tiene cabina visible) -->
+          <label class="veh-card" data-vt="2" data-variant="articulated" data-tiposlug="articulado">
+            <input type="radio" name="vehicleType" value="2">
+            <img class="veh-img" src="../img/articulated/ArticulatedRearAoG.png" alt="Articulada 4WD" loading="lazy">
+            <div class="veh-name">Articulada</div>
+            <div class="veh-hint">4WD con pivote central</div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Paso 2: modelos disponibles del tipo elegido. El elegido es el que
+           se dibuja en el mapa del piloto (pisa la marca embebida). -->
+      <div class="card" style="margin-top: var(--agp-sp-3)">
+        <h3 style="margin-top:0" id="modelosTitulo">Elegí tu vehículo</h3>
+        <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+          Para sumar uno nuevo: PNG vista superior (frente hacia arriba, fondo
+          transparente) en <b>AgroParallel\wwwroot\img\vehiculos\</b> con nombre
+          <b>tipo_marca_modelo.png</b> — tipos: rigido, articulado, cosechadora,
+          pulverizadora (ej: rigido_pauny_580.png; modelo opcional).
+        </p>
+        <div class="veh-cards" id="misVehiculos">
+          <div class="help">Cargando…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== GEOMETRÍA =================== -->
+    <section class="panel" id="panel-geometria">
+      <div class="card">
+        <h3 style="margin-top:0">Geometría del tractor</h3>
+        <div class="geo-split">
+          <div class="diagram">
+            <!-- Sprite real del FormConfig (RadiusWheelBase*): cambia según el
+                 tipo elegido en la pestaña Tipo — tractor, cosechadora o
+                 articulada (mismo comportamiento que WinForms). -->
+            <img class="real" id="geoDiagram" src="../img/vehicle/RadiusWheelBase.png"
+                 alt="Medidas del vehículo" loading="lazy">
+            <div class="legend" id="geoLegend">
+              <div>El dibujo corresponde al <b>tipo de vehículo elegido</b> en la pestaña Tipo.</div>
+              <div><b>Distancia entre ejes</b> — del centro del eje trasero al delantero.</div>
+              <div><b>Trocha</b> — centro a centro de ruedas.</div>
+            </div>
+          </div>
+
+          <div class="veh-grid">
+            <div class="field">
+              <label><span class="badge">1</span>Distancia entre ejes (m)</label>
+              <input type="number" id="wheelbase" min="0.5" max="20" step="0.1">
+              <div class="help">Eje delantero ↔ trasero</div>
+            </div>
+            <div class="field">
+              <label>Ancho de trocha (m)</label>
+              <input type="number" id="trackWidth" min="0.5" max="10" step="0.05">
+              <div class="help">Centro a centro de ruedas</div>
+            </div>
+            <div class="field">
+              <label>Ángulo máx. dirección (°)</label>
+              <input type="number" id="maxSteerAngle" min="5" max="60" step="0.5">
+              <div class="help">Cuánto giran las ruedas a tope</div>
+            </div>
+            <div class="field">
+              <label>Vel. mín. autosteer (km/h)</label>
+              <input type="number" id="slowSpeedCutoff" min="0" max="10" step="0.1">
+              <div class="help">Bajo esto se apaga el piloto</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== ANTENA =================== -->
+    <!-- Rediseño basado en el mockup config-antena: inputs grandes táctiles en
+         cm, vista lateral con cotas (pivote/altura) y vista superior con el
+         selector de lado del desfase (Izquierda/Centro/Derecha). -->
+    <section class="panel" id="panel-antena">
+      <div class="ant-split">
+
+        <!-- ---------- Vista lateral: pivote + altura ---------- -->
+        <div class="card">
+          <h3 style="margin-top:0">Vista lateral</h3>
+          <div class="ant-block">
+            <div class="ant-field">
+              <label for="antennaPivot">Distancia de pivote</label>
+              <div class="ant-input-row">
+                <input class="ant-big" type="number" id="antennaPivot" min="-1000" max="1000" step="1">
+                <span class="ant-unit">cm</span>
+              </div>
+              <div class="help">Del eje trasero a la antena (+ hacia adelante, − hacia atrás)</div>
+            </div>
+
+            <div class="ant-diagram">
+              <!-- Sprite real del FormConfig (Antenna{Tractor,Harvester,Articulated}):
+                   cambia según el tipo elegido en la pestaña Tipo. Verde = pivote,
+                   magenta = altura, igual que las flechas del dibujo. -->
+              <img class="real" id="antDiagram" src="../img/vehicle/AntennaTractor.png"
+                   alt="Posición de la antena en el vehículo" loading="lazy">
+            </div>
+
+            <div class="ant-field">
+              <label for="antennaHeight">Altura de antena</label>
+              <div class="ant-input-row">
+                <input class="ant-big" type="number" id="antennaHeight" min="10" max="1000" step="1">
+                <span class="ant-unit">cm</span>
+              </div>
+              <div class="help">Desde el piso hasta la antena</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------- Vista superior: desfase lateral ---------- -->
+        <div class="card">
+          <h3 style="margin-top:0">Vista superior</h3>
+          <div class="ant-block">
+            <div class="ant-field">
+              <label for="antennaOffset">Desfase de antena</label>
+              <div class="ant-input-row">
+                <input class="ant-big" type="number" id="antennaOffset" min="0" max="500" step="1">
+                <span class="ant-unit">cm</span>
+              </div>
+              <div class="help">Distancia desde el centro del tractor (el lado se elige abajo)</div>
+            </div>
+
+            <!-- Selector de lado con las imágenes reales del FormConfig; son el
+                 visual principal de la vista superior (sin SVG propio). -->
+            <div class="ant-side-select" role="group" aria-label="Lado del desfase">
+              <button type="button" class="ant-side" id="sideLeft" data-side="left">
+                <img class="ant-side-img" src="../img/vehicle/AntennaLeftOffset.png" alt="" loading="lazy">
+                <span>Izquierda</span>
+              </button>
+              <button type="button" class="ant-side" id="sideCenter" data-side="center">
+                <img class="ant-side-img" src="../img/vehicle/AntennaNoOffset.png" alt="" loading="lazy">
+                <span>Centro</span>
+              </button>
+              <button type="button" class="ant-side" id="sideRight" data-side="right">
+                <img class="ant-side-img" src="../img/vehicle/AntennaRightOffset.png" alt="" loading="lazy">
+                <span>Derecha</span>
+              </button>
+            </div>
+
+            <div class="help" style="text-align:center">La antena dual va montada del lado <b>derecho</b>.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =================== RUMBO / IMU =================== -->
+    <!-- Espejo HTML de las solapas WinForms tabDHeading + tabDRoll.
+         Rumbo: fuente Fix/Dual, fusión GPS/IMU, paso mínimo, RTK, reversa.
+         Roll: nivelación (cero), filtro, invertir. -->
+    <section class="panel" id="panel-imu">
+      <div class="imu-split">
+
+        <!-- ---------- Rumbo ---------- -->
+        <div class="card">
+          <h3 style="margin-top:0">Fuente de rumbo</h3>
+          <div class="imu-src" role="group" aria-label="Fuente de rumbo">
+            <button type="button" class="src-btn" id="srcFix" data-src="Fix">
+              <span>GPS simple</span>
+              <span class="src-hint">Una antena — rumbo por movimiento</span>
+            </button>
+            <button type="button" class="src-btn" id="srcDual" data-src="Dual">
+              <span>Antena dual</span>
+              <span class="src-hint">Dos antenas — rumbo instantáneo</span>
+            </button>
+          </div>
+
+          <div class="imu-field">
+            <label>Fusión GPS / IMU</label>
+            <div class="slider-row">
+              <input type="range" id="fusionSlider" min="5" max="60" step="1">
+              <span class="slider-val" id="fusionLbl">— / —</span>
+            </div>
+            <div class="help" id="fusionHelp">Cuánto pesa el GPS frente al IMU para el rumbo.</div>
+          </div>
+
+          <label class="chk-row" style="margin-top: var(--agp-sp-2)">
+            <input type="checkbox" id="minGpsStep">
+            <span class="chk-txt">
+              <span>Paso mínimo GPS de 10 cm</span>
+              <span class="help">Apagado usa 5 cm. Con señal inestable conviene 10 cm.</span>
+            </span>
+          </label>
+
+          <label class="chk-row">
+            <input type="checkbox" id="isReverseOn">
+            <span class="chk-txt">
+              <span>Detectar reversa con IMU</span>
+              <span class="help">Evita que el tractor "se dé vuelta" en el mapa al retroceder.</span>
+            </span>
+          </label>
+
+          <div id="dualBox">
+            <div class="imu-field">
+              <label for="dualHeadingOffset">Offset rumbo dual (°)</label>
+              <div class="imu-num-row">
+                <input type="number" id="dualHeadingOffset" min="-100" max="100" step="0.1">
+                <span class="ant-unit">°</span>
+              </div>
+              <div class="help">Corrección si las antenas no están perfectamente alineadas.</div>
+            </div>
+
+            <div class="imu-field">
+              <label for="dualReverseDistance">Distancia detección reversa (m)</label>
+              <div class="imu-num-row">
+                <input type="number" id="dualReverseDistance" min="0" max="10" step="0.1">
+                <span class="ant-unit">m</span>
+              </div>
+            </div>
+
+            <label class="chk-row" style="margin-top: var(--agp-sp-2)">
+              <input type="checkbox" id="autoSwitchDualFix">
+              <span class="chk-txt">
+                <span>Cambio automático dual ↔ simple</span>
+                <span class="help">A baja velocidad usa rumbo simple; al acelerar vuelve a dual.</span>
+              </span>
+            </label>
+
+            <div class="imu-field" id="autoSwitchSpeedBox">
+              <label for="autoSwitchDualFixSpeed">Velocidad de cambio (km/h)</label>
+              <div class="imu-num-row">
+                <input type="number" id="autoSwitchDualFixSpeed" min="1" max="10" step="0.1">
+                <span class="ant-unit">km/h</span>
+              </div>
+            </div>
+          </div>
+
+          <h3>Alarmas GPS</h3>
+          <label class="chk-row">
+            <input type="checkbox" id="isRtkAlarm">
+            <span class="chk-txt">
+              <span>Alarma al perder RTK</span>
+            </span>
+          </label>
+          <label class="chk-row">
+            <input type="checkbox" id="isRtkKill">
+            <span class="chk-txt">
+              <span>Cortar piloto al perder RTK</span>
+            </span>
+          </label>
+          <div class="imu-field">
+            <label for="fixJumpAlarm">Alarma de salto de posición (m)</label>
+            <div class="imu-num-row">
+              <input type="number" id="fixJumpAlarm" min="0" max="1000" step="1">
+              <span class="ant-unit">m</span>
+            </div>
+            <div class="help">0 = desactivada. Avisa si el GPS salta más que esta distancia.</div>
+          </div>
+        </div>
+
+        <!-- ---------- Roll ---------- -->
+        <div class="card">
+          <h3 style="margin-top:0">Inclinación (roll)</h3>
+          <p class="help" style="margin:0 0 var(--agp-sp-2) 0">
+            Con el tractor en piso nivelado, tocá <b>Poner en cero</b> para calibrar la inclinación.
+          </p>
+
+          <div class="roll-live">
+            <div class="roll-box">
+              <div class="roll-val" id="rollLiveVal">***</div>
+              <div class="roll-lbl">Roll actual (°)</div>
+            </div>
+            <div class="roll-box">
+              <div class="roll-val" id="rollZeroVal">0.00</div>
+              <div class="roll-lbl">Cero guardado (°)</div>
+            </div>
+          </div>
+
+          <div class="roll-btns">
+            <button class="btn primary" id="btnRollZero" type="button">Poner en cero</button>
+            <button class="btn" id="btnRollMinus" type="button">− 0.1°</button>
+            <button class="btn" id="btnRollPlus" type="button">+ 0.1°</button>
+            <button class="btn" id="btnRollRemove" type="button">Quitar cero</button>
+            <button class="btn" id="btnImuReset" type="button">Reset IMU</button>
+          </div>
+          <div class="msg" id="msgRoll" style="text-align:center"></div>
+
+          <div class="imu-field">
+            <label>Filtro de roll</label>
+            <div class="slider-row">
+              <input type="range" id="rollFilterSlider" min="0" max="98" step="1">
+              <span class="slider-val" id="rollFilterLbl">0 %</span>
+            </div>
+            <div class="help">Más filtro = lectura más suave pero más lenta.</div>
+          </div>
+
+          <label class="chk-row">
+            <input type="checkbox" id="invertRoll">
+            <span class="chk-txt">
+              <span>Invertir roll</span>
+              <span class="help">Si al inclinarse a la derecha corrige para el lado equivocado.</span>
+            </span>
+          </label>
+        </div>
+
+      </div>
+    </section>
+
+    <div style="margin-top: var(--agp-sp-4); display:flex; gap: var(--agp-sp-2); align-items: center;">
+      <button class="btn primary" id="btnSaveVeh" style="min-height: var(--agp-touch-min)">Guardar y aplicar</button>
+      <button class="btn" id="btnReloadVeh">Descartar cambios</button>
+      <span class="msg" id="msgVeh"></span>
+    </div>
+  </main>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/vehiculo.js?v=4"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

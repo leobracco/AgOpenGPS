@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vw="clr-namespace:PilotX.Desktop.Views"
+             xmlns:bars="clr-namespace:PilotX.Cockpit.Bars.Views;assembly=PilotX.Cockpit.Bars"
+             x:Class="PilotX.Desktop.Views.MainView"
+             Background="{StaticResource PilotXBgDeep}">
+  <!--
+    MainView — pantalla LIVE portable (mapa + barras del cockpit) para el
+    single-view lifetime (Android) y reusable en Desktop. Es el MVP del port
+    Android (L5): hostea el mapa GL + las 4 barras + los pollers live contra el
+    engine (:5180), SIN los overlays/diálogos/WebView de MainWindow (que son
+    específicos de escritorio o dependen de IWebViewHost). MainWindow queda tal
+    cual para Desktop; esta vista es la que el head Android (PilotX.Android.App)
+    va a montar como MainView.
+  -->
+  <Grid>
+    <!-- Mapa nativo (llena el fondo) -->
+    <vw:MapPanel x:Name="MapHost"/>
+
+    <!-- Barras del cockpit (superior/derecha/abajo/izquierda) sobre el mapa -->
+    <Grid Name="CockpitBarsHost" ZIndex="50">
+      <Grid.Styles>
+        <StyleInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarStyles.axaml"/>
+      </Grid.Styles>
+      <bars:BarraSuperior x:Name="BarSuperior"
+                          VerticalAlignment="Top" HorizontalAlignment="Stretch" Height="46"/>
+      <bars:BarraAbajo    x:Name="BarAbajo"
+                          VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="58"/>
+      <bars:BarraDerecha  x:Name="BarDerecha"
+                          HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                          Width="58" Margin="0,0,0,58"/>
+      <bars:MenuIzquierda x:Name="MenuIzq"
+                          HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                          Width="140" Margin="0,46,0,58"/>
+    </Grid>
+
+    <!-- Overlay del WebView: hostea las pantallas HTML del Hub (config,
+         Dirección/FormSteer, CoreX, lote…) en Android, donde no hay Windows
+         separadas como en Desktop. Colapsado hasta que RouteCockpitCommand
+         abre una página. El WebView nativo lo provee App.WebViewHost
+         (AndroidWebViewHost / DesktopWebViewHost). -->
+    <Grid x:Name="WebOverlay" ZIndex="100" IsVisible="False" Background="#CC0E120E">
+      <Border Margin="20" Background="White" CornerRadius="10" ClipToBounds="True"
+              BorderBrush="#C5CFC5" BorderThickness="1">
+        <DockPanel>
+          <Grid DockPanel.Dock="Top" Height="46" Background="#F0F4F0"
+                ColumnDefinitions="*,Auto">
+            <TextBlock x:Name="WebTitle" Grid.Column="0" Text="" Margin="14,0"
+                       VerticalAlignment="Center" FontWeight="Bold" FontSize="15"
+                       Foreground="#101612"/>
+            <Button x:Name="WebClose" Grid.Column="1" Content="✕  Cerrar"
+                    Margin="0,6,8,6" Padding="14,0" VerticalAlignment="Stretch"
+                    FontWeight="Bold" Foreground="#C84E48" Background="White"/>
+          </Grid>
+          <Panel x:Name="WebSlot"/>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>
