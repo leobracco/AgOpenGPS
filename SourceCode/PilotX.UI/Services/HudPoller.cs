@@ -52,6 +52,10 @@ public sealed class HudSnapshot
     /// reset_direccion (1.0.64; en 1.0.61 esto solo estaba en el mapa web).</summary>
     public bool IsReverse { get; set; }
     public bool HasBoundary { get; set; }
+    /// <summary>El tractor esta FUERA del lindero. Lo calcula el motor; la
+    /// pantalla lo usa para avisar al activar el piloto que no va a pintar ni a
+    /// sembrar hasta que entre.</summary>
+    public bool IsOutOfBounds { get; set; }
     /// <summary>Ancho del salto del giro en guías (1 = contigua). El menú
     /// muestra guías SALTEADAS = ancho − 1.</summary>
     public int YouTurnSkipWidth { get; set; }

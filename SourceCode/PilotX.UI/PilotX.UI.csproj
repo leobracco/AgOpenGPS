@@ -80,6 +80,12 @@
          zonas idÃ©ntico. Es geometrÃ­a pura (System.Drawing.PointF solamente). -->
     <Compile Include="..\AgroParallel\Common\EarClipper.cs"
              Link="Servicios\EarClipper.cs" />
+    <!-- Los motivos que se le muestran al operario cuando algo no se puede
+         hacer. Misma razon que AgpErrorMapper: una sola fuente de verdad para
+         el texto, sin arrastrar MQTTnet ni NetTopologySuite al shell. Es
+         System puro. -->
+    <Compile Include="..\AgroParallel\Core\AgroParallel.Services\Cabina\AvisosCabina.cs"
+             Link="Servicios\AvisosCabina.cs" />
   </ItemGroup>
 
 </Project>

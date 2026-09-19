@@ -419,6 +419,23 @@ public partial class MainWindow : Window
     private GraficoRumboPanel?      _grafRumboHost;
     private GraficoXtePanel?        _grafXteHost;
     private GraficoQuantiXPanel?    _grafQuantiXHost;
+
+    // ── Avisos de cabina ────────────────────────────────────────────────────
+    // Ultimo estado recibido, para poder EXPLICAR por que algo no se puede en el
+    // momento en que el operario lo intenta. Antes la pantalla no hacia nada y
+    // no habia forma de distinguir un equipo roto de un requisito que falta.
+    private HudSnapshot? _ultimoEstado;
+    private Border? _avisoSinGps;
+    private TextBlock? _avisoSinGpsTexto;
+
+    /// <summary>Lat/lon donde se abrio el lote, para avisar si el tractor esta a
+    /// mas de 20 km (tipicamente, quedo abierto el lote de ayer).</summary>
+    private double _loteLat, _loteLon;
+    private string _loteDeLaPosicion = "";
+
+    /// <summary>Ya se aviso por este lote que esta lejos: se dice UNA vez, no en
+    /// cada tick del HUD.</summary>
+    private bool _avisoLejosDado;
     private GraficoCorreccionPanel? _grafCorreccionHost;
     private GraficosClient?         _graficosClient;
 
@@ -844,6 +861,8 @@ public partial class MainWindow : Window
         _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");
         _fxMapOverlay      = this.FindControl<FlowXMapOverlay>("FxMapOverlay");
         _chatWidgetHost    = this.FindControl<ChatPanel>("ChatWidgetHost");
+        _avisoSinGps       = this.FindControl<Border>("AvisoSinGps");
+        _avisoSinGpsTexto  = this.FindControl<TextBlock>("AvisoSinGpsTexto");
         _nudgeOverlay      = this.FindControl<Border>("NudgeOverlay");
         // Los tres de corrección lateral mandan el mismo comando que mandaban
         // desde la barra; lo único que cambió es dónde están.
@@ -6468,6 +6487,22 @@ public partial class MainWindow : Window
     // que el comando siga al backend de guiado (POST /api/aog/guidance/command).
     private bool RouteCockpitCommand(string cmd)
     {
+        // Guard del piloto: antes el toque mandaba el comando al motor y, si el
+        // motor lo rechazaba, no pasaba NADA en pantalla. Arriba del tractor eso
+        // es indistinguible de un equipo roto. Ahora dice que falta.
+        if (cmd == "autosteer")
+        {
+            var est = EstadoDeCabina();
+            string motivo = AgroParallel.Cabina.AvisosCabina.PorQueNoSePuedeActivarPiloto(est);
+            if (motivo != null) { MostrarToast(motivo); return true; }
+
+            // Fuera del lindero AVISA pero NO bloquea: puede estar entrando al
+            // lote o haciendo una pasada a proposito. Lo que no puede es
+            // sembrar creyendo que pinta.
+            string aviso = AgroParallel.Cabina.AvisosCabina.AvisoFueraDelLindero(est);
+            if (aviso != null) MostrarToast(aviso);
+        }
+
         switch (cmd)
         {
             // ---- Acciones de ventana ----
@@ -8056,6 +8091,12 @@ public partial class MainWindow : Window
     private void StartAbCreate()
     {
         if (_abCreatePanel == null) return;
+
+        // Sin lote la guia no tiene donde guardarse. Antes el flujo arrancaba
+        // igual y se perdia al final, sin decir nada.
+        string motivo = AgroParallel.Cabina.AvisosCabina.PorQueNoSePuedeTirarGuia(EstadoDeCabina());
+        if (motivo != null) { MostrarToast(motivo); return; }
+
         _abStep = 0;
         _suppressAutoSelect = true;   // que el auto-select no pise la guía nueva
         _mapHost?.BeginAbCreation();
@@ -8242,6 +8283,8 @@ public partial class MainWindow : Window
             }
 
             bool hasGpsFix = s.Latitude != 0 || s.Longitude != 0;
+            _ultimoEstado = s;
+            AtenderAvisosDeCabina(s, hasGpsFix);
             UpdateStatusChip(connected: true, jobActive: s.IsJobStarted, hasGpsFix: hasGpsFix);
             if (_btnSettings   != null) _btnSettings.IsEnabled   = hasGpsFix;
             if (_btnFieldTools != null) _btnFieldTools.IsEnabled = s.IsJobStarted;
@@ -8306,6 +8349,66 @@ public partial class MainWindow : Window
             if (_btnFieldTools != null) _btnFieldTools.IsEnabled = false;
             _hudWasConnected = false;
         });
+    }
+
+    /// <summary>Arma el estado que leen los avisos. Un solo lugar: si manana
+    /// cambia como se sabe que hay GPS, cambia aca y no en cinco botones.</summary>
+    private AgroParallel.Cabina.EstadoCabina EstadoDeCabina()
+    {
+        var s = _ultimoEstado;
+        if (s == null) return new AgroParallel.Cabina.EstadoCabina { Conectado = false };
+
+        bool gps = s.Latitude != 0 || s.Longitude != 0;
+        double distKm = -1;
+        if (gps && !string.IsNullOrEmpty(_loteDeLaPosicion))
+            distKm = AgroParallel.Cabina.AvisosCabina.DistanciaKm(_loteLat, _loteLon, s.Latitude, s.Longitude);
+
+        return new AgroParallel.Cabina.EstadoCabina
+        {
+            Conectado        = true,
+            HayGps           = gps,
+            LoteAbierto      = s.IsJobStarted,
+            HayLindero       = s.HasBoundary,
+            FueraDelLindero  = s.IsOutOfBounds,
+            Guias            = s.TracksTotal,
+            DistanciaAlLoteKm = distKm,
+        };
+    }
+
+    /// <summary>Cartel de "sin GPS" y aviso de lote lejano. Corre en cada tick
+    /// del HUD, pero el aviso de distancia se da UNA vez por lote.</summary>
+    private void AtenderAvisosDeCabina(HudSnapshot s, bool hayGps)
+    {
+        // Cartel con el MOTIVO por el que el mapa no puede mostrar la maquina.
+        // Es el pedido de "siempre que haya un problema y no se muestre la
+        // sembradora, que diga el porque": si esto devuelve null y la sembradora
+        // igual no aparece, el problema es de DIBUJO y no de estado — y poder
+        // distinguir esas dos cosas es justamente el punto.
+        string porQueNoSeVe = AgroParallel.Cabina.AvisosCabina.PorQueNoSeVeLaSembradora(EstadoDeCabina());
+        if (_avisoSinGps != null) _avisoSinGps.IsVisible = porQueNoSeVe != null;
+        if (_avisoSinGpsTexto != null && porQueNoSeVe != null) _avisoSinGpsTexto.Text = porQueNoSeVe;
+
+        // Ancla de posicion del lote: se toma la PRIMERA posicion valida
+        // despues de abrirlo.
+        string lote = s.CurrentFieldDirectory ?? "";
+        if (!s.IsJobStarted)
+        {
+            _loteDeLaPosicion = "";
+            _avisoLejosDado = false;
+            return;
+        }
+        if (hayGps && _loteDeLaPosicion != lote)
+        {
+            _loteDeLaPosicion = lote;
+            _loteLat = s.Latitude;
+            _loteLon = s.Longitude;
+            _avisoLejosDado = false;
+            return;   // recien anclado: la distancia es 0, no tiene sentido evaluar
+        }
+
+        if (_avisoLejosDado) return;
+        string aviso = AgroParallel.Cabina.AvisosCabina.AvisoLejosDelLote(EstadoDeCabina());
+        if (aviso != null) { _avisoLejosDado = true; MostrarToast(aviso); }
     }
 
     private void UpdateStatusChip(bool connected, bool jobActive, bool hasGpsFix)

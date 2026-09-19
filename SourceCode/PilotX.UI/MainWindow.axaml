@@ -249,6 +249,27 @@
                 todo. Sin Background para no interceptar el pan/zoom del mapa —
                 solo sus hijos son tocables.
             -->
+            <!-- Por qué el mapa no puede mostrar la máquina. Es el estado que
+                 MÁS confunde en cabina: la pantalla se ve normal y nada
+                 funciona — ni el piloto, ni las guías, ni el pintado — y no hay
+                 forma de distinguirlo de un equipo roto. Va FUERA del Canvas de
+                 overlays a propósito: ese Canvas se apaga cuando no hay ningún
+                 overlay prendido, y este cartel tiene que verse siempre.
+                 El texto lo decide AvisosCabina, no el XAML. -->
+            <Border x:Name="AvisoSinGps" Grid.Row="2" IsVisible="False"
+                    Background="#E15A5A" CornerRadius="10"
+                    Padding="18,10,18,10" ZIndex="30"
+                    HorizontalAlignment="Center" VerticalAlignment="Top"
+                    Margin="0,14,0,0"
+                    BoxShadow="0 4 14 0 #40101612">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Ellipse Width="10" Height="10" Fill="White" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="AvisoSinGpsTexto" Text="Sin señal de GPS"
+                               Foreground="White" FontSize="17" FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
             <Canvas Name="MapOverlaysHost" Grid.Row="2" IsVisible="False">
                 <vw:QuantiXMapOverlay x:Name="QxMapOverlay" IsVisible="False"/>
                 <!-- Franja mínima VistaX: barritas de nivel por surco sobre el
@@ -266,6 +287,7 @@
                      el botón "Soporte" de la barra izquierda. -->
                 <vw:ChatPanel x:Name="ChatWidgetHost" IsVisible="False"
                               Width="360" Height="420"/>
+
                 <!-- Overlay de la pasada: flotante y centrado abajo, justo
                      arriba de las secciones. Lo que el operario toca MIRANDO la
                      línea, no la barra lateral: corrección lateral (izq /
