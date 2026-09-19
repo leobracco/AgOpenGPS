@@ -27,22 +27,31 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using AgroParallel.Models;
+using AgroParallel.Services;
 using AgroParallel.Services.Abstractions;
-using AgroParallel.VistaX;
-using MQTTnet;
-using MQTTnet.Client;
 
 namespace AgroParallel.SectionX
 {
     public sealed class SectionsSpeedPublisher : IDisposable
     {
         private readonly IAogStateProvider _state;
-        private IMqttClient _mqtt;
+        // Enlace compartido con reconexion por backoff (MqttPublisherLink).
+        // Antes: un IMqttClient propio, un solo ConnectAsync y, si fallaba,
+        // return -> el publisher quedaba mudo hasta que el vigilante del host
+        // lo rearrancara; y si el broker se caia despues de conectar, _connected
+        // nunca bajaba y cada publicacion moria en un catch vacio.
+        private MqttPublisherLink _link;
         private System.Timers.Timer _timer;
-        private bool _disposed, _connected;
+        private bool _disposed;
 
         public bool IsRunning { get; private set; }
         public long MessagesSent { get; private set; }
+
+        /// <summary>Hay enlace vivo con el broker. False mientras reconecta.</summary>
+        public bool MqttConectado { get { return _link != null && _link.Conectado; } }
+
+        /// <summary>Publicaciones de velocidad por seccion que no salieron.</summary>
+        public long PublicacionesPerdidas { get { return _link != null ? _link.Perdidas : 0; } }
 
         // Cadencia: 200 ms = 5 Hz. Lo suficiente para dosis variable y monitoreo.
         private const int IntervalMs = 200;
@@ -68,26 +77,14 @@ namespace AgroParallel.SectionX
         public async Task StartAsync()
         {
             if (IsRunning) return;
-            try
-            {
-                var vCfg = VistaXConfig.Load();
-                var factory = new MqttFactory();
-                _mqtt = factory.CreateMqttClient();
-                var opts = new MqttClientOptionsBuilder()
-                    .WithTcpServer(
-                        string.IsNullOrEmpty(vCfg.BrokerAddress) ? "127.0.0.1" : vCfg.BrokerAddress,
-                        vCfg.BrokerPort > 0 ? vCfg.BrokerPort : 1883)
-                    .WithClientId("SXSPD_" + Guid.NewGuid().ToString("N").Substring(0, 6))
-                    .WithCleanSession(true)
-                    .Build();
-                await _mqtt.ConnectAsync(opts);
-                _connected = true;
-            }
-            catch (Exception ex)
-            {
-                Log("MQTT connect error: " + ex.Message);
-                return;
-            }
+
+            // Arranca igual sin broker: el enlace reintenta solo. El broker es
+            // embebido y levanta en el mismo arranque que este publisher, asi
+            // que el primer intento falla por carrera, no por falla real.
+            _link = new MqttPublisherLink("VelSecciones", "SXSPD", Log);
+            bool conectado = await _link.StartAsync();
+            if (!conectado)
+                Log("Broker todavia no disponible: el enlace reintenta en segundo plano");
 
             _timer = new System.Timers.Timer { Interval = IntervalMs, AutoReset = true };
             _timer.Elapsed += OnTick;
@@ -101,20 +98,17 @@ namespace AgroParallel.SectionX
             if (!IsRunning) return;
             IsRunning = false;
             if (_timer != null) { _timer.Stop(); _timer.Dispose(); _timer = null; }
-            if (_mqtt != null)
+            if (_link != null)
             {
-                var m = _mqtt; _mqtt = null;
-                Task.Run(() =>
-                {
-                    try { m.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build()).Wait(2000); m.Dispose(); }
-                    catch { }
-                });
+                var l = _link; _link = null;
+                try { l.Dispose(); }
+                catch { }
             }
         }
 
         private async void OnTick(object sender, System.Timers.ElapsedEventArgs e)
         {
-            if (_disposed || _mqtt == null || !_connected) return;
+            if (_disposed || _link == null) return;
             try
             {
                 AogStateSnapshot snap = null;
@@ -124,13 +118,10 @@ namespace AgroParallel.SectionX
                 if (snap.SectionSpeedsKmh == null || snap.SectionSpeedsKmh.Length == 0) return;
 
                 string payload = BuildPayload(snap);
-                var msg = new MqttApplicationMessageBuilder()
-                    .WithTopic(Topic)
-                    .WithPayload(payload)
-                    .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtMostOnce)
-                    .Build();
-                await _mqtt.PublishAsync(msg);
-                MessagesSent++;
+                // Devuelve false (sin tirar) si no hay enlace; el enlace lleva
+                // la cuenta de lo perdido y avisa resumido.
+                if (await _link.PublicarAsync(Topic, payload))
+                    MessagesSent++;
             }
             catch { /* nunca romper el timer */ }
         }

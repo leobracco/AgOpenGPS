@@ -8,6 +8,7 @@ using System.Globalization;
 using System.IO;
 using AgroParallel.Common;
 using AgroParallel.Models;
+using AgroParallel.Services;
 using AgroParallel.Services.Abstractions;
 using AgroParallel.Services.Common;
 
@@ -34,6 +35,55 @@ namespace AgroParallel.QuantiX
 
         public bool IsRunning { get; private set; }
         public int MessagesSent { get; private set; }
+
+        // Consignas de pps que NO llegaron al nodo. INodoRegistryService.
+        // PublishAsync devuelve false cuando el registry esta desconectado del
+        // broker (nunca tira), y el bridge se comia ese false dentro de un
+        // try/catch vacio: el motor se quedaba con el ultimo target hasta que
+        // su watchdog (3 s) lo frenaba, y en el log no quedaba una sola linea.
+        // Ahora se cuenta y se avisa resumido, igual que FlowX y el corte.
+        private readonly MqttPerdidasContador _perdidas = new MqttPerdidasContador();
+
+        /// <summary>Consignas de dosis que no salieron por falta de enlace.</summary>
+        public long PublicacionesPerdidas { get { return _perdidas.Total; } }
+
+        /// <summary>Ultimo motivo por el que se perdio una consigna.</summary>
+        public string UltimoMotivoPerdida { get { return _perdidas.UltimoMotivo; } }
+
+        /// <summary>
+        /// Publica una consigna al nodo contabilizando lo que no sale. El
+        /// registry ya reconecta solo (su _reconnectTimer de 5 s), asi que aca
+        /// no hay backoff propio: alcanza con no perder el dato en silencio.
+        /// </summary>
+        private async System.Threading.Tasks.Task<bool> PublicarTargetAsync(string topic, string payload)
+        {
+            bool ok = false;
+            string motivo = null;
+            try
+            {
+                ok = await _nodos.PublishAsync(topic, payload, false);
+                if (!ok) motivo = "sin enlace con el broker";
+            }
+            catch (Exception ex)
+            {
+                var err = AgpErrorMapper.FromException(ex);
+                motivo = err.Friendly;
+            }
+
+            if (ok)
+            {
+                MessagesSent++;
+                return true;
+            }
+
+            string aviso = _perdidas.Anotar(motivo);
+            if (aviso != null)
+            {
+                Log(aviso);
+                AgpLog.Error("QuantiX", aviso);
+            }
+            return false;
+        }
 
         // Historial posición/secciones para motores en tren trasero (Tren=1).
         // Compartido con SectionXBridge: ambos usan el mismo PositionHistory
@@ -398,15 +448,9 @@ namespace AgroParallel.QuantiX
                         // sí funcionan.
                         if (!motor.Habilitado)
                         {
-                            try
-                            {
-                                await _nodos.PublishAsync(
-                                    "agp/quantix/" + nodo.Uid + "/target",
-                                    "{\"id\":" + mi + ",\"pps\":0,\"seccion_on\":false}",
-                                    false);
-                                MessagesSent++;
-                            }
-                            catch { }
+                            await PublicarTargetAsync(
+                                "agp/quantix/" + nodo.Uid + "/target",
+                                "{\"id\":" + mi + ",\"pps\":0,\"seccion_on\":false}");
                             continue;
                         }
 
@@ -646,25 +690,21 @@ namespace AgroParallel.QuantiX
 
                         if (!cambioSeccion && !cambioValor && !tocaLatido) continue;
 
-                        _ppsPublicado[kPps] = ppsSuave;
-                        _secPublicada[kPps] = seccionOn;
-                        _ppsPublicadoMs[kPps] = ahoraMs;
-
                         string topic = "agp/quantix/" + nodo.Uid + "/target";
                         string payload = "{\"id\":" + mi
                             + ",\"pps\":" + Math.Round(ppsSuave, 2).ToString(CultureInfo.InvariantCulture)
                             + ",\"seccion_on\":" + (seccionOn ? "true" : "false")
                             + "}";
 
-                        try
-                        {
-                            // PublishAsync devuelve false si el registry está
-                            // desconectado del broker — el target se pierde y
-                            // el firmware aplica su timeout de seguridad.
-                            await _nodos.PublishAsync(topic, payload, false);
-                            MessagesSent++;
-                        }
-                        catch { }
+                        // Si no sale, el dedup NO se actualiza: la consigna
+                        // vigente se vuelve a intentar en el proximo tick en
+                        // vez de quedar marcada como publicada sin que ningun
+                        // motor la haya recibido.
+                        if (!await PublicarTargetAsync(topic, payload)) continue;
+
+                        _ppsPublicado[kPps] = ppsSuave;
+                        _secPublicada[kPps] = seccionOn;
+                        _ppsPublicadoMs[kPps] = ahoraMs;
                     }
                     // Secciones/relays las controla SectionX, no QuantiX.
                 }

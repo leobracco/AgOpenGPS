@@ -24,10 +24,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using AgroParallel.Common;
 using AgroParallel.Models;
+using AgroParallel.Services;
 using AgroParallel.Services.Abstractions;
-using AgroParallel.VistaX;
-using MQTTnet;
-using MQTTnet.Client;
 
 namespace AgroParallel.Cut
 {
@@ -45,10 +43,12 @@ namespace AgroParallel.Cut
         private readonly Dictionary<string, ICutAdapter> _byProduct =
             new Dictionary<string, ICutAdapter>(StringComparer.OrdinalIgnoreCase);
 
-        private IMqttClient _mqtt;
+        // Enlace MQTT compartido (MqttPublisherLink): reconecta solo con
+        // backoff y una publicacion sin enlace devuelve false en vez de tirar.
+        private MqttPublisherLink _link;
         private System.Timers.Timer _tickTimer;
         private System.Timers.Timer _reloadTimer;
-        private bool _disposed, _connected;
+        private bool _disposed;
 
         private readonly PositionHistory _posHistory = new PositionHistory(Log);
 
@@ -73,7 +73,12 @@ namespace AgroParallel.Cut
         private readonly object _lock = new object();
 
         public bool IsRunning { get; private set; }
-        public bool MqttConnected { get { return _connected; } }
+        public bool MqttConnected { get { return _link != null && _link.Conectado; } }
+
+        /// <summary>Ordenes de corte que NO llegaron al nodo por falta de
+        /// enlace con el broker. Distinto de cero = hubo secciones que quedaron
+        /// con la orden vieja hasta el corte por comms-loss del firmware.</summary>
+        public long PublicacionesPerdidas { get { return _link != null ? _link.Perdidas : 0; } }
 
         private static CutDispatcher s_current;
         public static CutDispatcher Current { get { return s_current; } }
@@ -101,41 +106,17 @@ namespace AgroParallel.Cut
         {
             if (IsRunning) return;
 
-            try
-            {
-                var vCfg = VistaXConfig.Load();
-                var factory = new MqttFactory();
-                _mqtt = factory.CreateMqttClient();
-                // Si el broker se cae después de conectar, _connected tiene que
-                // bajar: es lo que reporta GetStatus() al chip de la UI, y un
-                // "conectado" que miente es peor que ninguno. El rearranque lo
-                // hace el vigilante del host (EngineWebHost._cutRetry).
-                _mqtt.DisconnectedAsync += e =>
-                {
-                    if (_connected)
-                        Log("MQTT desconectado" + (e.Exception != null ? ": " + e.Exception.Message : ""));
-                    _connected = false;
-                    return Task.CompletedTask;
-                };
-                var opts = new MqttClientOptionsBuilder()
-                    .WithTcpServer(
-                        string.IsNullOrEmpty(vCfg.BrokerAddress) ? "127.0.0.1" : vCfg.BrokerAddress,
-                        vCfg.BrokerPort > 0 ? vCfg.BrokerPort : 1883)
-                    .WithClientId("CUT_" + Guid.NewGuid().ToString("N").Substring(0, 6))
-                    .WithCleanSession(true)
-                    .Build();
-                await _mqtt.ConnectAsync(opts);
-                _connected = true;
-            }
-            catch (Exception ex)
-            {
-                Log("MQTT error: " + ex.Message);
-                // Sin esto, cada reintento del vigilante (15 s) abandonaba un
-                // IMqttClient sin disponer mientras el broker no levantaba.
-                try { _mqtt?.Dispose(); } catch { }
-                _mqtt = null;
-                return;
-            }
+            // El dispatcher arranca IGUAL si el broker todavia no levanto: el
+            // enlace reintenta solo con backoff (500 ms -> 15 s). Abortar aca
+            // era la carrera de arranque: Program.cs hace webHost.Start() -que
+            // dispara este dispatcher- ANTES de coreX.StartServices(), donde el
+            // broker embebido recien empieza a escuchar en :1883. El enlace
+            // ademas baja MqttConnected apenas se cae (un "conectado" que miente
+            // es peor que ninguno) y avisa cada orden de corte que no salio.
+            _link = new MqttPublisherLink("Corte", "CUT", Log);
+            bool conectado = await _link.StartAsync();
+            if (!conectado)
+                Log("Broker todavia no disponible: el enlace reintenta en segundo plano");
 
             ReloadNow();
 
@@ -161,16 +142,12 @@ namespace AgroParallel.Cut
 
             SendAllOff();
 
-            if (_mqtt != null)
+            if (_link != null)
             {
-                var m = _mqtt; _mqtt = null;
-                Task.Run(() =>
-                {
-                    try { m.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build()).Wait(2000); m.Dispose(); }
-                    catch { }
-                });
+                var l = _link; _link = null;
+                try { l.Dispose(); }
+                catch { }
             }
-            _connected = false;
             if (ReferenceEquals(s_current, this)) s_current = null;
         }
 
@@ -185,7 +162,10 @@ namespace AgroParallel.Cut
 
         private async void OnTick(object sender, System.Timers.ElapsedEventArgs e)
         {
-            if (_disposed || _mqtt == null || !_connected) return;
+            // Sin enlace el tick sigue corriendo: arma las ordenes igual e
+            // intenta publicarlas, asi apenas vuelve el broker sale la orden
+            // vigente y mientras tanto queda contado lo que se perdio.
+            if (_disposed || _link == null) return;
             try
             {
                 AogStateSnapshot snap = null;
@@ -214,33 +194,36 @@ namespace AgroParallel.Cut
                             (DateTime.UtcNow - lastPub).TotalMilliseconds >= HeartbeatMs;
                         if (!changed && !heartbeatDue) continue;
 
+                        // PublicarAsync nunca tira: false = la orden no salio,
+                        // ya contada y avisada por el enlace. El dedup NO se
+                        // actualiza en ese caso, asi la orden vigente se vuelve
+                        // a intentar en el proximo tick en vez de quedar
+                        // "publicada" en una cache que ningun nodo recibio.
+                        bool enviado = await PublishRawAsync(cmd.Topic, cmd.Payload);
+                        if (!enviado) continue;
+
                         _lastPayload[cmd.Uid] = cmd.Payload;
                         _lastPublishUtc[cmd.Uid] = DateTime.UtcNow;
 
-                        try
+                        var now = DateTime.UtcNow;
+                        lock (_lock)
                         {
-                            await PublishRawAsync(cmd.Topic, cmd.Payload);
-                            var now = DateTime.UtcNow;
-                            lock (_lock)
+                            ProductStats st;
+                            if (_stats.TryGetValue(adapter.Product, out st))
                             {
-                                ProductStats st;
-                                if (_stats.TryGetValue(adapter.Product, out st))
-                                {
-                                    st.Messages++;
-                                    st.LastPublishUtc = now;
-                                }
-                                _lastInfo[cmd.Uid] = new LastPublishInfo
-                                {
-                                    Product = adapter.Product,
-                                    Topic = cmd.Topic,
-                                    Payload = cmd.Payload,
-                                    Bits = cmd.Bits,
-                                    AtUtc = now
-                                };
+                                st.Messages++;
+                                st.LastPublishUtc = now;
                             }
-                            if (changed) Log("-> " + cmd.Uid + " " + cmd.Payload);
+                            _lastInfo[cmd.Uid] = new LastPublishInfo
+                            {
+                                Product = adapter.Product,
+                                Topic = cmd.Topic,
+                                Payload = cmd.Payload,
+                                Bits = cmd.Bits,
+                                AtUtc = now
+                            };
                         }
-                        catch (Exception ex) { Log("publish " + cmd.Uid + ": " + ex.Message); }
+                        if (changed) Log("-> " + cmd.Uid + " " + cmd.Payload);
                     }
                 }
             }
@@ -249,7 +232,7 @@ namespace AgroParallel.Cut
 
         private void SendAllOff()
         {
-            if (_mqtt == null) return;
+            if (_link == null) return;
             foreach (var adapter in _adapters)
             {
                 IEnumerable<CutCommand> offs;
@@ -260,22 +243,22 @@ namespace AgroParallel.Cut
                     if (cmd == null || string.IsNullOrEmpty(cmd.Uid)) continue;
                     try
                     {
-                        var msg = new MqttApplicationMessageBuilder()
-                            .WithTopic(cmd.Topic).WithPayload(cmd.Payload).Build();
-                        _mqtt.PublishAsync(msg).Wait(500);
+                        // Bloqueo acotado: no corre en el tick sino en Stop(),
+                        // y cerrar las secciones vale medio segundo de espera.
+                        _link.PublicarAsync(cmd.Topic, cmd.Payload).Wait(500);
                     }
                     catch { }
                 }
             }
         }
 
-        private async Task PublishRawAsync(string topic, string payload)
+        /// <summary>Publica por el enlace compartido. Devuelve false (sin
+        /// tirar) si no hay conexion: el enlace ya lo conto y lo aviso.</summary>
+        private async Task<bool> PublishRawAsync(string topic, string payload)
         {
-            var msg = new MqttApplicationMessageBuilder()
-                .WithTopic(topic).WithPayload(payload)
-                .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtMostOnce)
-                .Build();
-            await _mqtt.PublishAsync(msg);
+            var l = _link;
+            if (l == null) return false;
+            return await l.PublicarAsync(topic, payload);
         }
 
         // ---------------------------------------------------------------------
@@ -286,7 +269,7 @@ namespace AgroParallel.Cut
         public async Task<bool> RunRelayTestAsync(string uid, int[] cables, int stepMs)
         {
             if (string.IsNullOrEmpty(uid) || cables == null || cables.Length == 0) return false;
-            if (_mqtt == null || !_connected) return false;
+            if (!MqttConnected) return false;
 
             ICutAdapter a;
             if (!_byProduct.TryGetValue("sectionx", out a)) return false;
@@ -322,7 +305,8 @@ namespace AgroParallel.Cut
             var snap = new StatusSnapshot
             {
                 Running = IsRunning,
-                Connected = _connected,
+                Connected = MqttConnected,
+                LostPublishes = PublicacionesPerdidas,
                 NodeCount = 0,
                 MessagesSent = 0,
                 LastPublishMsAgo = null
@@ -400,6 +384,8 @@ namespace AgroParallel.Cut
         {
             public bool Running { get; set; }
             public bool Connected { get; set; }
+            /// <summary>Ordenes de corte perdidas por falta de enlace.</summary>
+            public long LostPublishes { get; set; }
             public int NodeCount { get; set; }
             public int MessagesSent { get; set; }
             public long? LastPublishMsAgo { get; set; }

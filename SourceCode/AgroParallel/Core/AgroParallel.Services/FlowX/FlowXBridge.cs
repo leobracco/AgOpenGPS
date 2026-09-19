@@ -39,10 +39,8 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using AgroParallel.Models;
+using AgroParallel.Services;
 using AgroParallel.Services.Abstractions;
-using AgroParallel.VistaX;
-using MQTTnet;
-using MQTTnet.Client;
 
 namespace AgroParallel.FlowX
 {
@@ -55,10 +53,18 @@ namespace AgroParallel.FlowX
         // arranque → el operario cambiaba pwm_min a 706, el bridge seguía
         // publicando el 40 default en el target y el firmware nunca lo veía.
         private FlowXConfig _config;
-        private IMqttClient _mqtt;
+        // Enlace MQTT compartido (MqttPublisherLink): reconecta solo con
+        // backoff y una publicación sin enlace devuelve false en vez de tirar.
+        // Antes acá había un IMqttClient propio que conectaba UNA vez y, si el
+        // broker embebido todavía no había levantado, el bridge quedaba mudo;
+        // y si el enlace se caía DESPUÉS, nadie bajaba el flag _connected, así
+        // que el tick seguía publicando contra un cliente muerto y cada target
+        // de válvula se perdía con una línea "publish error ... not connected"
+        // en el log y nada más.
+        private MqttPublisherLink _link;
         private System.Timers.Timer _timer;
         private System.Timers.Timer _reloadTimer;
-        private bool _disposed, _connected;
+        private bool _disposed;
 
         // Última payload publicada por nodo - evita spamear MQTT si nada cambió.
         // Key: uid. Value: hash simple del payload (target redondeado + bits sec).
@@ -86,6 +92,16 @@ namespace AgroParallel.FlowX
         public bool IsRunning { get; private set; }
         public int MessagesSent { get; private set; }
 
+        /// <summary>Hay enlace vivo con el broker. False mientras reconecta.</summary>
+        public bool MqttConectado { get { return _link != null && _link.Conectado; } }
+
+        /// <summary>Targets de válvula que NO llegaron al nodo por falta de
+        /// enlace. Distinto de cero = la dosificación quedó a ciegas un rato.</summary>
+        public long PublicacionesPerdidas { get { return _link != null ? _link.Perdidas : 0; } }
+
+        /// <summary>Último motivo de falla del enlace, en castellano.</summary>
+        public string MqttUltimoMotivo { get { return _link != null ? _link.UltimoMotivo : null; } }
+
         private static readonly string LogPath = Path.Combine(
             AgroParallel.Common.AgpPaths.ConfigRoot, "fx_bridge.log");
         private static void Log(string msg)
@@ -110,25 +126,15 @@ namespace AgroParallel.FlowX
                 return;
             }
 
-            try
-            {
-                var vCfg = VistaXConfig.Load();
-                var factory = new MqttFactory();
-                _mqtt = factory.CreateMqttClient();
-                var opts = new MqttClientOptionsBuilder()
-                    .WithTcpServer(vCfg.BrokerAddress ?? "127.0.0.1",
-                                   vCfg.BrokerPort > 0 ? vCfg.BrokerPort : 1883)
-                    .WithClientId("FX_" + Guid.NewGuid().ToString("N").Substring(0, 6))
-                    .WithCleanSession(true)
-                    .Build();
-                await _mqtt.ConnectAsync(opts);
-                _connected = true;
-            }
-            catch (Exception ex)
-            {
-                Log("MQTT error: " + ex.Message);
-                return;
-            }
+            // El bridge arranca IGUAL si el broker todavía no levantó: el
+            // enlace reintenta solo con backoff. Abortar acá era la carrera de
+            // arranque real — Program.cs hace webHost.Start() (que dispara este
+            // bridge) ANTES de coreX.StartServices(), que es donde el broker
+            // embebido empieza a escuchar en :1883.
+            _link = new MqttPublisherLink("FlowX", "FX", Log);
+            bool conectado = await _link.StartAsync();
+            if (!conectado)
+                Log("Broker todavia no disponible: el enlace reintenta en segundo plano");
 
             _timer = new System.Timers.Timer { Interval = 200, AutoReset = true };
             _timer.Elapsed += OnTick;
@@ -151,24 +157,21 @@ namespace AgroParallel.FlowX
             if (_timer != null) { _timer.Stop(); _timer.Dispose(); _timer = null; }
             if (_reloadTimer != null) { _reloadTimer.Stop(); _reloadTimer.Dispose(); _reloadTimer = null; }
             SendAllOff();
-            if (_mqtt != null)
+            if (_link != null)
             {
-                var m = _mqtt; _mqtt = null;
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        m.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().Build()).Wait(2000);
-                        m.Dispose();
-                    }
-                    catch { }
-                });
+                var l = _link; _link = null;
+                try { l.Dispose(); }
+                catch { }
             }
         }
 
         private async void OnTick(object sender, System.Timers.ElapsedEventArgs e)
         {
-            if (_disposed || _mqtt == null || !_connected) return;
+            // Sin enlace el tick SIGUE corriendo: arma el target igual y lo
+            // intenta publicar, así el enlace recuperado manda la consigna
+            // vigente en el primer tick y las que no salieron quedan contadas
+            // (antes se salía mudo y nadie se enteraba de lo que se perdió).
+            if (_disposed || _link == null) return;
 
             AogStateSnapshot snap = null;
             try { snap = _state.GetSnapshot(); } catch { }
@@ -323,46 +326,40 @@ namespace AgroParallel.FlowX
                     (DateTime.UtcNow - lastPub).TotalMilliseconds >= HeartbeatMs;
 
                 if (!changed && !heartbeatDue) continue;
-                _lastPayload[nodo.Uid] = payload;
-                _lastPublishUtc[nodo.Uid] = DateTime.UtcNow;
 
                 string topic = "agp/flow/" + nodo.Uid + "/target";
-                try
+                // PublicarAsync nunca tira: devuelve false y cuenta la consigna
+                // perdida (con aviso resumido en el log y en AgpLog).
+                bool enviado = await _link.PublicarAsync(topic, payload);
+                if (!enviado) continue;  // dedup NO se actualiza: al reconectar sale ya
+
+                _lastPayload[nodo.Uid] = payload;
+                _lastPublishUtc[nodo.Uid] = DateTime.UtcNow;
+                MessagesSent++;
+                if (changed)
                 {
-                    var msg = new MqttApplicationMessageBuilder()
-                        .WithTopic(topic)
-                        .WithPayload(payload)
-                        .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtMostOnce)
-                        .Build();
-                    await _mqtt.PublishAsync(msg);
-                    MessagesSent++;
-                    if (changed)
-                    {
-                        Log(string.Format(
-                            "-> {0} t={1:F2}L/min v={2:F1}km/h ancho={3:F2}m sec={4}/{5}",
-                            nodo.Uid, targetLmin, velKmh, anchoActivo, cablesOpen, cableCount));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log("publish error " + nodo.Uid + ": " + ex.Message);
+                    Log(string.Format(
+                        "-> {0} t={1:F2}L/min v={2:F1}km/h ancho={3:F2}m sec={4}/{5}",
+                        nodo.Uid, targetLmin, velKmh, anchoActivo, cablesOpen, cableCount));
                 }
             }
         }
 
         private void SendAllOff()
         {
-            if (_mqtt == null) return;
+            if (_link == null) return;
             foreach (var n in _config.Nodos)
             {
                 if (string.IsNullOrEmpty(n.Uid)) continue;
                 try
                 {
-                    var msg = new MqttApplicationMessageBuilder()
-                        .WithTopic("agp/flow/" + n.Uid + "/target")
-                        .WithPayload("{\"t\":0,\"sec\":[0,0,0,0,0,0,0,0],\"pwm_min\":0}")
-                        .Build();
-                    _mqtt.PublishAsync(msg).Wait(500);
+                    // Bloquea acotado a propósito: esto NO corre en el tick,
+                    // corre en Stop() y el cierre ordenado de las válvulas vale
+                    // medio segundo de espera. Si no hay enlace sale por false
+                    // al toque (el firmware igual cierra por comms-loss).
+                    _link.PublicarAsync("agp/flow/" + n.Uid + "/target",
+                                        "{\"t\":0,\"sec\":[0,0,0,0,0,0,0,0],\"pwm_min\":0}")
+                         .Wait(500);
                 }
                 catch { }
             }
