@@ -254,7 +254,16 @@ namespace AgroParallel.Soporte
                     baseSeg = DateTime.UtcNow < _activoHasta ? ActivoSeg : InactivoSeg;
                     _esperaSeg = ok ? baseSeg : Math.Min(_esperaSeg * 2, MaxSeg);
                 }
-                catch (OperationCanceledException) { return; }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+                // Sin el `when` de arriba, un TIMEOUT de HttpClient dentro de Ciclo
+                // —que sale como TaskCanceledException con un token que NO es ct—
+                // se leia como apagado ordenado y mataba este bucle en silencio
+                // PARA SIEMPRE: el canal quedaba mudo sin una sola linea de log.
+                catch (OperationCanceledException ex)
+                {
+                    Trace("ciclo cortado por timeout: " + ex.Message);
+                    _esperaSeg = Math.Min(_esperaSeg * 2, MaxSeg);
+                }
                 catch (Exception ex)
                 {
                     Trace("ciclo fallo: " + ex.Message);

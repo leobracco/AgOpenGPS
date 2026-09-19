@@ -117,11 +117,43 @@ namespace AgroParallel.Services.Tests
         [Fact]
         public void El_catalogo_no_trae_acciones_destructivas_todavia()
         {
-            // Reiniciar equipo/PilotX se agregan cuando esté el flujo de
-            // confirmación del panel. Si alguien las suma antes, este test lo
-            // frena: son las únicas que tocan la máquina.
+            // Reiniciar equipo/PilotX, mover una válvula de FlowX o poner el
+            // maestro de secciones en manual se agregan al catálogo cuando esté
+            // el flujo de confirmación del panel. Si alguien las suma antes,
+            // este test lo frena: son las únicas que tocan la máquina.
+            //
+            // Las de FlowX existen escritas (nacieron de domar la reguladora de
+            // Las Gringas a distancia) pero se registran sólo con la
+            // habilitación LOCAL prendida, que es lo que este test da por
+            // apagado — el default con el que sale cada pantalla.
             foreach (var a in AccionesSoporte.Catalogo.Values)
                 Assert.False(a.EsAccion, "La acción '" + a.Nombre + "' modifica la máquina y todavía no hay confirmación en el panel.");
+        }
+
+        [Fact]
+        public void Operar_la_maquina_a_distancia_viene_apagado_de_fabrica()
+        {
+            // El default no es un detalle: si esto viniera prendido, el guard de
+            // arriba pasaría igual en el banco y en el campo el cloud podría
+            // mover una válvula sin que nadie en la cabina diga que sí.
+            Assert.False(AccionesSoporte.OperarHabilitado);
+        }
+
+        [Fact]
+        public void Apagar_las_acciones_no_se_llevo_puesto_el_diagnostico()
+        {
+            // El arreglo correcto saca del catálogo lo que TOCA la máquina, no
+            // lo que la MIRA: sin diagnóstico remoto el canal no sirve para
+            // nada.
+            Assert.NotNull(AccionesSoporte.Buscar("flowx_diag"));
+            Assert.NotNull(AccionesSoporte.Buscar("corte_config"));
+            Assert.NotNull(AccionesSoporte.Buscar("nodos_live"));
+
+            // Y lo que toca la máquina no está disponible con el default.
+            Assert.Null(AccionesSoporte.Buscar("flowx_pwm"));
+            Assert.Null(AccionesSoporte.Buscar("flowx_pisos"));
+            Assert.Null(AccionesSoporte.Buscar("flowx_config"));
+            Assert.Null(AccionesSoporte.Buscar("secciones_manual"));
         }
 
         [Theory]

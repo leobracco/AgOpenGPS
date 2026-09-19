@@ -98,7 +98,16 @@ namespace AgroParallel.Soporte
                     // se vuelve al ritmo normal enseguida.
                     _esperaSeg = ok ? IntervaloSeg : Math.Min(_esperaSeg * 2, IntervaloMaxSeg);
                 }
-                catch (OperationCanceledException) { return; }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+                // Sin el `when` de arriba, un TIMEOUT de HttpClient dentro de Ciclo
+                // —que sale como TaskCanceledException con un token que NO es ct—
+                // se leia como apagado ordenado y mataba este bucle en silencio
+                // PARA SIEMPRE: el canal quedaba mudo sin una sola linea de log.
+                catch (OperationCanceledException ex)
+                {
+                    Trace("ciclo cortado por timeout: " + ex.Message);
+                    _esperaSeg = Math.Min(_esperaSeg * 2, IntervaloMaxSeg);
+                }
                 catch (Exception ex)
                 {
                     Trace("ciclo fallo: " + ex.Message);
@@ -313,6 +322,14 @@ namespace AgroParallel.Soporte
                 r.Ok = false;
                 r.Salida = "Diagnostico desconocido: " + p.Accion +
                            ". Disponibles: " + string.Join(", ", AccionesSoporte.Catalogo.Keys);
+                // Sin esta nota, pedir flowx_pwm en un equipo normal contesta
+                // "desconocido" y parece un bug de version. Es a proposito: las
+                // acciones que tocan la maquina no estan en el catalogo hasta
+                // que el panel confirme con el operario.
+                if (!AccionesSoporte.OperarHabilitado)
+                    r.Salida += ". Las acciones que TOCAN la maquina (mover valvula, secciones en manual, " +
+                                "grabar config de un nodo) no estan disponibles: se habilitan en la maquina " +
+                                "(" + AccionesSoporte.VarOperar + "=1) de acuerdo con quien esta en la cabina.";
                 sw.Stop(); r.Ms = sw.ElapsedMilliseconds;
                 Trace("rechazado, no esta en el catalogo: " + p.Accion);
                 return r;

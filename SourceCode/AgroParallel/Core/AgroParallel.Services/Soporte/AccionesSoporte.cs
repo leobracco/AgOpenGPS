@@ -15,8 +15,18 @@
 //   · NUNCA devuelve credenciales. Toda salida pasa por Sanitizar(), que tapa
 //     el token del equipo y el contenido de orbitX.json. Un pedido de logs no
 //     puede terminar filtrando el token con el que se comanda la máquina.
-//   · Las acciones que TOCAN la máquina (reiniciar) se marcan EsAccion=true;
-//     el panel las trata distinto y pide confirmación.
+//   · Las acciones que TOCAN la máquina (mover una válvula, poner el maestro
+//     de secciones en manual, grabar config de un nodo, reiniciar) se marcan
+//     EsAccion=true.
+//   · Mientras el panel NO le pida confirmación al operario, esas acciones NO
+//     entran al catálogo: el catálogo que ve el cloud es de sola lectura. Se
+//     registran únicamente si alguien PARADO EN LA MÁQUINA prendió la
+//     habilitación local (ver OperarHabilitado). Un técnico con el token del
+//     equipo no puede prenderla desde el cloud.
+//     El motivo es del campo, no de escritorio: `flowx_pwm` abre una válvula
+//     de líquido y `secciones_manual` toca el maestro de secciones. Si eso
+//     pasa mientras el tractor anda y nadie en la cabina dijo que sí, se
+//     aplica producto donde no va — o se deja de aplicar donde sí va.
 // ============================================================================
 
 using System;
@@ -35,7 +45,10 @@ namespace AgroParallel.Soporte
         public string Nombre;
         /// <summary>Qué hace, en criollo. Lo muestra el panel.</summary>
         public string Descripcion;
-        /// <summary>true = modifica la máquina (reiniciar). El panel confirma.</summary>
+        /// <summary>true = modifica la máquina (mueve una válvula, cambia
+        /// config de un nodo, reinicia). Estas exigen confirmación del operario
+        /// y por eso hoy sólo entran al catálogo con la habilitación local
+        /// prendida (<see cref="AccionesSoporte.OperarHabilitado"/>).</summary>
         public bool EsAccion;
         /// <summary>Ejecuta y devuelve texto. Recibe los params ya validados.</summary>
         public Func<IDictionary<string, string>, string> Ejecutar;
@@ -57,6 +70,60 @@ namespace AgroParallel.Soporte
         /// <summary>Catálogo (nombre → acción). Sólo lectura.</summary>
         public static IReadOnlyDictionary<string, AccionSoporte> Catalogo => _cat;
 
+        /// <summary>Nombre de la variable de entorno que habilita las acciones
+        /// que tocan la máquina.</summary>
+        public const string VarOperar = "PILOTX_SOPORTE_OPERAR";
+
+        /// <summary>Nombre del archivo marca, al lado del ejecutable, que
+        /// habilita lo mismo sin tocar variables de entorno.</summary>
+        public const string ArchivoOperar = "soporte-operar.habilitado";
+
+        /// <summary>
+        /// ¿Están habilitadas las acciones que TOCAN la máquina (flowx_pwm,
+        /// flowx_pisos, flowx_config, secciones_manual)?
+        ///
+        /// Apagado por defecto y a propósito: hasta que el panel le pida
+        /// confirmación al operario antes de ejecutar, mover una válvula por
+        /// orden remota es decidir solo. La habilitación es LOCAL —variable de
+        /// entorno <see cref="VarOperar"/>=1 o un archivo
+        /// <see cref="ArchivoOperar"/> al lado del ejecutable— así que la
+        /// prende quien está parado en la máquina, no el cloud: si el token de
+        /// un equipo se filtra (pasó el 2026-09-05), con eso solo no se puede
+        /// operar nada.
+        ///
+        /// Se lee UNA vez al arrancar: el estado no cambia en caliente, para
+        /// que no dependa de quién escribió un archivo a mitad de una labor.
+        /// </summary>
+        public static bool OperarHabilitado { get { return _operar; } }
+
+        private static readonly bool _operar = LeerHabilitacionOperar();
+
+        private static bool LeerHabilitacionOperar()
+        {
+            try
+            {
+                string v = Environment.GetEnvironmentVariable(VarOperar);
+                if (!string.IsNullOrWhiteSpace(v))
+                {
+                    v = v.Trim();
+                    if (v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                        v.Equals("si", StringComparison.OrdinalIgnoreCase) ||
+                        v.Equals("sí", StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+            catch { }
+
+            try
+            {
+                if (File.Exists(Path.Combine(AppContext.BaseDirectory, ArchivoOperar)))
+                    return true;
+            }
+            catch { }
+
+            return false;
+        }
+
         /// <summary>Busca una acción. null si no existe (→ se rechaza).</summary>
         public static AccionSoporte Buscar(string nombre)
         {
@@ -76,16 +143,30 @@ namespace AgroParallel.Soporte
             Reg("logs_pilotx", "Últimas líneas del log de eventos (param: lineas)", false, LogsPilotX);
             Reg("nodos", "Config de nodos vista por la pantalla", false, Nodos);
 
-            // --- FlowX: operacion remota ACOTADA (no es un proxy abierto) ---
-            // Cada accion hace UNA cosa nombrada contra la API local del Engine
-            // (loopback). No reciben rutas ni comandos libres: solo parametros
-            // validados. Asi, si el token del equipo se filtra, el dano posible
-            // esta enumerado, no es "cualquier cosa".
+            // --- FlowX: diagnostico (solo lectura) ---
             Reg("flowx_diag", "FlowX: caudal, PWM, objetivo, config y secciones AOG", false, FlowxDiag);
-            Reg("flowx_pwm", "FlowX: mueve la valvula a un PWM (params: uid, pwm -4095..4095, seg 1..30). Corta solo.", true, FlowxPwm);
-            Reg("flowx_pisos", "FlowX: graba pwm_min de arranque (params: uid, pos, neg 0..4095)", true, FlowxPisos);
-            Reg("flowx_config", "FlowX: ajusta config en PilotX (params: uid, pwm_min, dosis_lha, modo_manual, manual_lmin, meter_cal)", true, FlowxConfigSet);
-            Reg("secciones_manual", "Maestro de secciones en manual (param: on = 1/0)", true, SeccionesManual);
+
+            // --- Acciones que TOCAN la maquina: apagadas por defecto ---
+            // Cada una hace UNA cosa nombrada contra la API local del Engine
+            // (loopback), con parametros validados y sin comandos libres: el
+            // dano posible esta enumerado. Pero enumerado no es lo mismo que
+            // consentido — flowx_pwm abre una valvula de liquido y
+            // secciones_manual toca el maestro de secciones, y el panel todavia
+            // NO le pregunta nada al operario antes de mandar la orden.
+            //
+            // Hasta que exista esa confirmacion en el panel, no entran al
+            // catalogo: el cloud ni siquiera las ve. Quien necesite operar a
+            // distancia (caso Raven 2123 del 2026-09-06) tiene que prender la
+            // habilitacion LOCAL en la maquina — PILOTX_SOPORTE_OPERAR=1 o el
+            // archivo marca — de acuerdo con quien esta en la cabina, y
+            // apagarla al terminar. No hace falta recompilar.
+            if (OperarHabilitado)
+            {
+                Reg("flowx_pwm", "FlowX: mueve la valvula a un PWM (params: uid, pwm -4095..4095, seg 1..30). Corta solo.", true, FlowxPwm);
+                Reg("flowx_pisos", "FlowX: graba pwm_min de arranque (params: uid, pos, neg 0..4095)", true, FlowxPisos);
+                Reg("flowx_config", "FlowX: ajusta config en PilotX (params: uid, pwm_min, dosis_lha, modo_manual, manual_lmin, meter_cal)", true, FlowxConfigSet);
+                Reg("secciones_manual", "Maestro de secciones en manual (param: on = 1/0)", true, SeccionesManual);
+            }
 
             // --- Nodos y red: solo lectura ---
             Reg("nodos_live", "Nodos que ve el Engine: online/offline, IP, version, ultimo visto", false, NodosLive);
