@@ -20,6 +20,26 @@
 //
 // El mapeo excepción -> código vive en AgpErrorMapper, compartido con el
 // resto del sistema para que un mismo problema tenga siempre el mismo número.
+//
+// LO QUE ESTE HANDLER *NO* AGARRA — leer antes de confiar en errores.log.
+//
+// AppDomain.UnhandledException solo ve excepciones managed. Las caídas duras
+// (ACCESS_VIOLATION 0xC0000005, FailFast 0xC0000602 y demás "corrupted state
+// exceptions") NO pasan por acá: el runtime las considera irrecuperables y
+// baja el proceso desde su propio manejador de error fatal, sin darle la
+// palabra a ningún código managed.
+//
+// Esto NO es teoría. El 19/09/2026 10:46:42 la pantalla murió con
+// 0xC0000005 dentro de SkiaSharp.SkiaApi.sk_canvas_flush y en
+// Build\Desktop\Logs no había absolutamente nada: la carpeta ni existía,
+// pese a que este handler estaba instalado desde el primer renglón de Main.
+// Lo único que quedó fue un evento 1026 en el Visor de eventos de Windows.
+//
+// Por eso existe PostMortem.cs: hace que el runtime escriba el volcado a un
+// archivo al morir y que el arranque siguiente lo levante y lo deje acá. Si
+// errores.log aparece vacío después de una caída, la caída fue de las duras
+// y hay que buscarla en Logs\crash\ (o, si las variables del vigilante no
+// estaban puestas, en el Visor de eventos: Aplicación -> .NET Runtime, 1026).
 // ============================================================================
 
 using System;

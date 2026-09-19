@@ -1,4 +1,4 @@
-# build.ps1 - Compila el stack PilotX (Desktop + Engine + BarsHost + tools)
+﻿# build.ps1 - Compila el stack PilotX (Desktop + Engine + BarsHost + tools)
 # y copia todo a /Build. El WinForms legacy (PilotX.exe) y AgIO (CoreX.exe)
 # se eliminaron del repo el 2026-08-14: el Engine trae el CoreX embebido
 # (broker MQTT, bridge UDP, NTRIP, seriales y panel :5181).
@@ -287,6 +287,18 @@ if (-not $SkipSmoke) {
         exit 1
     }
     Write-Host "OK: el Engine arranco y responde la API." -ForegroundColor Green
+}
+
+# El lanzador vive en Build/, que esta en .gitignore: si alguien borra Build/ y
+# rebuildea, el vigilante (redireccion de stderr para el post-mortem, minidump y
+# backoff de relanzamiento) se perdia sin que nadie se entere. La fuente de
+# verdad es Installer/plantillas/ y se copia aca.
+$plantillaBat = Join-Path $PSScriptRoot "Installer\plantillas\Lanzar-PilotX.bat"
+if (Test-Path $plantillaBat) {
+    Copy-Item $plantillaBat (Join-Path $OutDir "Lanzar-PilotX.bat") -Force
+    Write-Host "Lanzador: copiado desde Installer\plantillas" -ForegroundColor DarkGray
+} else {
+    Write-Host "AVISO: falta Installer\plantillas\Lanzar-PilotX.bat" -ForegroundColor Yellow
 }
 
 Write-Host "`n=== Build OK === Output: $OutDir" -ForegroundColor Green

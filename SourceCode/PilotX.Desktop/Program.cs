@@ -43,6 +43,15 @@ internal static class Program
         // jornada. Ver CrashHandler.
         CrashHandler.Instalar();
 
+        // Lápida de la corrida anterior. CrashHandler NO ve las caídas duras
+        // (ACCESS_VIOLATION y demás "corrupted state exceptions"): el runtime
+        // baja el proceso sin pasar por código managed, y el log quedaba
+        // vacío. Comprobado el 19/09/2026: la pantalla murió con 0xC0000005 y
+        // Build\Desktop\Logs ni siquiera existía. Esto levanta el volcado que
+        // el propio runtime dejó al morir y lo deja escrito en errores.log,
+        // así el próximo crash no vuelve a perderse. Ver PostMortem.cs.
+        PostMortem.RevisarCorridaAnterior();
+
         // BuildAvaloniaApp llama .LogToTrace(), que manda los diagnósticos de
         // Avalonia a System.Diagnostics.Trace. Sin un listener registrado, Trace
         // los tira: veníamos corriendo con el log del framework apagado sin

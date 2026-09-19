@@ -912,6 +912,31 @@ public sealed class MapGlSurface : OpenGlControlBase
         _pathsVbo = _gl.GenBuffer();
         _pathsVboCapacityFloats = 0;
 
+        // ------------------------------------------------------------------
+        // OLVIDAR lo que creíamos subido. Esto es lo MISMO que hace
+        // OnOpenGlLost (ver ahí el razonamiento), y faltaba acá.
+        //
+        // Importa porque a este init no siempre se llega desde cero: también
+        // se llega después de un OnOpenGlDeinit (la superficie se va y vuelve
+        // del árbol visual) sobre la MISMA instancia del control. En ese
+        // camino los VBO de arriba son handles NUEVOS y vacíos, pero los
+        // campos que dicen cuánto storage tienen y qué revisión está subida
+        // seguían con los valores de la vida anterior. Consecuencias, las dos
+        // malas:
+        //   · _vboCapacityFloats stale hace que UploadAndDraw crea que hay
+        //     storage y vaya derecho a BufferSubData sobre un buffer de 0
+        //     bytes — escribir fuera de un buffer es justo el tipo de cosa
+        //     que el driver paga con un ACCESS_VIOLATION.
+        //   · las revisiones stale hacen que los snapshots siguientes se
+        //     descarten por "ya está al día" y la geometría no se re-suba
+        //     NUNCA: mapa dibujando de VBOs vacíos, sin una sola excepción.
+        // ------------------------------------------------------------------
+        _vboCapacityFloats = 0;
+        _coverageRevisionUploaded = -1;
+        _tramRevisionUploaded = -1;
+        _pathsRevisionUploaded = -1;
+        _guidanceRevisionUploaded = -1;
+
         // Timer queries para medir el tiempo REAL de GPU por frame (ver el
         // bloque de medición más abajo). Si el driver no las soporta se sigue
         // sin medir: es diagnóstico, nunca puede impedir que el mapa dibuje.

@@ -120,7 +120,7 @@ public sealed class ShapeGeometryPoller : IDisposable
                         {
                             _lastKey = "";
                             _lastToken = "";
-                            _onSnapshot(null);
+                            Publicar(null);
                         }
                     }
                     else
@@ -146,7 +146,7 @@ public sealed class ShapeGeometryPoller : IDisposable
                             _lastKey = key;
                             _lastToken = wire.SourceToken ?? "";
                             _lastRev = wire.GeomRev ?? "";
-                            _onSnapshot(Convertir(wire));
+                            Publicar(Convertir(wire));
                         }
                         }
                     }
@@ -158,6 +158,24 @@ public sealed class ShapeGeometryPoller : IDisposable
             try { await Task.Delay(1000, _cts.Token).ConfigureAwait(false); }
             catch (OperationCanceledException) { return; }
         }
+    }
+
+    /// <summary>
+    /// Entrega el snapshot al mapa SIEMPRE por el hilo de UI.
+    ///
+    /// Este poller era el único de los siete del mapa que entregaba desde el
+    /// hilo del pool (los otros seis —coverage, flags, guidance, paths, tool,
+    /// tram— ya usaban Dispatcher). El consumidor guarda la referencia en
+    /// campos que después leen el hilo de UI y el de render, así que publicar
+    /// desde acá dejaba esas escrituras sin ninguna barrera.
+    ///
+    /// Post y no InvokeAsync: si el hilo de UI está ocupado, el poller no
+    /// tiene por qué esperarlo — el snapshot siguiente llega en 1 s igual.
+    /// </summary>
+    private void Publicar(ShapeMapSnapshot? snap)
+    {
+        try { Avalonia.Threading.Dispatcher.UIThread.Post(() => _onSnapshot(snap)); }
+        catch { /* sin hilo de UI vivo (cierre) no hay a quién avisarle */ }
     }
 
     private static string ClaveDe(WireSnapshot wire)
