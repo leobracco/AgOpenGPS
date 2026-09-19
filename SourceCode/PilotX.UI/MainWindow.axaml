@@ -255,12 +255,16 @@
                  forma de distinguirlo de un equipo roto. Va FUERA del Canvas de
                  overlays a propósito: ese Canvas se apaga cuando no hay ningún
                  overlay prendido, y este cartel tiene que verse siempre.
-                 El texto lo decide AvisosCabina, no el XAML. -->
+                 El texto lo decide AvisosCabina, no el XAML.
+                 Margin top 64 y no 14: la fila del mapa arranca en y=0 y las
+                 barras del cockpit flotan encima con ZIndex 50, asi que con el
+                 margen chico la barra de arriba cortaba el cartel por la mitad
+                 (visto corriendo, 2026-09-19). 64 lo deja justo debajo. -->
             <Border x:Name="AvisoSinGps" Grid.Row="2" IsVisible="False"
                     Background="#E15A5A" CornerRadius="10"
                     Padding="18,10,18,10" ZIndex="30"
                     HorizontalAlignment="Center" VerticalAlignment="Top"
-                    Margin="0,14,0,0"
+                    Margin="0,64,0,0"
                     BoxShadow="0 4 14 0 #40101612">
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <Ellipse Width="10" Height="10" Fill="White" VerticalAlignment="Center"/>

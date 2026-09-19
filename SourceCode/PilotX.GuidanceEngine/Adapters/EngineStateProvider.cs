@@ -51,7 +51,15 @@ namespace PilotX.GuidanceEngine.Adapters
                 snap.AvgSpeed = gpsVivo ? _host.avgSpeed : 0;
                 snap.CurveSpeedComp = global::AgOpenGPS.Properties.Settings.Default.setTool_isCurveSpeedComp;
                 snap.DistanciaCabeceraM = _host.distancePivotToTurnLine;
-                snap.FixQuality = _host.Pn != null ? _host.Pn.fixQuality : 0;
+                // El mismo watchdog que pone la velocidad en cero vale para la
+                // CALIDAD DE FIX, y por el mismo motivo. pn.fixQuality retiene el
+                // ultimo valor recibido para siempre: cortando el GPS, el estado
+                // se quedaba diciendo "RTK FIJO" (o "SIMULADOR") indefinidamente
+                // y NADIE se enteraba de que se habia perdido la senal — ni la
+                // barra superior, ni el cartel de cabina, ni el operario.
+                // Verificado apagando el simulador con PilotX andando: fix_quality
+                // se quedaba en 8 para siempre (2026-09-19).
+                snap.FixQuality = (gpsVivo && _host.Pn != null) ? _host.Pn.fixQuality : 0;
                 snap.PowerOnline = false; // sin WinForms SystemInformation headless.
                 snap.Heading = _host.pivotAxlePos.heading;
                 snap.PivotEasting = _host.pivotAxlePos.easting;

@@ -52,6 +52,13 @@ public sealed class HudSnapshot
     /// reset_direccion (1.0.64; en 1.0.61 esto solo estaba en el mapa web).</summary>
     public bool IsReverse { get; set; }
     public bool HasBoundary { get; set; }
+    /// <summary>Calidad de fix (pn.fixQuality): 4=RTK fijo, 5=RTK float, 2=DGPS,
+    /// 1=GPS, 8=simulador, 0/otro=SIN FIX. Es el dato bueno para saber si HAY
+    /// senal: lat/lon quedan con el ULTIMO valor conocido cuando el GPS se
+    /// corta, asi que mirar lat!=0 detecta "nunca hubo senal" pero NO detecta
+    /// que se perdio — que es justo lo que pasa en el lote.</summary>
+    public int FixQuality { get; set; }
+
     /// <summary>El tractor esta FUERA del lindero. Lo calcula el motor; la
     /// pantalla lo usa para avisar al activar el piloto que no va a pintar ni a
     /// sembrar hasta que entre.</summary>

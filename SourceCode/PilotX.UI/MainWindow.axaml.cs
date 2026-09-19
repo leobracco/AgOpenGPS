@@ -8282,7 +8282,7 @@ public partial class MainWindow : Window
                     : ha.ToString("0.0", CultureInfo.InvariantCulture);
             }
 
-            bool hasGpsFix = s.Latitude != 0 || s.Longitude != 0;
+            bool hasGpsFix = HayFix(s);
             _ultimoEstado = s;
             AtenderAvisosDeCabina(s, hasGpsFix);
             UpdateStatusChip(connected: true, jobActive: s.IsJobStarted, hasGpsFix: hasGpsFix);
@@ -8358,7 +8358,10 @@ public partial class MainWindow : Window
         var s = _ultimoEstado;
         if (s == null) return new AgroParallel.Cabina.EstadoCabina { Conectado = false };
 
-        bool gps = s.Latitude != 0 || s.Longitude != 0;
+        // FixQuality y no lat/lon: cuando el GPS se corta, lat/lon se quedan con
+        // el ultimo valor conocido y el cartel nunca volvia a aparecer. Probado
+        // apagando el simulador con PilotX andando (2026-09-19).
+        bool gps = HayFix(s);
         double distKm = -1;
         if (gps && !string.IsNullOrEmpty(_loteDeLaPosicion))
             distKm = AgroParallel.Cabina.AvisosCabina.DistanciaKm(_loteLat, _loteLon, s.Latitude, s.Longitude);
@@ -8373,6 +8376,19 @@ public partial class MainWindow : Window
             Guias            = s.TracksTotal,
             DistanciaAlLoteKm = distKm,
         };
+    }
+
+    /// <summary>Hay senal de GPS de verdad. 0 (y cualquier valor desconocido) es
+    /// SIN FIX; 8 es el simulador, que para la cabina cuenta como senal porque
+    /// el mapa SI sabe donde poner la maquina. Misma tabla que usa la barra
+    /// superior, para que las dos digan lo mismo.</summary>
+    private static bool HayFix(HudSnapshot s)
+    {
+        switch (s.FixQuality)
+        {
+            case 1: case 2: case 4: case 5: case 8: return true;
+            default: return false;
+        }
     }
 
     /// <summary>Cartel de "sin GPS" y aviso de lote lejano. Corre en cada tick
