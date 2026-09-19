@@ -53,11 +53,36 @@ namespace AgroParallel.QuantiX
         /// puede comparar una corrida con otra, que es para lo que se registra.</summary>
         private MotoresConfig _cfgSesion;
 
-        /// <summary>Cuantas sesiones se conservan. Una sesion es 1 hora (ver
-        /// CorteHoraMs), asi que son las ultimas 20 horas de registro.</summary>
-        public const int MaxSesiones = 20;
+        /// <summary>Cuantas corridas se conservan. Una jornada de calibracion
+        /// genera muchas corridas cortas (arrancar, tirar 100 m, parar), asi que
+        /// 20 se llenaban en media hora. A ~120 KB cada una son unos 12 MB.</summary>
+        public const int MaxSesiones = 100;
 
+        /// <summary>Red de seguridad: si se siembra una hora sin parar, se corta
+        /// igual. La corrida normal la cierra la quietud, no esto.</summary>
         private const double CorteHoraMs = 60 * 60 * 1000;
+
+        /// <summary>Segundos que los motores tienen que estar QUIETOS seguidos
+        /// para dar la corrida por terminada. Frenar un momento en el medio no
+        /// tiene que partir la corrida en dos.</summary>
+        private const int QuietudParaCerrarSeg = 4;
+
+        /// <summary>Una corrida mas corta que esto se descarta: es un arranque en
+        /// falso y solo ensucia la carpeta.</summary>
+        private const int CorridaMinimaSeg = 10;
+
+        /// <summary>True cuando algun motor de esta corrida se movio de verdad.
+        /// Sin esto, el registro abriria una corrida por cada tick con el tractor
+        /// detenido.</summary>
+        private bool _huboMovimiento;
+
+        /// <summary>TickCount de la ultima muestra con movimiento. -1 = todavia
+        /// no se movio nada en esta corrida.</summary>
+        private int _ultimoMovimientoTick = -1;
+
+        /// <summary>TickCount de la primera muestra con movimiento, para medir si
+        /// la corrida llego al minimo.</summary>
+        private int _primerMovimientoTick = -1;
 
         private Timer _flushTimer;
         private Timer _corteTimer;
@@ -99,6 +124,9 @@ namespace AgroParallel.QuantiX
                 SesionDir = Path.Combine(_baseDir, "pid-quantix",
                     _inicio.ToString("yyyy-MM-dd_HHmm", CultureInfo.InvariantCulture));
                 _huboMuestras = false;
+                _huboMovimiento = false;
+                _ultimoMovimientoTick = -1;
+                _primerMovimientoTick = -1;
                 _abierta = true;
             }
 
@@ -113,17 +141,87 @@ namespace AgroParallel.QuantiX
             _flushTimer.Start();
         }
 
+        /// <summary>Hay trabajo de verdad en esta muestra. Se mira el TARGET y no
+        /// las rpm reales a proposito: si PilotX le esta pidiendo vueltas al motor
+        /// y el motor no responde, ESA es justamente la corrida que hay que
+        /// registrar y diagnosticar.</summary>
+        private static bool HayMovimiento(QxPidSample m)
+        {
+            if (m.PpsTarget > 0.01) return true;
+            if (m.RpmTarget > 0.5) return true;
+            if (m.Pwm > 0) return true;
+            if (m.RpmReal.HasValue && m.RpmReal.Value > 0.5) return true;
+            return false;
+        }
+
         /// <summary>Encola la muestra. No toca disco. No bloquea.</summary>
         public void Registrar(QxPidSample m)
         {
             // El sello va ACA, en el tick que genero la muestra. Calcularlo en el
             // flush daba el mismo t_s a las 5 muestras del segundo.
             m.TickMs = Environment.TickCount;
+
+            bool mueve = HayMovimiento(m);
+            bool cerrar = false;
+
             lock (_lock)
             {
                 if (!_abierta) return;
+
+                if (mueve)
+                {
+                    if (!_huboMovimiento)
+                    {
+                        _huboMovimiento = true;
+                        _primerMovimientoTick = m.TickMs;
+                    }
+                    _ultimoMovimientoTick = m.TickMs;
+                }
+                else if (_huboMovimiento && _ultimoMovimientoTick >= 0)
+                {
+                    // Quietos el tiempo suficiente: la corrida termino. Frenar un
+                    // momento NO la parte en dos, para eso es la histeresis.
+                    int quietoMs = unchecked(m.TickMs - _ultimoMovimientoTick);
+                    if (quietoMs >= QuietudParaCerrarSeg * 1000) cerrar = true;
+                }
+
+                // Con el tractor detenido y sin haberse movido nunca no se encola:
+                // si no, quedaria una corrida de puro cero por cada rato de
+                // maquina parada.
+                if (!_huboMovimiento) return;
+
                 _cola.Enqueue(m);
             }
+
+            if (cerrar) CerrarCorridaYAbrirLaSiguiente();
+        }
+
+        /// <summary>Cierra la corrida en curso y deja lista la siguiente. Si duro
+        /// menos que CorridaMinimaSeg fue un arranque en falso y se descarta sin
+        /// dejar carpeta.</summary>
+        private void CerrarCorridaYAbrirLaSiguiente()
+        {
+            bool cortita;
+            lock (_lock)
+            {
+                cortita = _primerMovimientoTick >= 0 && _ultimoMovimientoTick >= 0
+                    && unchecked(_ultimoMovimientoTick - _primerMovimientoTick) < CorridaMinimaSeg * 1000;
+            }
+
+            if (cortita) DescartarCorrida();
+            else CerrarSesion();
+
+            AbrirSesion();
+        }
+
+        /// <summary>Tira lo que se junto sin escribir sidecar ni dejar carpeta.</summary>
+        private void DescartarCorrida()
+        {
+            lock (_lock) { _cola.Clear(); }
+            string dir = SesionDir;
+            CerrarSesion();
+            try { if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir)) Directory.Delete(dir, true); }
+            catch { } // silencioso a proposito: fallback de I/O del propio logger
         }
 
         /// <summary>Clava una marca en la proxima fila de TODOS los motores, para
@@ -162,13 +260,19 @@ namespace AgroParallel.QuantiX
                     string clave = (lote[i].Uid ?? "sin-uid") + "_m" +
                         lote[i].MotorIdx.ToString(CultureInfo.InvariantCulture);
 
-                    List<QxPidSample> acc;
-                    if (!_porMotor.TryGetValue(clave, out acc))
+                    // _porMotor tambien va bajo lock desde que MuestrasDe() lo lee
+                    // desde el hilo HTTP para el diagnostico: sin esto, un pedido
+                    // que caiga durante un flush revienta la List.
+                    lock (_lock)
                     {
-                        acc = new List<QxPidSample>();
-                        _porMotor[clave] = acc;
+                        List<QxPidSample> acc;
+                        if (!_porMotor.TryGetValue(clave, out acc))
+                        {
+                            acc = new List<QxPidSample>();
+                            _porMotor[clave] = acc;
+                        }
+                        acc.Add(lote[i]);
                     }
-                    acc.Add(lote[i]);
 
                     // Bajo lock: FlushAhora corre en el timer de flush y BufferDe en
                     // el hilo del servidor HTTP cuando el panel pide datos. Sin el
@@ -291,6 +395,23 @@ namespace AgroParallel.QuantiX
                 return new List<QxPidSample>(q);
             }
         }
+
+        /// <summary>Todas las muestras de un motor en la corrida en curso (no las
+        /// ultimas 300 del buffer: el diagnostico mira la corrida entera).</summary>
+        public List<QxPidSample> MuestrasDe(string uid, int motorIdx)
+        {
+            string clave = (uid ?? "sin-uid") + "_m" + motorIdx.ToString(CultureInfo.InvariantCulture);
+            lock (_lock)
+            {
+                List<QxPidSample> acc;
+                if (!_porMotor.TryGetValue(clave, out acc)) return new List<QxPidSample>();
+                return new List<QxPidSample>(acc);
+            }
+        }
+
+        /// <summary>Config con la que corre la corrida en curso, para que el
+        /// diagnostico sepa de que ganancia parte.</summary>
+        public MotoresConfig ConfigDeLaCorrida { get { return _cfgSesion; } }
 
         /// <summary>Motores vistos en esta sesion, para el selector del panel.</summary>
         public List<QxPidSample> Motores()

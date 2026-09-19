@@ -49,6 +49,27 @@ public sealed class PidGraphSampleDto
     [JsonPropertyName("load_pct")]   public int?    LoadPct   { get; set; }
 }
 
+/// <summary>Diagnostico de sintonia de un motor.</summary>
+public sealed class PidDiagnosticoDto
+{
+    [JsonPropertyName("uid")]               public string? Uid              { get; set; }
+    [JsonPropertyName("m")]                 public int     M                { get; set; }
+    [JsonPropertyName("nombre")]            public string? Nombre           { get; set; }
+    [JsonPropertyName("veredicto")]         public string? Veredicto        { get; set; }
+    [JsonPropertyName("explicacion")]       public string? Explicacion      { get; set; }
+    [JsonPropertyName("muestras")]          public int     Muestras         { get; set; }
+    [JsonPropertyName("hay_recomendacion")] public bool    HayRecomendacion { get; set; }
+    [JsonPropertyName("parametro")]         public string? Parametro        { get; set; }
+    [JsonPropertyName("valor_actual")]      public double  ValorActual      { get; set; }
+    [JsonPropertyName("valor_sugerido")]    public double  ValorSugerido    { get; set; }
+}
+
+public sealed class PidDiagnosticoRespDto
+{
+    [JsonPropertyName("ok")]      public bool                      Ok      { get; set; }
+    [JsonPropertyName("motores")] public List<PidDiagnosticoDto>?  Motores { get; set; }
+}
+
 /// <summary>Un motor en el selector del panel.</summary>
 public sealed class PidMotorDto
 {
@@ -156,6 +177,34 @@ public sealed class GraficosClient
     public Task<PidGraphRespDto?> GetPidAsync(string? uid, int m, CancellationToken ct = default)
         => LeerAsync<PidGraphRespDto>(
             "api/quantix/graph-pid?uid=" + Uri.EscapeDataString(uid ?? "") + "&m=" + m, ct);
+
+    /// <summary>GET /api/quantix/pid-diagnostico — que tocar en cada motor.</summary>
+    public Task<PidDiagnosticoRespDto?> GetPidDiagnosticoAsync(CancellationToken ct = default)
+        => LeerAsync<PidDiagnosticoRespDto>("api/quantix/pid-diagnostico", ct);
+
+    /// <summary>POST /api/quantix/pid-aplicar — escribe la ganancia sugerida.
+    /// Devuelve el motivo del rechazo si no se pudo (ej. "motor_girando").</summary>
+    public async Task<(bool ok, string motivo)> AplicarPidAsync(string uid, int m,
+        string parametro, double valor, CancellationToken ct = default)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, _baseUrl + "api/quantix/pid-aplicar");
+            string cuerpo = "{\"uid\":" + JsonSerializer.Serialize(uid)
+                + ",\"m\":" + m.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + ",\"parametro\":" + JsonSerializer.Serialize(parametro)
+                + ",\"valor\":" + valor.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "}";
+            req.Content = new StringContent(cuerpo, System.Text.Encoding.UTF8, "application/json");
+            using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            string txt = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!res.IsSuccessStatusCode) return (false, "http_" + (int)res.StatusCode);
+            if (txt.Contains("\"ok\":true")) return (true, "");
+            if (txt.Contains("motor_girando")) return (false, "motor_girando");
+            return (false, "rechazado");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch { return (false, "sin_conexion"); }
+    }
 
     /// <summary>POST /api/quantix/pid-marca — clava una marca en el registro de
     /// los 14 motores a la vez, para alinear "aca toque Kp" con lo que hicieron

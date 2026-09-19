@@ -74,6 +74,15 @@ public partial class GraficoQuantiXPanel : UserControl, IPanelEmbebible
     private int _motorIdx = -1;
     private bool _poblandoSelector;
 
+    /// <summary>Ultimo diagnostico del motor que se esta mirando, para que el
+    /// boton Aplicar sepa que ganancia escribir.</summary>
+    private PidDiagnosticoDto? _diagActual;
+
+    /// <summary>Cada cuantos polls se recalcula el diagnostico. El grafico va a
+    /// 5 Hz; recalcular el analisis de la corrida entera a esa frecuencia es
+    /// tirar CPU al pedo — con una vez por segundo alcanza y sobra.</summary>
+    private int _pollsDesdeDiag;
+
     /// <summary>Lo invoca el ✕ del header.</summary>
     public Action? OnRequestCerrar { get; set; }
 
@@ -194,6 +203,121 @@ public partial class GraficoQuantiXPanel : UserControl, IPanelEmbebible
 
         if (ct.IsCancellationRequested) return;
         await Dispatcher.UIThread.InvokeAsync(() => Aplicar(d));
+
+        if (++_pollsDesdeDiag < 5) return;
+        _pollsDesdeDiag = 0;
+
+        PidDiagnosticoRespDto? diag;
+        try { diag = await _client.GetPidDiagnosticoAsync(ct).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+        catch { return; }
+
+        if (ct.IsCancellationRequested) return;
+        await Dispatcher.UIThread.InvokeAsync(() => PintarDiagnostico(diag));
+    }
+
+    // ---------- diagnostico --------------------------------------------------
+
+    private void PintarDiagnostico(PidDiagnosticoRespDto? r)
+    {
+        var tarjeta = this.FindControl<Border>("TarjetaDiag");
+        var btn = this.FindControl<Button>("BtnAplicar");
+        if (tarjeta == null) return;
+
+        _diagActual = null;
+        if (r == null || !r.Ok || r.Motores == null || string.IsNullOrEmpty(_uid))
+        {
+            tarjeta.IsVisible = false;
+            return;
+        }
+
+        foreach (var d in r.Motores)
+        {
+            if (!string.Equals(d.Uid, _uid, StringComparison.OrdinalIgnoreCase)) continue;
+            if (d.M != _motorIdx) continue;
+            _diagActual = d;
+            break;
+        }
+
+        if (_diagActual == null) { tarjeta.IsVisible = false; return; }
+
+        tarjeta.IsVisible = true;
+
+        var txtV = this.FindControl<TextBlock>("TxtVeredicto");
+        var pill = this.FindControl<Border>("PillVeredicto");
+        var txtM = this.FindControl<TextBlock>("TxtMotorDiag");
+        var txtE = this.FindControl<TextBlock>("TxtExplicacion");
+
+        if (txtV != null) txtV.Text = T(EtiquetaVeredicto(_diagActual.Veredicto));
+        if (pill != null) pill.Background = PincelVeredicto(_diagActual.Veredicto);
+        // Cuantos segundos de corrida respaldan el diagnostico: sin eso, "anda
+        // bien" sobre 3 segundos de datos se lee igual que sobre dos minutos.
+        if (txtM != null)
+            txtM.Text = (_diagActual.Nombre ?? "") + "  ·  " +
+                (_diagActual.Muestras / 5.0).ToString("0", CultureInfo.InvariantCulture) + " s de corrida";
+        if (txtE != null) txtE.Text = _diagActual.Explicacion ?? "";
+
+        if (btn != null)
+        {
+            btn.IsVisible = _diagActual.HayRecomendacion;
+            if (_diagActual.HayRecomendacion)
+                btn.Content = (_diagActual.Parametro ?? "").ToUpperInvariant() + "  " +
+                    _diagActual.ValorActual.ToString("0.#", CultureInfo.InvariantCulture) + " → " +
+                    _diagActual.ValorSugerido.ToString("0.#", CultureInfo.InvariantCulture);
+        }
+    }
+
+    /// <summary>El veredicto en criollo, para la pill.</summary>
+    private static string EtiquetaVeredicto(string? v)
+    {
+        switch ((v ?? "").ToLowerInvariant())
+        {
+            case "anda":               return "Anda bien";
+            case "oscila":             return "Oscila";
+            case "errorconstante":     return "Queda corto";
+            case "lento":              return "Le falta empuje";
+            case "saturado":           return "Al maximo";
+            case "velocidaddespareja": return "Velocidad despareja";
+            default:                   return "Sin datos";
+        }
+    }
+
+    /// <summary>Verde lo que anda, rojo lo mecanico (que no se arregla tocando
+    /// ganancias), gris lo que no se puede juzgar.</summary>
+    private IBrush PincelVeredicto(string? v)
+    {
+        switch ((v ?? "").ToLowerInvariant())
+        {
+            case "anda":     return new SolidColorBrush(Color.Parse("#DCF0D8"));
+            case "saturado": return new SolidColorBrush(Color.Parse("#F6D9D5"));
+            case "oscila":
+            case "errorconstante":
+            case "lento":    return new SolidColorBrush(Color.Parse("#FBEFD6"));
+            default:         return (IBrush?)RecursoPincel("PilotXPanelSurface2") ?? Brushes.LightGray;
+        }
+    }
+
+    private async void OnAplicarClick(object? s, RoutedEventArgs e)
+    {
+        var d = _diagActual;
+        if (d == null || _client == null || !d.HayRecomendacion) return;
+
+        var (ok, motivo) = await _client.AplicarPidAsync(d.Uid ?? "", d.M,
+            d.Parametro ?? "", d.ValorSugerido).ConfigureAwait(true);
+
+        if (ok)
+        {
+            Aviso?.Invoke(T("Listo: ") + (d.Parametro ?? "").ToUpperInvariant() + " " +
+                d.ValorActual.ToString("0.#", CultureInfo.InvariantCulture) + " → " +
+                d.ValorSugerido.ToString("0.#", CultureInfo.InvariantCulture) +
+                T(". Tira otra pasada para ver como quedo."));
+            _pollsDesdeDiag = 99;   // refrescar el diagnostico en el proximo poll
+            return;
+        }
+
+        Aviso?.Invoke(motivo == "motor_girando"
+            ? T("Pará el motor antes de cambiarle las ganancias")
+            : T("No se pudo aplicar el cambio"));
     }
 
     private void Aplicar(PidGraphRespDto? d)

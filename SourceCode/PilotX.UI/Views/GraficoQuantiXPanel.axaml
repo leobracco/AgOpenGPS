@@ -32,7 +32,7 @@
                 Margin="16,8">
 
             <Grid Name="ContenidoRaiz" Margin="24,20,24,24"
-                  RowDefinitions="Auto,Auto,*,Auto,Auto">
+                  RowDefinitions="Auto,Auto,*,Auto,Auto,Auto">
 
                 <!-- ============ Header ============ -->
                 <Grid Grid.Row="0" Name="DragHandle" Background="Transparent"
@@ -178,7 +178,7 @@
                 </Border>
 
                 <!-- ============ Leyenda ============ -->
-                <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="20" Margin="0,12,0,0">
+                <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="20" Margin="0,12,0,0">
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <Border Width="14" Height="3" CornerRadius="2"
                                 Background="{StaticResource PilotXPanelAccent}"
@@ -205,8 +205,51 @@
                     </StackPanel>
                 </StackPanel>
 
+                <!-- ============ Diagnóstico de sintonía ============ -->
+                <!-- Lo que el operario lee despues de tirar los 100 metros: que
+                     esta pasando con ESTE motor y que tocar. El numero sale de la
+                     medicion (QxPidAnalisis), no de un modelo. -->
+                <Border Grid.Row="3" Name="TarjetaDiag"
+                        Background="{StaticResource PilotXPanelSurface}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="14,11,14,11"
+                        Margin="0,12,0,0"
+                        IsVisible="False">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Border Name="PillVeredicto"
+                                        Background="{StaticResource PilotXPanelSurface2}"
+                                        CornerRadius="999" Padding="10,3,10,3">
+                                    <TextBlock Name="TxtVeredicto" Text="—"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="12" FontWeight="SemiBold"/>
+                                </Border>
+                                <TextBlock Name="TxtMotorDiag" Text=""
+                                           Foreground="{StaticResource PilotXPanelTextDim}"
+                                           FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Name="TxtExplicacion" Text=""
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontSize="13" TextWrapping="Wrap" MaxWidth="440"/>
+                        </StackPanel>
+
+                        <Button Grid.Column="1" Name="BtnAplicar" Content="Aplicar"
+                                Click="OnAplicarClick"
+                                IsVisible="False"
+                                Background="{StaticResource PilotXPanelAccent}"
+                                Foreground="White"
+                                BorderThickness="0" CornerRadius="8"
+                                Padding="18,0" MinHeight="48" FontSize="15" FontWeight="SemiBold"
+                                VerticalAlignment="Center"
+                                HorizontalContentAlignment="Center"/>
+                    </Grid>
+                </Border>
+
                 <!-- ============ Controles ============ -->
-                <Grid Grid.Row="4" Name="FilaControles"
+                <Grid Grid.Row="5" Name="FilaControles"
                       ColumnDefinitions="Auto,*,Auto" Margin="0,16,0,0">
                     <ComboBox Grid.Column="0" Name="SelectorMotor"
                               MinWidth="260" MinHeight="44" FontSize="14"

@@ -153,31 +153,42 @@ namespace AgroParallel.Services.Tests
         }
 
 
+        /// <summary>Siembra corridas con nombre ordenable. El indice va en el
+        /// nombre para poder afirmar cual es la mas vieja y cual la mas nueva.</summary>
         private static string SembrarSesiones(string dir, int cuantas)
         {
             string raiz = Path.Combine(dir, "pid-quantix");
             Directory.CreateDirectory(raiz);
             for (int i = 0; i < cuantas; i++)
             {
-                string d = Path.Combine(raiz, "2026-09-01_" + i.ToString("00") + "00");
+                string d = Path.Combine(raiz, Corrida(i));
                 Directory.CreateDirectory(d);
                 File.WriteAllText(Path.Combine(d, "x.csv"), "x");
             }
             return raiz;
         }
 
-        [Test]
-        public void Purga_deja_las_ultimas_veinte_sesiones()
+        private static string Corrida(int i)
         {
+            return "2026-09-01_" + i.ToString("0000");
+        }
+
+        [Test]
+        public void Purga_deja_las_ultimas_corridas_segun_el_tope()
+        {
+            // Relativo a MaxSesiones a proposito: el tope subio de 20 a 100 cuando
+            // las corridas pasaron a ser por pasada y no por hora, y un 25 fijo
+            // dejaba el test verde sin purgar nada.
             string dir = DirTemp();
-            string raiz = SembrarSesiones(dir, 25);
+            int sembradas = QxPidRecorder.MaxSesiones + 5;
+            string raiz = SembrarSesiones(dir, sembradas);
 
             var rec = new QxPidRecorder(dir);
             rec.Purgar();
 
             Assert.That(Directory.GetDirectories(raiz).Length, Is.EqualTo(QxPidRecorder.MaxSesiones));
-            Assert.That(Directory.Exists(Path.Combine(raiz, "2026-09-01_0000")), Is.False, "la mas vieja se borra");
-            Assert.That(Directory.Exists(Path.Combine(raiz, "2026-09-01_2400")), Is.True, "la mas nueva queda");
+            Assert.That(Directory.Exists(Path.Combine(raiz, Corrida(0))), Is.False, "la mas vieja se borra");
+            Assert.That(Directory.Exists(Path.Combine(raiz, Corrida(sembradas - 1))), Is.True, "la mas nueva queda");
             Directory.Delete(dir, true);
         }
 
@@ -185,13 +196,13 @@ namespace AgroParallel.Services.Tests
         public void Purga_nunca_borra_una_sesion_marcada()
         {
             string dir = DirTemp();
-            string raiz = SembrarSesiones(dir, 25);
-            File.WriteAllText(Path.Combine(raiz, "2026-09-01_0000", ".marcada"), "kp=3");
+            string raiz = SembrarSesiones(dir, QxPidRecorder.MaxSesiones + 5);
+            File.WriteAllText(Path.Combine(raiz, Corrida(0), ".marcada"), "kp=3");
 
             var rec = new QxPidRecorder(dir);
             rec.Purgar();
 
-            Assert.That(Directory.Exists(Path.Combine(raiz, "2026-09-01_0000")), Is.True,
+            Assert.That(Directory.Exists(Path.Combine(raiz, Corrida(0))), Is.True,
                 "si alguien la marco, esa corrida importa");
             Directory.Delete(dir, true);
         }
@@ -347,6 +358,75 @@ namespace AgroParallel.Services.Tests
             Assert.That(tiempos.Count, Is.EqualTo(5));
             Assert.That(new HashSet<string>(tiempos).Count, Is.GreaterThan(1),
                 "las 5 muestras salieron con el mismo t_s: el sello se esta tomando en el flush");
+            rec.CerrarSesion();
+            Directory.Delete(dir, true);
+        }
+
+
+        // ── Corridas automaticas por movimiento ─────────────────────────────
+
+        private static QxPidSample Quieta(string uid, int idx)
+        {
+            var m = Muestra(uid, idx);
+            m.RpmReal = 0; m.RpmTarget = 0; m.PpsReal = 0; m.PpsTarget = 0;
+            m.Pwm = 0; m.LoadPct = 0; m.VelMotorKmh = 0; m.VelGpsKmh = 0;
+            m.SeccionOn = false;
+            return m;
+        }
+
+        [Test]
+        public void Con_la_maquina_parada_no_se_abre_ninguna_corrida()
+        {
+            // Sin esto quedaria una corrida de puro cero por cada rato de maquina
+            // detenida, y la purga se comeria las corridas buenas.
+            string dir = DirTemp();
+            var rec = new QxPidRecorder(dir);
+            rec.AbrirSesion();
+            for (int i = 0; i < 50; i++) rec.Registrar(Quieta("A4CF12AB9E30", 0));
+            rec.FlushAhora();
+
+            Assert.That(rec.BufferDe("A4CF12AB9E30", 0).Count, Is.EqualTo(0));
+            rec.CerrarSesion();
+            Assert.That(Directory.Exists(Path.Combine(dir, "pid-quantix")), Is.False,
+                "con la maquina quieta no tiene que quedar nada en disco");
+            Directory.Delete(dir, true);
+        }
+
+        [Test]
+        public void El_target_solo_ya_cuenta_como_movimiento()
+        {
+            // El caso que MAS importa diagnosticar: PilotX le pide vueltas y el
+            // motor no responde. Si se mirara solo rpm_real, esa corrida no se
+            // registraria justo cuando hace falta.
+            string dir = DirTemp();
+            var rec = new QxPidRecorder(dir);
+            rec.AbrirSesion();
+
+            var m = Quieta("A4CF12AB9E30", 0);
+            m.RpmTarget = 45; m.PpsTarget = 15;   // se pide, no responde
+            m.RpmReal = 0;
+            for (int i = 0; i < 5; i++) rec.Registrar(m);
+            rec.FlushAhora();
+
+            Assert.That(rec.BufferDe("A4CF12AB9E30", 0).Count, Is.EqualTo(5));
+            rec.CerrarSesion();
+            Directory.Delete(dir, true);
+        }
+
+        [Test]
+        public void Frenar_un_momento_no_parte_la_corrida_en_dos()
+        {
+            string dir = DirTemp();
+            var rec = new QxPidRecorder(dir);
+            rec.AbrirSesion();
+            string primera = rec.SesionDir;
+
+            rec.Registrar(Muestra("A4CF12AB9E30", 0));
+            // Un par de ticks quietos: muy por debajo de los 4 s de histeresis.
+            for (int i = 0; i < 3; i++) rec.Registrar(Quieta("A4CF12AB9E30", 0));
+            rec.Registrar(Muestra("A4CF12AB9E30", 0));
+
+            Assert.That(rec.SesionDir, Is.EqualTo(primera), "no tenia que cerrar la corrida");
             rec.CerrarSesion();
             Directory.Delete(dir, true);
         }
