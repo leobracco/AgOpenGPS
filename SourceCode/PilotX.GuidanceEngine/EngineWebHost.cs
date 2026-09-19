@@ -66,6 +66,7 @@ namespace AgOpenGPS
         private System.Threading.Timer _flowxRetry;
         private AgroParallel.OrbitX.OrbitXSync _orbitxSync;
         private AgroParallel.Soporte.SoporteRemotoService _soporte;
+        private AgroParallel.Soporte.ChatSoporteService _chat;
         private System.Threading.Timer _orbitxRetry;
         private AgroParallel.Services.SonidosAlarmService _sonidos;
         private AgroParallel.QuantiX.QuantiXMotorBridge _quantixBridge;
@@ -373,6 +374,23 @@ namespace AgOpenGPS
                 Console.Error.WriteLine("[Engine] SoporteRemoto: " + ex.Message);
             }
 
+            // Chat de soporte (capa 1): mismo transporte pull que el canal de
+            // diagnóstico, pero para una conversación humano↔pantalla. Vive acá
+            // (con la config del cloud) y la UI lo consume por /api/chat/* — por
+            // eso se lo pasamos al host web. Sin identidad de dispositivo duerme.
+            try
+            {
+                _chat = new AgroParallel.Soporte.ChatSoporteService(
+                    () => AgroParallel.OrbitX.OrbitXConfig.Load(),
+                    m => Console.WriteLine("[Engine] " + m));
+                _chat.Start();
+                if (_web != null) _web.Chat = _chat;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] ChatSoporte: " + ex.Message);
+            }
+
             // Bridge de motores QuantiX: el que PUBLICA los targets de dosis a
             // los nodos por MQTT. En FormGPS lo instancia el Load() del form —
             // acá no lo arrancaba nadie: el nodo conectaba, mandaba telemetría
@@ -500,6 +518,8 @@ namespace AgOpenGPS
             _flowxRetry = null;
             try { _soporte?.Dispose(); } catch { }
             _soporte = null;
+            try { _chat?.Dispose(); } catch { }
+            _chat = null;
             try { _flowxBridge?.Stop(); _flowxBridge?.Dispose(); } catch { }
             _flowxBridge = null;
             // Antes de _web?.Stop(): orbitX.json no se puede escribir mientras

@@ -183,6 +183,7 @@ public partial class ConfigPanel : UserControl
 
         // ---- Cloud --------------------------------------------------------
         new CfgNav { Tab = "mod_orbitx",     Titulo = "OrbitX",           Grupo = "Cloud", ModClave = "orbitx" },
+        new CfgNav { Tab = "mod_chat",       Titulo = "Soporte",          Grupo = "Cloud", ModClave = "chat" },
         new CfgNav { Tab = "mod_firmwares",  Titulo = "Firmwares",        Grupo = "Cloud", ModClave = "firmwares" },
         new CfgNav { Tab = "mod_actualizar", Titulo = "Actualizar",       Grupo = "Cloud", ModClave = "actualizar" },
         new CfgNav { Tab = "mod_pwa",        Titulo = "Conectar celular", Grupo = "Cloud", ModRuta = "pages/pwa-qr.html" },
@@ -265,6 +266,10 @@ public partial class ConfigPanel : UserControl
     private InsumosClient?       _insumosCli;
     private MapasClient?         _mapasCli;
     private OrbitXPanelClient?   _orbitXCli;
+    private ChatPanelClient?     _chatCli;
+    // Punto rojo sobre la entrada "Soporte": mensajes de soporte/bot sin leer.
+    // Lo prende/apaga el poll de TickAsync consultando /api/chat/estado.
+    private Avalonia.Controls.Shapes.Ellipse? _chatBadge;
     private RedWifiClient?       _wifiCli;
     private DebugClient?         _debugCli;
     private NodoDetalleClient?   _nodoDetalleCli;
@@ -280,6 +285,10 @@ public partial class ConfigPanel : UserControl
     // módulo se mostrara ya, ese MostrarTabAsync diferido lo taparía con la
     // pestaña nativa. Se guarda acá y lo consume ArrancarAsync en su lugar.
     private (string Ruta, string Subtitulo)? _moduloPendiente;
+    // Mismo caso que _moduloPendiente pero para un módulo NATIVO (hoy: el chat
+    // de Soporte, que abre el aviso global del mapa). Guarda la Tab del nav a
+    // mostrar cuando el arranque todavía está en vuelo.
+    private string? _moduloNativoPendiente;
     private bool _arranqueListo;
 
     /// <summary>El operario cerró la configuración.</summary>
@@ -383,6 +392,27 @@ public partial class ConfigPanel : UserControl
         MostrarHtmlEmbebido(ruta, sub);
     }
 
+    /// <summary>Abre la Configuración PARADA en un módulo NATIVO embebido (hoy:
+    /// el chat de "Soporte"). Es el gemelo de AbrirModuloHtml para paneles
+    /// nativos: la usa MainWindow desde el aviso global de chat sobre el mapa.
+    /// Llamar SIEMPRE después de Attach (ShowConfig lo garantiza): si el
+    /// arranque inicial sigue en vuelo, el pedido queda pendiente y lo muestra
+    /// ArrancarAsync — mostrarlo ya sería taparlo un instante después con la
+    /// pestaña nativa del arranque.</summary>
+    public void AbrirModuloNativo(string tab)
+    {
+        var nav = BuscarNav(tab);
+        if (nav == null || nav.ModClave == null) return;   // solo módulos nativos
+        _tabActiva = nav.Tab;
+        PintarTabs();
+        if (!_arranqueListo)
+        {
+            _moduloNativoPendiente = tab;
+            return;
+        }
+        MostrarModulo(nav);
+    }
+
     /// <summary>Cierra el panel. Igual que el `visibilitychange → hidden` del
     /// HTML: la pestaña activa GUARDA lo que tenga pendiente antes de irse.</summary>
     public void Detach()
@@ -395,6 +425,7 @@ public partial class ConfigPanel : UserControl
         // dispatcher del arranque corre después de este Detach, no tiene que
         // levantar un WebView sobre un panel ya oculto (airspace sobre el mapa).
         _moduloPendiente = null;
+        _moduloNativoPendiente = null;
         // El módulo HTML sale de la vista por cualquier camino de cierre (✕,
         // otro panel que se abre encima, apagado): un WebView2 con página
         // cargada sigue pintando sobre el mapa aunque el panel esté oculto.
@@ -437,7 +468,20 @@ public partial class ConfigPanel : UserControl
             {
                 PintarCabecera();
                 _arranqueListo = true;
-                if (_moduloPendiente != null)
+                if (_moduloNativoPendiente != null)
+                {
+                    // Se abrió con AbrirModuloNativo antes de terminar el
+                    // arranque (aviso global de chat): se muestra ese módulo
+                    // nativo en lugar de la pestaña inicial.
+                    var tabPend = _moduloNativoPendiente;
+                    _moduloNativoPendiente = null;
+                    PilotX.Cockpit.Bars.Traductor.Aplicar(this);
+                    PintarTabs();
+                    var navPend = BuscarNav(tabPend);
+                    if (navPend != null) MostrarModulo(navPend);
+                    else _ = MostrarTabAsync(_tabActiva);
+                }
+                else if (_moduloPendiente != null)
                 {
                     // Se abrió con AbrirModuloHtml antes de terminar el
                     // arranque: se muestra ese módulo en lugar de la pestaña
@@ -482,6 +526,29 @@ public partial class ConfigPanel : UserControl
             {
                 PintarCabecera();
                 if (_tabs.TryGetValue(_tabActiva, out var t)) t.Live();
+            });
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+
+        await RefrescarBadgeChatAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Prende/apaga el punto rojo de "Soporte" según lo que reporta el
+    /// Engine (/api/chat/estado). Consulta liviana: no marca leído ni acelera el
+    /// poll al cloud. El punto no se muestra estando parado en el propio chat.</summary>
+    private async Task RefrescarBadgeChatAsync(CancellationToken ct)
+    {
+        if (_chatBadge == null) return;
+        _chatCli ??= new ChatPanelClient(_ctx.Client?.BaseUrl ?? "http://127.0.0.1:5180/");
+        var r = await _chatCli.EstadoAsync(ct).ConfigureAwait(false);
+        if (ct.IsCancellationRequested || r.Cancelado) return;
+        bool hayNoLeidos = r.Estado != null && r.Estado.Ok && r.Estado.NoLeidos;
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_chatBadge != null)
+                    _chatBadge.IsVisible = hayNoLeidos && _tabActiva != "mod_chat";
             });
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
@@ -684,6 +751,33 @@ public partial class ConfigPanel : UserControl
             VerticalContentAlignment = VerticalAlignment.Center,
             Cursor = new Cursor(StandardCursorType.Hand),
         };
+
+        // "Soporte" lleva un punto rojo de "sin leer": la etiqueta pasa a ser un
+        // Grid con el texto y un Ellipse chico arriba a la derecha, oculto por
+        // defecto. TickAsync lo prende cuando el Engine reporta mensajes nuevos.
+        if (nav.Tab == "mod_chat")
+        {
+            _chatBadge = new Avalonia.Controls.Shapes.Ellipse
+            {
+                Width = 9,
+                Height = 9,
+                Fill = CfgUi.Err,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, -2, -2, 0),
+                IsVisible = false,
+            };
+            var etiqueta = new TextBlock
+            {
+                Text = PilotX.Cockpit.Bars.Traductor.T(nav.Titulo),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            var celda = new Grid();
+            celda.Children.Add(etiqueta);
+            celda.Children.Add(_chatBadge);
+            b.Content = celda;
+        }
+
         string tab = nav.Tab;
         b.Click += (_, __) => _ = IrATabAsync(tab);
         return b;
@@ -1162,6 +1256,7 @@ public partial class ConfigPanel : UserControl
                     case "insumos":    ((InsumosPanel)p).Detach(); break;
                     case "mapas":      ((MapasPanel)p).Detach(); break;
                     case "orbitx":     ((OrbitXPanel)p).Detach(); break;
+                    case "chat":       ((ChatPanel)p).Detach(); break;
                     case "wifi":       ((WifiPanel)p).Detach(); break;
                     case "debug":      ((DebugPanel)p).Detach(); break;
                     // El detalle del nodo apaga su POLLING y nada más: un OTA
@@ -1363,6 +1458,13 @@ public partial class ConfigPanel : UserControl
                 p = ox;
                 break;
             }
+            case "chat":
+            {
+                var ch = new ChatPanel();
+                ch.OnRequestCerrar = VolverDeModulo;
+                p = ch;
+                break;
+            }
             case "wifi":
             {
                 var wf = new WifiPanel();
@@ -1528,6 +1630,10 @@ public partial class ConfigPanel : UserControl
             case "orbitx":
                 _orbitXCli ??= new OrbitXPanelClient(baseUrl);
                 ((OrbitXPanel)_modPaneles[panelKey]).Attach(_orbitXCli);
+                break;
+            case "chat":
+                _chatCli ??= new ChatPanelClient(baseUrl);
+                ((ChatPanel)_modPaneles[panelKey]).Attach(_chatCli);
                 break;
             case "wifi":
                 _wifiCli ??= new RedWifiClient(baseUrl);

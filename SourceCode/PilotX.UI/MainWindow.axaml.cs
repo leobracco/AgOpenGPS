@@ -227,6 +227,7 @@ public partial class MainWindow : Window
     private Canvas? _mapOverlaysHost;
     private QuantiXMapOverlay? _qxMapOverlay;
     private FlowXMapOverlay? _fxMapOverlay;
+    private ChatPanel? _chatWidgetHost;
     private HttpClient? _fxOverlayHttp;
     private QuantiXControlBar? _qxControlBar;
     private WidgetQuantiXClient? _qxWidgetClient;
@@ -364,6 +365,14 @@ public partial class MainWindow : Window
     private ConfigPanel? _configHost;
     private ConfigVehiculoClient? _configClient;
 
+    // Aviso GLOBAL de chat de soporte sobre el mapa: botón (ChatAvisoGlobal) que
+    // sale solo cuando hay mensajes sin leer, poll liviano de /api/chat/estado.
+    // Reusa el mismo ChatPanelClient que ConfigPanel; poll propio de 5 s porque
+    // el tick de ConfigPanel sólo corre con la Configuración abierta.
+    private Button? _chatAvisoGlobal;
+    private ChatPanelClient? _chatAvisoCli;
+    private CancellationTokenSource? _chatAvisoCts;
+
     // Visor de eventos nativo, ex eventos.html (FormEventViewer): el registro
     // de la sesión + el histórico. Sin polling — carga al abrir y con el botón
     // "Actualizar". La página HTML queda para el Hub remoto/celular.
@@ -409,6 +418,7 @@ public partial class MainWindow : Window
     private GraficoDireccionPanel?  _grafDireccionHost;
     private GraficoRumboPanel?      _grafRumboHost;
     private GraficoXtePanel?        _grafXteHost;
+    private GraficoQuantiXPanel?    _grafQuantiXHost;
     private GraficoCorreccionPanel? _grafCorreccionHost;
     private GraficosClient?         _graficosClient;
 
@@ -580,6 +590,7 @@ public partial class MainWindow : Window
         _grafDireccionHost = this.FindControl<GraficoDireccionPanel>("GrafDireccionHost");
         _grafRumboHost     = this.FindControl<GraficoRumboPanel>("GrafRumboHost");
         _grafXteHost       = this.FindControl<GraficoXtePanel>("GrafXteHost");
+        _grafQuantiXHost   = this.FindControl<GraficoQuantiXPanel>("GrafQuantiXHost");
         _grafCorreccionHost= this.FindControl<GraficoCorreccionPanel>("GrafCorreccionHost");
         _orbitXHost        = this.FindControl<OrbitXPanel>("OrbitXHost");
         _wifiHost          = this.FindControl<WifiPanel>("WifiHost");
@@ -652,6 +663,20 @@ public partial class MainWindow : Window
             // abajo) para el overlay suelto — el STOP a los motores tiene que
             // salir al cable ANTES de que el proceso muera, así que se espera.
             Closed += (_, _) => _configHost.DetenerModulosAlApagar();
+        }
+        // Aviso global de chat: tocarlo abre la Config parada en "Soporte" y
+        // esconde el aviso (el operario ya lo está mirando). Se arranca el poll
+        // que lo prende/apaga según haya mensajes sin leer.
+        _chatAvisoGlobal = this.FindControl<Button>("ChatAvisoGlobal");
+        if (_chatAvisoGlobal != null)
+        {
+            _chatAvisoGlobal.Click += (_, __) =>
+            {
+                _chatAvisoGlobal.IsVisible = false;
+                ShowConfig();
+                _configHost?.AbrirModuloNativo("mod_chat");
+            };
+            ArrancarAvisoChat();
         }
         // Guías nativo (14vo port): AB delega en el flujo del mapa que ya
         // existía; curva y lista van contra /api/tracks igual que la página.
@@ -818,6 +843,7 @@ public partial class MainWindow : Window
         _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
         _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");
         _fxMapOverlay      = this.FindControl<FlowXMapOverlay>("FxMapOverlay");
+        _chatWidgetHost    = this.FindControl<ChatPanel>("ChatWidgetHost");
         _nudgeOverlay      = this.FindControl<Border>("NudgeOverlay");
         // Los tres de corrección lateral mandan el mismo comando que mandaban
         // desde la barra; lo único que cambió es dónde están.
@@ -988,6 +1014,12 @@ public partial class MainWindow : Window
         {
             _grafRumboHost.OnRequestCerrar = () => CloseGrafRumbo();
             PanelArrastrable.Habilitar(_grafRumboHost);
+        }
+        if (_grafQuantiXHost != null)
+        {
+            _grafQuantiXHost.OnRequestCerrar = () => CloseGrafQuantiX();
+            _grafQuantiXHost.Aviso = MostrarToast;
+            PanelArrastrable.Habilitar(_grafQuantiXHost);
         }
         if (_grafXteHost != null)
         {
@@ -2678,6 +2710,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -2739,6 +2772,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -2859,6 +2893,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -2925,6 +2960,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -2999,6 +3035,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3075,6 +3112,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3150,6 +3188,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3222,6 +3261,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3295,6 +3335,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3379,6 +3420,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3456,6 +3498,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3531,6 +3574,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3662,6 +3706,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3739,6 +3784,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3811,6 +3857,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -3956,6 +4003,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -4036,6 +4084,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -4107,6 +4156,88 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Config closed -> back to native map");
     }
 
+    // ----- AVISO GLOBAL DE CHAT DE SOPORTE ----------------------------------
+    // Poll liviano de /api/chat/estado (mismo endpoint que el badge de la
+    // Config, pero corre siempre, no sólo con la Config abierta). Prende el
+    // botón ChatAvisoGlobal cuando hay mensajes sin leer y la Config está
+    // cerrada; lo apaga en cuanto no hay o cuando se abre la Config (ahí ya se
+    // ve el chat/badge nativo, y el aviso flotando sobre la card sobraría).
+    /// <summary>Abre y cierra el chat de soporte como widget CHICO sobre el mapa.
+    ///
+    /// Es el MISMO ChatPanel que vive en Configuración › Chat — una sola
+    /// implementación, un solo poll — pero acotado a 360x420 y flotando en una
+    /// esquina en vez de ocupar una card entera. Antes, para escribirle a soporte
+    /// desde la cabina había que salir del mapa, entrar a Configuración y buscar
+    /// la pestaña; con el tractor andando eso no se hace.
+    ///
+    /// A diferencia de las cards (ShowCoreXEcu y compañía), NO cierra los demás
+    /// paneles ni apaga el mapa: es un overlay que acompaña, como el de QuantiX.</summary>
+    private void ToggleChatWidget()
+    {
+        if (_chatWidgetHost == null) return;
+
+        if (_chatWidgetHost.IsVisible)
+        {
+            _chatWidgetHost.Detach();
+            _chatWidgetHost.IsVisible = false;
+            return;
+        }
+
+        // El Canvas de overlays puede estar apagado si no hay ningún otro
+        // overlay prendido: el chat lo necesita visible para verse.
+        if (_mapOverlaysHost != null) _mapOverlaysHost.IsVisible = true;
+
+        // Esquina inferior izquierda, arriba de la barra de la pasada y al lado
+        // del menú — donde cae la mano que acaba de tocar "Soporte".
+        Canvas.SetLeft(_chatWidgetHost, 150);
+        Canvas.SetTop(_chatWidgetHost, Math.Max(12, Bounds.Height - 420 - 190));
+
+        _chatAvisoCli ??= new ChatPanelClient(DeriveOrigin(App.TargetUrl));
+        _chatWidgetHost.OnRequestCerrar = () =>
+        {
+            _chatWidgetHost.Detach();
+            _chatWidgetHost.IsVisible = false;
+        };
+        _chatWidgetHost.IsVisible = true;
+        _chatWidgetHost.Attach(_chatAvisoCli);
+    }
+
+    private void ArrancarAvisoChat()
+    {
+        if (_chatAvisoGlobal == null) return;
+        _chatAvisoCli ??= new ChatPanelClient(DeriveOrigin(App.TargetUrl));
+        _chatAvisoCts = new CancellationTokenSource();
+        var ct = _chatAvisoCts.Token;
+        Closed += (_, _) => { try { _chatAvisoCts?.Cancel(); } catch { } };
+        _ = Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                bool hay = false;
+                try
+                {
+                    var r = await _chatAvisoCli!.EstadoAsync(ct).ConfigureAwait(false);
+                    hay = r.Estado != null && r.Estado.Ok && r.Estado.NoLeidos;
+                }
+                catch { /* el host local puede no estar listo todavía */ }
+
+                try
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (_chatAvisoGlobal == null) return;
+                        bool configAbierta = _configHost?.IsVisible ?? false;
+                        _chatAvisoGlobal.IsVisible = hay && !configAbierta;
+                    });
+                }
+                catch { }
+
+                try { await Task.Delay(5000, ct).ConfigureAwait(false); }
+                catch (OperationCanceledException) { return; }
+            }
+        }, ct);
+    }
+
     private void CloseSonidos()
     {
         if (_sonidosHost == null) return;
@@ -4158,6 +4289,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -4241,6 +4373,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -4324,6 +4457,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -4407,6 +4541,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -4492,6 +4627,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -4581,6 +4717,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -4665,6 +4802,7 @@ public partial class MainWindow : Window
         if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -4715,9 +4853,11 @@ public partial class MainWindow : Window
     // el mapa tiene que seguir vivo detrás. La página HTML queda intacta para
     // la PWA del celular.
 
-    private void ShowGrafXte()
+    /// <summary>Cierra todo lo que flota sobre el mapa antes de abrir una card.
+    /// Estaba copiado y pegado en cada Show*: extraido al agregar el grafico de
+    /// PID de QuantiX, para no dejar una undecima copia de la misma lista.</summary>
+    private void CerrarCardsFlotantes()
     {
-        if (_grafXteHost == null) return;
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
@@ -4749,6 +4889,7 @@ public partial class MainWindow : Window
         if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -4770,6 +4911,12 @@ public partial class MainWindow : Window
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_webView != null) CloseWebView();
+    }
+
+    private void ShowGrafXte()
+    {
+        if (_grafXteHost == null) return;
+        CerrarCardsFlotantes();
         // Lazy init: UN SOLO cliente para los cuatro gráficos (es stateless).
         _graficosClient ??= new GraficosClient(DeriveOrigin(App.TargetUrl));
         _grafXteHost.Attach(_graficosClient);
@@ -4777,6 +4924,30 @@ public partial class MainWindow : Window
         // Card flotante: el mapa NUNCA se apaga.
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Grafico XTE open (nativo, no WebView)");
+    }
+
+    /// <summary>Abre el grafico de PID de QuantiX. Card flotante: el mapa NUNCA
+    /// se apaga, igual que los otros cuatro graficos.</summary>
+    private void ShowGrafQuantiX()
+    {
+        if (_grafQuantiXHost == null) return;
+        CerrarCardsFlotantes();
+        if (_webView != null) CloseWebView();
+        _graficosClient ??= new GraficosClient(DeriveOrigin(App.TargetUrl));
+        _grafQuantiXHost.Attach(_graficosClient);
+        _grafQuantiXHost.IsVisible = true;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Grafico PID QuantiX open (nativo)");
+    }
+
+    private void CloseGrafQuantiX()
+    {
+        if (_grafQuantiXHost == null) return;
+        _grafQuantiXHost.Detach();
+        _grafQuantiXHost.IsVisible = false;
+        bool webViewVisibleGq = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleGq) _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
     }
 
     private void CloseGrafXte()
@@ -4918,6 +5089,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
         if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
@@ -5002,6 +5174,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
         if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
@@ -5085,6 +5258,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
@@ -5169,6 +5343,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -5252,6 +5427,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -5339,6 +5515,7 @@ public partial class MainWindow : Window
         if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
         if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
         if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_grafQuantiXHost != null && _grafQuantiXHost.IsVisible) { _grafQuantiXHost.Detach(); _grafQuantiXHost.IsVisible = false; }
         if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
         if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
         if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
@@ -6363,6 +6540,8 @@ public partial class MainWindow : Window
             // panel integrado del motor (CoreXEnginePanel), NO en el Hub :5180.
             // El ECU de autosteer queda en 'corex_ecu'.
             case "corex":      _ = AbrirCoreXAsync(); return true;
+            case "chat_soporte": ToggleChatWidget(); return true;
+            case "grafico_pid": ShowGrafQuantiX(); return true;
             case "corex_ecu":  ShowCoreXEcu(); return true;
 
             // ---- CONFIGURACIÓN → shell nativo (aterriza en Resumen) ----

@@ -221,6 +221,13 @@
         <Button Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="corex">
           <StackPanel><Image Classes="mico" Source="/Assets/menu/CoreX.png"/><TextBlock Classes="mlbl" Text="CoreX"/></StackPanel>
         </Button>
+        <!-- Soporte: abre el chat como overlay chico sobre el mapa. Antes vivía
+             solo adentro de Configuración › Chat, y para escribirle a soporte
+             desde la cabina había que salir del mapa y navegar hasta ahí. El
+             mapa no se apaga: el widget flota en una esquina. -->
+        <Button Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="chat_soporte">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/Soporte.png"/><TextBlock Classes="mlbl" Text="Soporte"/></StackPanel>
+        </Button>
       </StackPanel>
 
       <!-- ===== submenús (contenido e iconos verdaderos del 6.8.5) ===== -->
@@ -300,6 +307,9 @@
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_rumbo"><StackPanel><Image Classes="sico" Source="/Assets/menu/ConS_SourcesHeading.png"/><TextBlock Classes="slbl" Text="Gráfico rumbo"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_xte"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoManualIsAuto.png"/><TextBlock Classes="slbl" Text="Gráfico XTE"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="chequeo_roll"><StackPanel><Image Classes="sico" Source="/Assets/menu/ConS_SourcesRoll.png"/><TextBlock Classes="slbl" Text="Corrección roll"/></StackPanel></Button>
+              <!-- Gráfico de PID: rpm real contra pedida y velocidad del motor.
+                   Es la pantalla con la que se calibran los motores en el lote. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_pid"><StackPanel><Image Classes="sico" Source="/Assets/menu/GraficoPID.png"/><TextBlock Classes="slbl" Text="Gráfico de PID"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="herr_limites"><StackPanel><Image Classes="sico" Source="/Assets/menu/Boundary.png"/><TextBlock Classes="slbl" Text="Herram. límites"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="visor_eventos"><StackPanel><Image Classes="sico" Source="/Assets/menu/ABTracks.png"/><TextBlock Classes="slbl" Text="Visor eventos"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="suavizar_ab"><StackPanel><Image Classes="sico" Source="/Assets/menu/ABSmooth.png"/><TextBlock Classes="slbl" Text="Suavizar AB"/></StackPanel></Button>

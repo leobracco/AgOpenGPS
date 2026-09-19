@@ -258,6 +258,14 @@
                 <!-- Overlay de PULVERIZACIÓN (FlowX + franja StormX si la
                      estación móvil está conectada). Toggle: fx_overlay. -->
                 <vw:FlowXMapOverlay x:Name="FxMapOverlay" IsVisible="False"/>
+                <!-- Chat de soporte como widget CHICO sobre el mapa (pedido
+                     2026-09-19). El mismo ChatPanel que vive en Configuración ›
+                     Chat, pero acotado a 360x420 y flotando en una esquina: para
+                     escribirle a soporte desde la cabina ya no hay que salir del
+                     mapa ni navegar hasta Configuración. Se abre y se cierra con
+                     el botón "Soporte" de la barra izquierda. -->
+                <vw:ChatPanel x:Name="ChatWidgetHost" IsVisible="False"
+                              Width="360" Height="420"/>
                 <!-- Overlay de la pasada: flotante y centrado abajo, justo
                      arriba de las secciones. Lo que el operario toca MIRANDO la
                      línea, no la barra lateral: corrección lateral (izq /
@@ -634,6 +642,33 @@
                     </StackPanel>
                 </Border>
             </StackPanel>
+
+            <!-- =================== AVISO GLOBAL DE CHAT DE SOPORTE ===============
+                 Puntito para que el operario se entere de que llegó un mensaje
+                 de soporte MIENTRAS guía, sin tener que entrar a Configuración
+                 (el badge de adentro sólo se ve con la Config abierta en Cloud).
+                 Sale SOLO cuando hay mensajes sin leer (lo maneja el poll de
+                 estado del chat en MainWindow.axaml.cs). Anclado arriba-derecha,
+                 debajo del zoom: esa franja queda libre durante el guiado.
+                 Tocarlo abre la Configuración parada en "Soporte".
+                 ZIndex 60 = por encima del cockpit (50); el poll lo esconde
+                 cuando la Config está abierta para no flotar sobre ella. -->
+            <Button x:Name="ChatAvisoGlobal" Grid.Row="2" IsVisible="False" ZIndex="60"
+                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Margin="0,132,4,0" Width="50" Height="50" Padding="0"
+                    Background="#D9FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                    CornerRadius="12" Cursor="Hand"
+                    ToolTip.Tip="Mensaje de soporte sin leer — tocá para abrir el chat">
+                <Panel>
+                    <TextBlock Text="💬" FontSize="24"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <!-- Punto rojo de "sin leer" en la esquina del ícono. -->
+                    <Ellipse Width="13" Height="13" Fill="#E53935"
+                             Stroke="White" StrokeThickness="1.5"
+                             HorizontalAlignment="Right" VerticalAlignment="Top"
+                             Margin="0,-3,-3,0"/>
+                </Panel>
+            </Button>
 
             <!-- =================== FIELD DATA (overlay nativo) =================== -->
             <!--
@@ -1220,6 +1255,15 @@
                 <vw:GraficoCorreccionPanel x:Name="GrafCorreccionHost" Grid.Row="1" ZIndex="10"
                                            IsVisible="False"
                                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- Grafico de PID de QuantiX: rpm real contra pedida y la
+                     velocidad DEL MOTOR, para calibrar los motores en el lote.
+                     Mismo molde que los otros cuatro graficos; lo que cambia es
+                     la ventana (60 s en vez de 24) y que el dato sale del
+                     registro de PID, no del estado de guiado. -->
+                <vw:GraficoQuantiXPanel x:Name="GrafQuantiXHost" Grid.Row="1" ZIndex="10"
+                                        IsVisible="False"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
 
                 <!-- ORBITX CLOUD (port de pages/orbitx.html): vinculación del
                      tractor con el cloud (código de pareo, estado del sync) y
