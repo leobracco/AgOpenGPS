@@ -256,4 +256,141 @@ namespace AgroParallel.Services.Tests
             Assert.That(c.Pendientes(), Is.EquivalentTo(new[] { "Lote 12", "Lote 13" }));
         }
     }
+
+    // ========================================================================
+    // Clasificación de la respuesta del cloud al aviso de borrado.
+    //
+    // De acá salía el bucle que llenaba orbitx_sync.log: el aviso se reintentaba
+    // 5 veces contra un 404 que nunca iba a cambiar. Ahora cada código decide en
+    // un solo intento si se reintenta, si se abandona o si cuenta como éxito.
+    // ========================================================================
+    [TestFixture]
+    public class ClasificadorAvisoBorradoTests
+    {
+        [Test]
+        public void Ok200_EsConfirmado()
+        {
+            Assert.That(ClasificadorAvisoBorrado.Clasificar(200, "{\"ok\":true}"),
+                Is.EqualTo(ResultadoAvisoBorrado.Confirmado));
+        }
+
+        [Test]
+        public void Gone410_EsConfirmado()
+        {
+            Assert.That(ClasificadorAvisoBorrado.Clasificar(410, ""),
+                Is.EqualTo(ResultadoAvisoBorrado.Confirmado));
+        }
+
+        // El objetivo del aviso era que el lote no esté en el cloud. Si el
+        // endpoint contesta que ese lote no existe, el objetivo está cumplido.
+        [Test]
+        public void Http404_ConCuerpoQueDiceQueElLoteNoEsta_EsConfirmado()
+        {
+            Assert.That(
+                ClasificadorAvisoBorrado.Clasificar(404, "{\"error\":\"lote no encontrado\"}"),
+                Is.EqualTo(ResultadoAvisoBorrado.Confirmado));
+            Assert.That(
+                ClasificadorAvisoBorrado.Clasificar(404, "{\"error\":\"not_found\",\"lote\":\"Expo 20ha\"}"),
+                Is.EqualTo(ResultadoAvisoBorrado.Confirmado));
+        }
+
+        // El 404 real de orbitx_sync.log: viene del catch-all del server, que
+        // responde así para CUALQUIER ruta inexistente. Leerlo como "el lote ya
+        // no está" levantaría el tombstone y el sync repondría en el ciclo
+        // siguiente el lote que el operario acaba de borrar.
+        [Test]
+        public void Http404_DelCatchAllDelServer_EsRutaInexistente()
+        {
+            Assert.That(
+                ClasificadorAvisoBorrado.Clasificar(404,
+                    "{\"error\":\"Ruta no encontrada\",\"path\":\"/api/aog/lote/borrado\"}"),
+                Is.EqualTo(ResultadoAvisoBorrado.RutaInexistente));
+        }
+
+        [Test]
+        public void Http404_De404HtmlDeExpress_EsRutaInexistente()
+        {
+            Assert.That(
+                ClasificadorAvisoBorrado.Clasificar(404, "<html><body>Cannot POST /api/aog/lote/borrado</body></html>"),
+                Is.EqualTo(ResultadoAvisoBorrado.RutaInexistente));
+        }
+
+        // Ante la duda NO se confirma: confirmar de más repone lotes borrados.
+        [Test]
+        public void Http404_SinCuerpoLegible_NoSeConfirma()
+        {
+            Assert.That(ClasificadorAvisoBorrado.Clasificar(404, null),
+                Is.EqualTo(ResultadoAvisoBorrado.RutaInexistente));
+            Assert.That(ClasificadorAvisoBorrado.Clasificar(404, "   "),
+                Is.EqualTo(ResultadoAvisoBorrado.RutaInexistente));
+        }
+
+        // Fallo del lado del server: el tractor tiene que volver a avisar, no
+        // dar de baja el aviso.
+        [TestCase(500)]
+        [TestCase(502)]
+        [TestCase(503)]
+        [TestCase(504)]
+        [TestCase(408)]
+        [TestCase(429)]
+        public void FallosTransitorios_SeReintentan(int codigo)
+        {
+            Assert.That(ClasificadorAvisoBorrado.Clasificar(codigo, "<html>502 Bad Gateway</html>"),
+                Is.EqualTo(ResultadoAvisoBorrado.Reintentable));
+        }
+
+        // Sin red (excepción, sin respuesta): jamás se descarta un aviso. La PC
+        // del tractor está en el medio del campo.
+        [Test]
+        public void SinRespuesta_SeReintenta()
+        {
+            Assert.That(ClasificadorAvisoBorrado.Clasificar(ClasificadorAvisoBorrado.SinRespuesta, null),
+                Is.EqualTo(ResultadoAvisoBorrado.Reintentable));
+        }
+
+        // El token se arregla desde el panel sin ir al tractor: el aviso espera.
+        [TestCase(401)]
+        [TestCase(403)]
+        public void ProblemasDeToken_SeReintentan(int codigo)
+        {
+            Assert.That(ClasificadorAvisoBorrado.Clasificar(codigo, "{\"error\":\"Token requerido\"}"),
+                Is.EqualTo(ResultadoAvisoBorrado.Reintentable));
+        }
+
+        // Rechazo permanente: el server no va a cambiar de opinión. Se abandona
+        // el aviso en el primer intento, no a los cinco.
+        [TestCase(400)]
+        [TestCase(405)]
+        [TestCase(409)]
+        [TestCase(422)]
+        public void RechazosPermanentes_NoSeReintentan(int codigo)
+        {
+            Assert.That(ClasificadorAvisoBorrado.Clasificar(codigo, "{\"error\":\"lote invalido\"}"),
+                Is.EqualTo(ResultadoAvisoBorrado.Rechazado));
+        }
+
+        // Regresión: abandonar el aviso NO puede desproteger el lote. Es la
+        // diferencia entre "el cloud no se enteró" y "el lote vuelve solo a la
+        // cabina en el ciclo siguiente".
+        [Test]
+        public void AbandonarElAviso_DejaElTombstoneEnPie()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "pilotx_cola_" + Path.GetRandomFileName());
+            Directory.CreateDirectory(dir);
+            try
+            {
+                var c = new ColaLotesBorrados(Path.Combine(dir, "lotes_borrados.json"));
+                c.Encolar("Expo 20ha");
+
+                c.AbandonarAviso("Expo 20ha"); // lo que se hace ante 404 de ruta / 4xx permanente
+
+                Assert.That(c.Pendientes(), Is.Empty, "el aviso deja de reintentarse");
+                Assert.That(c.EstaBorrado("Expo 20ha"), Is.True, "pero el lote sigue protegido");
+            }
+            finally
+            {
+                try { Directory.Delete(dir, true); } catch { }
+            }
+        }
+    }
 }

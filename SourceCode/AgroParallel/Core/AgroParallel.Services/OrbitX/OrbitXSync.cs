@@ -50,6 +50,12 @@ namespace AgroParallel.OrbitX
         /// acá al borrar un lote.</summary>
         public ColaLotesBorrados LotesBorrados => _lotesBorrados;
 
+        // Espaciado de los avisos de borrado cuando el server NO tiene el
+        // endpoint (404 del catch-all): reintentar cada 30 s contra una ruta que
+        // no existe no la hace aparecer. 5 min → 1 h. Ver AvisarLotesBorrados.
+        private readonly BackoffReintentos _avisoBorradoBackoff =
+            new BackoffReintentos(TimeSpan.FromMinutes(5), TimeSpan.FromHours(1));
+
         public bool IsRunning { get; private set; }
         public int FilesSynced { get; private set; }
         public DateTime? LastSyncTime { get; private set; }
@@ -105,6 +111,12 @@ namespace AgroParallel.OrbitX
             _cfg = cfg ?? OrbitXConfig.Load();
             _http = new HttpClient();
             _http.Timeout = TimeSpan.FromSeconds(30);
+
+            // Backoff del heartbeat: arranca en un tick de sync y se va
+            // duplicando mientras el cloud siga caído, hasta 5 minutos. Ver
+            // SendHeartbeat.
+            int seg = _cfg.SyncIntervalSec > 0 ? _cfg.SyncIntervalSec : 30;
+            _hbBackoff = new BackoffReintentos(TimeSpan.FromSeconds(seg), TimeSpan.FromMinutes(5));
         }
 
         public void Start()
@@ -228,6 +240,10 @@ namespace AgroParallel.OrbitX
         // Estado del último heartbeat — visible para diagnóstico desde la UI.
         public string LastHeartbeatStatus { get; private set; }
         public DateTime? LastHeartbeatTime { get; private set; }
+
+        // Espaciado de reintentos del heartbeat cuando el cloud falla (502 del
+        // proxy, SSL cortado, timeout). Ver SendHeartbeat.
+        private readonly BackoffReintentos _hbBackoff;
 
         public void Stop()
         {
@@ -705,6 +721,9 @@ namespace AgroParallel.OrbitX
                           "IMPORTANTE: regenerá el token desde el panel OrbitX → Dispositivos y pegalo en orbitX.json.");
                     LastHeartbeatStatus = "auto-registered (regenerate token!)";
                     LastError = null;
+                    // Con el token nuevo el próximo heartbeat tiene que salir ya
+                    // — no esperar el backoff que dejó el 401.
+                    _hbBackoff.RegistrarExito();
                     _cfg.DeviceToken = _cfg.MasterToken;
                     try { _cfg.Save(); } catch (Exception ex) { AgpLog.Warn("OrbitXSync", "guardar config tras auto-registro", ex); }
                 }
@@ -819,9 +838,24 @@ namespace AgroParallel.OrbitX
             return _rustdeskId;
         }
 
+        /// <summary>
+        /// Heartbeat al cloud. Se traga TODOS sus errores a propósito: si el
+        /// panel no puede marcar el tractor online, eso no puede frenar lo que
+        /// de verdad importa (subir lotes, avisar borrados, bajar
+        /// prescripciones), que sigue corriendo en el mismo tick.
+        ///
+        /// Cuando el cloud falla (502 del proxy, SSL cortado, timeout) se
+        /// espacian los reintentos con _hbBackoff en vez de insistir cada 30 s:
+        /// el server no se arregla porque le peguemos más seguido, y cada
+        /// intento fallido se come hasta 30 s de timeout ADENTRO del tick,
+        /// retrasando el resto del sync. Con un éxito, el backoff vuelve a cero.
+        /// </summary>
         private async Task SendHeartbeat()
         {
             string url = (_cfg.ServerUrl ?? "").TrimEnd('/') + "/api/devices/heartbeat";
+            if (!_hbBackoff.PuedeIntentar(DateTime.UtcNow))
+                return; // en espera: ya se logueó al entrar al backoff, no se repite por tick
+
             try
             {
                 var payload = new Dictionary<string, object>
@@ -869,6 +903,7 @@ namespace AgroParallel.OrbitX
 
                 if (response.IsSuccessStatusCode)
                 {
+                    _hbBackoff.RegistrarExito();
                     Trace("[HB] OK " + code + " body=" + snippet);
                     if (body != null && body.Contains("estab_slug"))
                     {
@@ -889,6 +924,7 @@ namespace AgroParallel.OrbitX
                 {
                     Trace("[HB] FAIL " + code + " " + response.ReasonPhrase + " body=" + snippet);
                     LastError = "HB " + code + ": " + snippet;
+                    AnotarFalloHeartbeat(code + " " + response.ReasonPhrase);
 
                     bool noRegistrado = code == 401 && body != null
                         && body.IndexOf("no registrado", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -901,16 +937,29 @@ namespace AgroParallel.OrbitX
                     }
                 }
             }
-            catch (TaskCanceledException ex)
+            // OJO con este catch: HttpClient tira TaskCanceledException (que es
+            // OperationCanceledException) cuando se vence su propio Timeout, NO
+            // sólo cuando alguien cancela. Acá no hay CancellationToken externo,
+            // así que cualquier cancelación ES el timeout y taparla es correcto:
+            // el heartbeat es best-effort y el timer sigue disparando ticks.
+            // Si algún día este método recibe un ct, ESTE catch tiene que pasar
+            // a `catch (OperationCanceledException) when (ct.IsCancellationRequested)`
+            // y dejar que el timeout caiga en el catch de abajo — si no, un
+            // timeout se confunde con un apagado ordenado (ya pasó en este repo:
+            // un timeout mató un bucle de polling entero, en silencio).
+            catch (OperationCanceledException ex)
             {
                 LastHeartbeatStatus = "timeout";
                 LastError = "HB timeout: " + ex.Message;
+                AnotarFalloHeartbeat("timeout");
                 Trace("[HB] TIMEOUT url=" + url + " msg=" + ex.Message);
             }
             catch (HttpRequestException ex)
             {
+                // Acá caen el SSL cortado por el host remoto y el DNS/ruteo sin red.
                 LastHeartbeatStatus = "http-error";
                 LastError = "HB http: " + ex.Message;
+                AnotarFalloHeartbeat("http-error");
                 Trace("[HB] HTTP_ERR url=" + url + " msg=" + ex.Message
                     + (ex.InnerException != null ? " inner=" + ex.InnerException.Message : ""));
             }
@@ -918,9 +967,22 @@ namespace AgroParallel.OrbitX
             {
                 LastHeartbeatStatus = "exception";
                 LastError = "HB ex: " + ex.Message;
+                AnotarFalloHeartbeat(ex.GetType().Name);
                 Trace("[HB] EX url=" + url + " type=" + ex.GetType().Name + " msg=" + ex.Message
                     + (ex.InnerException != null ? " inner=" + ex.InnerException.Message : ""));
             }
+        }
+
+        /// <summary>
+        /// Anota un heartbeat fallido y espacia el próximo intento. Se loguea una
+        /// sola línea por fallo (no una por tick), así el log sigue sirviendo
+        /// para diagnosticar en campo sin taparse de repeticiones.
+        /// </summary>
+        private void AnotarFalloHeartbeat(string motivo)
+        {
+            var espera = _hbBackoff.RegistrarFallo(DateTime.UtcNow);
+            Trace("[HB] backoff: " + motivo + " — fallo " + _hbBackoff.FallosConsecutivos
+                + " seguido(s), próximo intento en " + (int)espera.TotalSeconds + "s");
         }
 
         private async Task CheckPrescriptions()
@@ -1208,29 +1270,43 @@ namespace AgroParallel.OrbitX
             }
         }
 
-        // Cuántas veces se reintenta avisar un borrado antes de abandonarlo.
-        // Mismo criterio que MaxIntentosPorItem de la cola de subida: un aviso
-        // que el server rechaza SIEMPRE no puede bloquear a los demás.
-        private const int MaxIntentosBorrado = 5;
-        private readonly Dictionary<string, int> _intentosBorrado =
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
         /// <summary>
         /// Le avisa al cloud de los lotes que el operario borró. Es best-effort:
         /// en el lote no hay WiFi, así que lo que no sale ahora sale en el
         /// próximo tick. El tombstone se levanta ÚNICAMENTE cuando el cloud
-        /// confirma con 200 OK; abandonar el aviso (agotar reintentos, o un
-        /// código que no se puede leer como confirmación) NO lo toca — el lote
-        /// sigue protegido contra la reposición aunque se deje de insistir.
+        /// confirma (2xx, 410, o un 404 cuyo cuerpo dice que el lote no está);
+        /// abandonar el aviso NO lo toca — el lote sigue protegido contra la
+        /// reposición aunque se deje de insistir.
+        ///
+        /// Los desenlaces los decide ClasificadorAvisoBorrado. Lo importante:
+        ///  · fallo transitorio (sin red, 5xx, timeout) ⇒ NO se descarta nada,
+        ///    se corta el barrido y se reintenta TODO en el próximo tick. La PC
+        ///    del tractor pasa horas sin señal: la cola tiene que sobrevivir eso.
+        ///  · rechazo permanente (4xx) ⇒ se abandona ese aviso en el acto, con
+        ///    una sola línea de log. Antes se gastaban 5 POST por lote contra un
+        ///    código que nunca iba a cambiar (20 líneas en orbitx_sync.log por
+        ///    cada barrido de 4 lotes).
+        ///  · el server no tiene el endpoint (404 del catch-all) ⇒ el problema es
+        ///    el mismo para TODOS los lotes: se corta el barrido y se espacia el
+        ///    reintento (5 min → 1 h), con una línea que nombra el problema real
+        ///    (falta desplegar /api/aog/lote/borrado). Los avisos quedan en cola
+        ///    para cuando el endpoint exista.
         /// </summary>
         private async Task AvisarLotesBorrados()
         {
             var pendientes = _lotesBorrados.Pendientes();
             if (pendientes.Count == 0) return;
+            // Si el server no tiene el endpoint, no se vuelve a probar hasta que
+            // venza el backoff (ver más abajo).
+            if (!_avisoBorradoBackoff.PuedeIntentar(DateTime.UtcNow)) return;
 
-            foreach (var lote in pendientes)
+            string url = _cfg.ServerUrl.TrimEnd('/') + "/api/aog/lote/borrado";
+
+            for (int i = 0; i < pendientes.Count; i++)
             {
-                string url = _cfg.ServerUrl.TrimEnd('/') + "/api/aog/lote/borrado";
+                string lote = pendientes[i];
+                int codigo;
+                string cuerpo;
                 try
                 {
                     var req = new HttpRequestMessage(HttpMethod.Post, url);
@@ -1243,22 +1319,9 @@ namespace AgroParallel.OrbitX
                         Encoding.UTF8, "application/json");
 
                     var resp = await _http.SendAsync(req);
-                    if (resp.IsSuccessStatusCode)
-                    {
-                        _lotesBorrados.Confirmar(lote);
-                        _intentosBorrado.Remove(lote);
-                        Trace("[LOTE] borrado avisado al cloud: '" + lote + "'");
-                        continue;
-                    }
-
-                    // OJO: un 404 acá NO se puede leer como "el cloud no tiene
-                    // el lote, borrado logrado". Es indistinguible de "la ruta
-                    // no existe en el server" (pasó de verdad: el endpoint
-                    // /api/aog/lote/borrado no estaba desplegado y el catch-all
-                    // devolvía 404 para todo, confirmando — y por lo tanto
-                    // desprotegiendo — cada lote borrado en el primer intento).
-                    // Se cuenta como cualquier otro fallo.
-                    ContarFalloBorrado(lote, "HTTP " + (int)resp.StatusCode);
+                    codigo = (int)resp.StatusCode;
+                    cuerpo = "";
+                    try { cuerpo = await resp.Content.ReadAsStringAsync(); } catch { } // silencioso a propósito: best-effort leer el cuerpo para clasificar
                 }
                 catch (Exception ex)
                 {
@@ -1267,29 +1330,58 @@ namespace AgroParallel.OrbitX
                     // _http.Timeout, y "Borrar todos" puede dejar cientos de
                     // avisos en cola. Mismo criterio que la cola de subida más
                     // abajo en SyncTick ("sin red, insistir con los demás solo
-                    // suma timeouts"): se corta acá, sin contar como fallo
-                    // permanente, y se reintenta TODO en el próximo tick.
+                    // suma timeouts"): se corta acá, sin descartar nada, y se
+                    // reintenta TODO en el próximo tick.
                     Trace("[LOTE] no se pudo avisar el borrado de '" + lote + "': " + ex.Message);
-                    break;
+                    return;
                 }
-            }
-        }
 
-        private void ContarFalloBorrado(string lote, string motivo)
-        {
-            int n;
-            _intentosBorrado.TryGetValue(lote, out n);
-            n++;
-            _intentosBorrado[lote] = n;
-            Trace("[LOTE] aviso de borrado de '" + lote + "' rechazado (" + motivo + "), intento " + n);
-            if (n >= MaxIntentosBorrado)
-            {
-                // Se deja de insistir con el aviso, pero el tombstone QUEDA:
-                // el lote sigue protegido contra la reposición aunque el
-                // cloud nunca se haya enterado del borrado.
+                var resultado = ClasificadorAvisoBorrado.Clasificar(codigo, cuerpo);
+                if (resultado == ResultadoAvisoBorrado.Confirmado)
+                {
+                    _avisoBorradoBackoff.RegistrarExito(); // el endpoint responde: se vuelve al ritmo normal
+                    _lotesBorrados.Confirmar(lote);
+                    Trace("[LOTE] borrado avisado al cloud: '" + lote + "' (HTTP " + codigo + ")");
+                    continue;
+                }
+
+                if (resultado == ResultadoAvisoBorrado.Reintentable)
+                {
+                    // Igual que el corte por excepción: el server está caído o
+                    // ocupado, insistir con los demás en este tick sólo suma
+                    // esperas. Nada se descarta.
+                    Trace("[LOTE] el cloud no pudo tomar el aviso de '" + lote + "' (HTTP "
+                        + codigo + ") — se reintenta en el próximo ciclo");
+                    return;
+                }
+
+                if (resultado == ResultadoAvisoBorrado.RutaInexistente)
+                {
+                    // El server no tiene desplegado /api/aog/lote/borrado: el 404
+                    // viene del catch-all, no del lote. Vale para TODOS los
+                    // pendientes, así que no se prueba ninguno más en este ciclo.
+                    //
+                    // Los avisos NO se tiran: el día que el endpoint esté
+                    // desplegado, el cloud se entera de los lotes que el operario
+                    // ya había borrado. Lo que sí se hace es espaciar mucho el
+                    // reintento (5 min → 1 h), que es lo que faltaba: antes se
+                    // gastaba un POST por lote en CADA ciclo de 30 s contra un
+                    // 404 que nunca iba a cambiar (con 4 lotes borrados, 20
+                    // líneas en orbitx_sync.log en dos minutos).
+                    var espera = _avisoBorradoBackoff.RegistrarFallo(DateTime.UtcNow);
+                    Trace("[LOTE] el servidor no tiene el endpoint de borrado (HTTP " + codigo
+                        + " en " + url + ") — quedan " + pendientes.Count
+                        + " aviso(s) en cola, se reintenta en " + (int)espera.TotalMinutes
+                        + " min; los lotes siguen protegidos en la cabina");
+                    return;
+                }
+
+                // Rechazo permanente de ESTE aviso: se abandona y se sigue con
+                // los demás. El tombstone queda.
+                _avisoBorradoBackoff.RegistrarExito(); // el endpoint contestó: existe
                 _lotesBorrados.AbandonarAviso(lote);
-                _intentosBorrado.Remove(lote);
-                Trace("[LOTE] se abandona el aviso de borrado de '" + lote + "' tras " + n + " intentos");
+                Trace("[LOTE] el cloud rechazó el aviso de borrado de '" + lote + "' (HTTP " + codigo
+                    + ") — no se insiste; el lote sigue protegido en la cabina");
             }
         }
 
