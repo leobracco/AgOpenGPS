@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // NodoRegistryService.cs
 // Implementación de INodoRegistryService — usa MQTTnet directamente para
 // suscribirse a:
@@ -451,6 +451,7 @@ namespace AgroParallel.Services
                                 PpsReal = m.PpsReal,
                                 Pwm = m.Pwm,
                                 Rpm = m.Rpm,
+                                LoadPct = m.LoadPct,
                                 Pulsos = m.Pulsos,
                                 LastSeenUtc = m.LastSeenUtc
                             });
@@ -691,6 +692,7 @@ namespace AgroParallel.Services
                     m.Pwm = ExtractJsonInt(payload, "pwm");
                     m.Rpm = ExtractJsonInt(payload, "rpm");
                     m.Pulsos = ExtractJsonLong(payload, "pulsos");
+                    m.LoadPct = ExtractJsonInt(payload, "load_pct");
                     m.LastSeenUtc = DateTime.UtcNow;
                     changed = true;
                 }
