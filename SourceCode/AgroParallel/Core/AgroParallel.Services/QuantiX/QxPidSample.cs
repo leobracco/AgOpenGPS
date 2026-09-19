@@ -9,6 +9,13 @@ namespace AgroParallel.QuantiX
 {
     public struct QxPidSample
     {
+        /// <summary>Cuando se TOMO la muestra (Environment.TickCount del tick que
+        /// la genero). Lo pone Registrar(), no el flush: el flush corre una vez
+        /// por segundo y con 5 muestras por segundo todas terminaban con el mismo
+        /// t_s — el eje quedaba en escalones de 1 s y se perdia justo la
+        /// resolucion de 5 Hz que hace falta para ver oscilar el PID.</summary>
+        public int TickMs;
+
         /// <summary>UID del nodo. Va en el NOMBRE del archivo, no en cada fila:
         /// MotorIdx solo es unico dentro de su nodo.</summary>
         public string Uid;

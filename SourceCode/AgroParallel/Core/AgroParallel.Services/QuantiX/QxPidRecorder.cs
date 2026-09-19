@@ -63,6 +63,11 @@ namespace AgroParallel.QuantiX
         private Timer _corteTimer;
         private bool _marcada;
         private DateTime _inicio;
+
+        /// <summary>Environment.TickCount al abrir la sesion. El t_s de cada fila
+        /// se mide contra esto, no contra el reloj de pared: DateTime.Now salta
+        /// con los ajustes de hora y el registro es una serie temporal.</summary>
+        private int _inicioTick;
         private bool _abierta;
         private bool _huboMuestras;
         private string _marcaPendiente;
@@ -90,6 +95,7 @@ namespace AgroParallel.QuantiX
             {
                 if (_abierta) return;
                 _inicio = DateTime.Now;
+                _inicioTick = Environment.TickCount;
                 SesionDir = Path.Combine(_baseDir, "pid-quantix",
                     _inicio.ToString("yyyy-MM-dd_HHmm", CultureInfo.InvariantCulture));
                 _huboMuestras = false;
@@ -110,6 +116,9 @@ namespace AgroParallel.QuantiX
         /// <summary>Encola la muestra. No toca disco. No bloquea.</summary>
         public void Registrar(QxPidSample m)
         {
+            // El sello va ACA, en el tick que genero la muestra. Calcularlo en el
+            // flush daba el mismo t_s a las 5 muestras del segundo.
+            m.TickMs = Environment.TickCount;
             lock (_lock)
             {
                 if (!_abierta) return;
@@ -219,7 +228,7 @@ namespace AgroParallel.QuantiX
         private string Fila(QxPidSample m, string marca)
         {
             var inv = CultureInfo.InvariantCulture;
-            double t = (DateTime.Now - _inicio).TotalSeconds;
+            double t = unchecked(m.TickMs - _inicioTick) / 1000.0;
             var sb = new StringBuilder(96);
             sb.Append(t.ToString("F1", inv)).Append(',');
             sb.Append(m.RpmReal.HasValue ? m.RpmReal.Value.ToString("F0", inv) : "").Append(',');

@@ -322,6 +322,35 @@ namespace AgroParallel.Services.Tests
             Directory.Delete(dir, true);
         }
 
+
+        [Test]
+        public void Las_muestras_de_un_mismo_flush_no_comparten_el_tiempo()
+        {
+            // El t_s se sellaba en el flush, que corre 1 vez por segundo: las 5
+            // muestras de ese segundo salian todas con el MISMO t_s y el eje
+            // quedaba en escalones de 1 s, justo la resolucion de 5 Hz que hace
+            // falta para ver oscilar el PID.
+            string dir = DirTemp();
+            var rec = new QxPidRecorder(dir);
+            rec.AbrirSesion();
+            for (int i = 0; i < 5; i++)
+            {
+                rec.Registrar(Muestra("A4CF12AB9E30", 0));
+                System.Threading.Thread.Sleep(60);
+            }
+            rec.FlushAhora();
+
+            string[] lineas = LeerLineas(Path.Combine(rec.SesionDir, "A4CF12AB9E30_m0.csv"));
+            var tiempos = new List<string>();
+            for (int i = 1; i < lineas.Length; i++) tiempos.Add(lineas[i].Split(',')[0]);
+
+            Assert.That(tiempos.Count, Is.EqualTo(5));
+            Assert.That(new HashSet<string>(tiempos).Count, Is.GreaterThan(1),
+                "las 5 muestras salieron con el mismo t_s: el sello se esta tomando en el flush");
+            rec.CerrarSesion();
+            Directory.Delete(dir, true);
+        }
+
         [Test]
         public void Registrar_no_explota_si_el_directorio_no_existe()
         {

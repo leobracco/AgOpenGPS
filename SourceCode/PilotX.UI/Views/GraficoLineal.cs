@@ -55,9 +55,10 @@ public enum ModoEjeGrafico
 /// </summary>
 public sealed class SerieGrafico
 {
-    private readonly List<double> _datos = new(GraficoLineal.MaxPuntos);
+    private readonly List<double> _datos;
+    private readonly int _tope;
 
-    internal SerieGrafico(Color color) { Color = color; }
+    internal SerieGrafico(Color color) : this(GraficoLineal.MaxPuntosDefault) { Color = color; }
 
     /// <summary>Color del trazo (el mismo que usaba `ctx.strokeStyle`).</summary>
     public Color Color { get; set; }
@@ -65,13 +66,22 @@ public sealed class SerieGrafico
     /// <summary>Cuántas muestras hay en el buffer (0..120).</summary>
     public int Cantidad => _datos.Count;
 
+    /// <summary>Tope del buffer. Default 120 (el MAX_POINTS histórico de los
+    /// cuatro gráficos); el de QuantiX lo sube a 300 porque a 5 Hz eso son 60 s
+    /// y un ciclo de oscilación lento no entra en 24.</summary>
+    public SerieGrafico(int tope = GraficoLineal.MaxPuntosDefault)
+    {
+        _tope = tope > 0 ? tope : GraficoLineal.MaxPuntosDefault;
+        _datos = new List<double>(_tope);
+    }
+
     internal IReadOnlyList<double> Datos => _datos;
 
     /// <summary>Agrega una muestra al final y descarta la más vieja si se pasa de 120.</summary>
     public void Empujar(double v)
     {
         _datos.Add(v);
-        if (_datos.Count > GraficoLineal.MaxPuntos) _datos.RemoveAt(0);
+        while (_datos.Count > _tope) _datos.RemoveAt(0);
     }
 
     /// <summary>Vacía el buffer (ningún JS lo hacía; queda por si el panel lo necesita).</summary>
@@ -82,7 +92,11 @@ public sealed class GraficoLineal : Control
 {
     /// <summary>MAX_POINTS de los cuatro JS. También es el divisor del eje X:
     /// cambiarlo cambia la escala de tiempo del gráfico.</summary>
-    public const int MaxPuntos = 120;
+    public const int MaxPuntosDefault = 120;
+
+    /// <summary>Divisor del eje X: cambia la escala de tiempo del gráfico. Cada
+    /// panel lo pone acorde al tope de sus series.</summary>
+    public int MaxPuntos { get; set; } = MaxPuntosDefault;
 
     private readonly List<SerieGrafico> _series = new();
 
@@ -129,6 +143,16 @@ public sealed class GraficoLineal : Control
     public SerieGrafico NuevaSerie(Color color)
     {
         var s = new SerieGrafico(color);
+        _series.Add(s);
+        return s;
+    }
+
+    /// <summary>Serie con un tope propio de buffer. El gráfico de PID de QuantiX
+    /// lo usa con 300: a 5 Hz eso son 60 s de ventana, y un ciclo de oscilación
+    /// lento no entra en los 24 s que dan 120 muestras.</summary>
+    public SerieGrafico NuevaSerie(Color color, int tope)
+    {
+        var s = new SerieGrafico(tope) { Color = color };
         _series.Add(s);
         return s;
     }

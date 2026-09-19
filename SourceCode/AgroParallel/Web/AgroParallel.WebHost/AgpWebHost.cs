@@ -123,6 +123,12 @@ namespace AgroParallel.WebHost
         /// <summary>Detección de alarmas sonoras (opcional): lo setea el host
         /// que lo tenga (Engine). Null = endpoints degradan a defaults.</summary>
         public AgroParallel.Services.SonidosAlarmService Sonidos { get; set; }
+
+        /// <summary>Chat de soporte PilotX↔OrbitX (opcional): lo instancia y
+        /// setea el Engine (vive junto al SoporteRemotoService, con la config
+        /// del cloud). Null = /api/chat/* degrada a service-unavailable, igual
+        /// que el resto de los módulos no inyectados.</summary>
+        public AgroParallel.Soporte.ChatSoporteService Chat { get; set; }
         private readonly int _port;
         private WebServer _server;
         private CancellationTokenSource _cts;
@@ -315,6 +321,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new QuantiXController(_nodos, _quantixCfg))
                  .WithController(() => new SonidosController(Sonidos, _wwwroot))
                  .WithController(() => new OrbitXController(_orbitxCfg))
+                 .WithController(() => new ChatController(Chat, _steerConfig))
                  .WithController(() => new FirmwaresController())
                  .WithController(() => new UsbFlashController(_usbFlash, AppContext.BaseDirectory))
                  .WithController(() => new TecladoController())
@@ -323,6 +330,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new ConfiguracionController())
                  .WithController(() => new SteerConfigController(_steerConfig))
                  .WithController(() => new SectionXController(_sectionxCfg))
+                 .WithController(() => new QuantiXPidController())
                  .WithController(() => new RedWifiController(_wifi))
                  .WithController(() => new RedIpController(new AgroParallel.Services.RedIpService()))
                  .WithController(() => new CamarasController(_camarasCfg));

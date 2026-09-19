@@ -27,6 +27,7 @@ namespace AgroParallel.QuantiX
         // de caer al shapefile/DosisFija. null = comportamiento legacy.
         private readonly IPrescripcionService _prescripciones;
         private System.Timers.Timer _timer;
+        private QxPidRecorder _pid;
         private System.Timers.Timer _reloadTimer;
         private MotoresConfig _motores;
         private bool _disposed;
@@ -122,6 +123,30 @@ namespace AgroParallel.QuantiX
             return 0;
         }
 
+        /// <summary>El MotorLive completo del registry, o null si el nodo no
+        /// publica. null NO es lo mismo que un motor quieto: por eso el registro
+        /// escribe vacio y no cero cuando esto devuelve null.</summary>
+        public AgroParallel.Models.MotorLive GetMotorLive(string uid, int motorIdx)
+        {
+            if (_nodos == null || string.IsNullOrEmpty(uid)) return null;
+            try
+            {
+                var all = _nodos.GetAll();
+                for (int i = 0; i < all.Count; i++)
+                {
+                    var n = all[i];
+                    if (n == null || !string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase)) continue;
+                    var ml = n.MotorsLive;
+                    if (ml != null)
+                        for (int m = 0; m < ml.Count; m++)
+                            if (ml[m] != null && ml[m].Id == motorIdx) return ml[m];
+                    return null;
+                }
+            }
+            catch { }
+            return null;
+        }
+
         private static readonly string LogPath = Path.Combine(
             AgroParallel.Common.AgpPaths.ConfigRoot, "qx_bridge.log");
 
@@ -165,6 +190,19 @@ namespace AgroParallel.QuantiX
             _reloadTimer.Elapsed += (s2, ev2) => { try { _motores = MotoresConfig.Load(); } catch { } };
             _reloadTimer.Start();
 
+            // Registro de PID: siempre activo, todos los motores. El diagnostico
+            // se hace comparando motores entre si (el que tiene mas tension tira
+            // mas PWM para la misma rpm), asi que un motor quieto mientras los
+            // otros giran tambien es dato.
+            try
+            {
+                _pid = new QxPidRecorder(AgroParallel.Common.AgpPaths.ConfigRoot);
+                _pid.AbrirSesion(_motores);
+                QxPidRecorder.Instance = _pid;
+                Log("Registro de PID en " + _pid.SesionDir);
+            }
+            catch (Exception exPid) { Log("registro de PID no disponible: " + exPid.Message); }
+
             IsRunning = true;
             Log("Iniciado con " + _motores.Nodos.Count + " nodo(s)");
             return System.Threading.Tasks.Task.CompletedTask;
@@ -177,6 +215,7 @@ namespace AgroParallel.QuantiX
 
             if (_timer != null) { _timer.Stop(); _timer.Dispose(); _timer = null; }
             if (_reloadTimer != null) { _reloadTimer.Stop(); _reloadTimer.Dispose(); _reloadTimer = null; }
+            if (_pid != null) { _pid.CerrarSesion(); QxPidRecorder.Instance = null; _pid = null; }
 
             // La conexión MQTT es del NodoRegistryService — acá no hay nada
             // que desconectar.
@@ -549,6 +588,28 @@ namespace AgroParallel.QuantiX
                                 Log(string.Format("  M{0} dosis={1:F0}kg/ha ancho={2:F1}m vel={3:F1}km/h cal={4:F1}g/p RPM={5:F0} pps={6:F1}",
                                     mi, dosisEfectiva, anchoActivo, velMotorKmh, motor.MeterCal, rpmTarget, pps));
                             }
+                        }
+
+                        // Registro de PID (no toca disco: encola y vuelve).
+                        if (_pid != null)
+                        {
+                            var live = GetMotorLive(nodo.Uid, mi);
+                            _pid.Registrar(new QxPidSample
+                            {
+                                Uid = nodo.Uid,
+                                MotorIdx = mi,
+                                Nombre = motor.Nombre,
+                                RpmReal = live != null ? (double?)live.Rpm : null,
+                                RpmTarget = QxPulseCalculator.Rpm(pps, motor.DientesEngranaje),
+                                PpsReal = live != null ? live.PpsReal : 0,
+                                PpsTarget = pps,
+                                Pwm = live != null ? live.Pwm : 0,
+                                LoadPct = live != null ? live.LoadPct : 0,
+                                VelMotorKmh = velMotorKmh,
+                                VelGpsKmh = snap.AvgSpeed,
+                                Dosis = dosisEfectiva,
+                                SeccionOn = seccionOn,
+                            });
                         }
 
                         // Filtrado + banda muerta (ver PPS_ALFA arriba).

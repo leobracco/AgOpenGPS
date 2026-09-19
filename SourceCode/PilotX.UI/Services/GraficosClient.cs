@@ -18,6 +18,7 @@
 // "sin conexión", que es exactamente el catch del fetch en el JS.
 
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -36,6 +37,33 @@ public sealed class SteerGraphSampleDto
 
     /// <summary>Ángulo de dirección que ordena el guiado, en grados.</summary>
     [JsonPropertyName("set_steer_deg")]    public double? SetSteerDeg    { get; set; }
+}
+
+/// <summary>Una muestra del gráfico de PID de QuantiX.</summary>
+public sealed class PidGraphSampleDto
+{
+    [JsonPropertyName("rpm_real")]   public double? RpmReal   { get; set; }
+    [JsonPropertyName("rpm_target")] public double? RpmTarget { get; set; }
+    [JsonPropertyName("vel_motor")]  public double? VelMotor  { get; set; }
+    [JsonPropertyName("vel_gps")]    public double? VelGps    { get; set; }
+    [JsonPropertyName("load_pct")]   public int?    LoadPct   { get; set; }
+}
+
+/// <summary>Un motor en el selector del panel.</summary>
+public sealed class PidMotorDto
+{
+    [JsonPropertyName("uid")]    public string? Uid    { get; set; }
+    [JsonPropertyName("m")]      public int     M      { get; set; }
+    [JsonPropertyName("nombre")] public string? Nombre { get; set; }
+}
+
+/// <summary>Respuesta de /api/quantix/graph-pid.</summary>
+public sealed class PidGraphRespDto
+{
+    [JsonPropertyName("ok")]       public bool                    Ok       { get; set; }
+    [JsonPropertyName("motivo")]   public string?                 Motivo   { get; set; }
+    [JsonPropertyName("motores")]  public List<PidMotorDto>?      Motores  { get; set; }
+    [JsonPropertyName("muestras")] public List<PidGraphSampleDto>? Muestras { get; set; }
 }
 
 /// <summary>Muestra del gráfico de rumbo (espejo de HeadingGraphSample).</summary>
@@ -121,6 +149,30 @@ public sealed class GraficosClient
     /// <summary>GET /api/aog/graph-correction — corrección por roll + eastings.</summary>
     public Task<CorrectionGraphSampleDto?> GetCorrectionAsync(CancellationToken ct = default)
         => LeerAsync<CorrectionGraphSampleDto>("api/aog/graph-correction", ct);
+
+    /// <summary>GET /api/quantix/graph-pid — rpm real vs target, velocidad del
+    /// motor y carga, de UN motor. El uid identifica el nodo: el indice de motor
+    /// solo es unico dentro de su nodo.</summary>
+    public Task<PidGraphRespDto?> GetPidAsync(string? uid, int m, CancellationToken ct = default)
+        => LeerAsync<PidGraphRespDto>(
+            "api/quantix/graph-pid?uid=" + Uri.EscapeDataString(uid ?? "") + "&m=" + m, ct);
+
+    /// <summary>POST /api/quantix/pid-marca — clava una marca en el registro de
+    /// los 14 motores a la vez, para alinear "aca toque Kp" con lo que hicieron
+    /// todos en ese instante.</summary>
+    public async Task<bool> MarcarPidAsync(string texto, CancellationToken ct = default)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, _baseUrl + "api/quantix/pid-marca");
+            req.Content = new StringContent("{\"texto\":" + JsonSerializer.Serialize(texto) + "}",
+                System.Text.Encoding.UTF8, "application/json");
+            using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            return res.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch { return false; }
+    }
 
     private async Task<T?> LeerAsync<T>(string ruta, CancellationToken ct) where T : class
     {
