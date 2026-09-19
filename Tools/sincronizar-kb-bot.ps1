@@ -1,76 +1,86 @@
 # ============================================================================
-#  sincronizar-kb-bot.ps1 — sube la base de conocimiento del bot de soporte.
+#  sincronizar-kb-bot.ps1 — publica al cloud lo que usa el bot de soporte:
+#  su base de conocimiento y su propio modulo.
 #
 #  Por que existe:
-#    El bot del cloud (OrbitX services/soporte-bot.js) le contesta al operario
-#    con lo que dice kb-pilotx.md. Hasta el 2026-09-19 ese archivo vivia SOLO en
-#    el droplet: sin historia, sin respaldo, y sin forma de saber si estaba al
-#    dia. Ahora la fuente de verdad es docs/bot/kb-pilotx.md en el repo y esto
-#    la publica.
+#    El bot (OrbitX services/soporte-bot.js) le contesta al operario con lo que
+#    dice kb-pilotx.md. Hasta el 2026-09-19 los DOS archivos vivian SOLO en el
+#    droplet: sin historia, sin respaldo, y sin forma de saber si estaban al
+#    dia. Ahora la fuente de verdad es docs/bot/ en el repo y esto los publica.
 #
-#  La direccion importa: repo -> droplet. NUNCA al reves. Si alguien edita el
-#  archivo directo en el servidor, ese cambio se pierde en el proximo sync, y
-#  esta bien que sea asi: lo que no esta en el repo no existe.
+#  La direccion importa: repo -> droplet. NUNCA al reves. Si alguien edita
+#  directo en el servidor, ese cambio se pierde en el proximo sync (queda un
+#  .previa), y esta bien que sea asi: lo que no esta en el repo no existe.
 #
 #  Que NO hace:
-#    No reinicia el servicio. soporte-bot.js lee la KB una sola vez al cargar el
-#    modulo, asi que el cambio recien se ve cuando OrbitX se reinicia. El script
-#    lo avisa al final en vez de reiniciar por su cuenta: reiniciar OrbitX saca
-#    de linea el panel y el sync de todos los tractores, y eso lo decide una
-#    persona.
+#    No reinicia OrbitX. El modulo y la KB se cargan al arrancar, asi que el
+#    cambio recien se ve despues del reinicio. Reiniciar saca de linea el panel
+#    y el sync de TODOS los tractores: eso lo decide una persona, no un script.
 #
 #  Uso:
-#    .\Tools\sincronizar-kb-bot.ps1            sube si cambio
-#    .\Tools\sincronizar-kb-bot.ps1 -Verificar solo compara, no sube
+#    .\Tools\sincronizar-kb-bot.ps1             publica lo que cambio
+#    .\Tools\sincronizar-kb-bot.ps1 -Verificar  solo compara, no sube nada
 # ============================================================================
 
 param(
-    # Compara la KB local contra la del servidor y informa, sin subir nada.
+    # Compara local contra servidor e informa, sin publicar.
     [switch]$Verificar
 )
 
 $ErrorActionPreference = "Stop"
 $raiz = Split-Path -Parent $PSScriptRoot
-$kbLocal = Join-Path $raiz "docs\bot\kb-pilotx.md"
-$kbRemota = "/opt/AgroParallel/OrbitX/services/kb-pilotx.md"
 
-if (-not (Test-Path $kbLocal)) {
-    throw "Falta $kbLocal. Es la fuente de verdad de lo que el bot le contesta al operario."
+# Pares local -> remoto.
+$archivos = @(
+    @{ Local = "docs\bot\kb-pilotx.md";   Remoto = "/opt/AgroParallel/OrbitX/services/kb-pilotx.md";   Nombre = "KB " },
+    @{ Local = "docs\bot\soporte-bot.js"; Remoto = "/opt/AgroParallel/OrbitX/services/soporte-bot.js"; Nombre = "bot" }
+)
+
+$huboCambios = $false
+
+foreach ($a in $archivos) {
+    $local = Join-Path $raiz $a.Local
+    if (-not (Test-Path $local)) { throw "Falta $local" }
+
+    $hashLocal = (Get-FileHash $local -Algorithm SHA256).Hash.ToLower()
+    $hashRemoto = (ssh do "sha256sum $($a.Remoto) 2>/dev/null | cut -d' ' -f1").Trim()
+
+    if ($hashLocal -eq $hashRemoto) {
+        Write-Host "$($a.Nombre): al dia" -ForegroundColor DarkGray
+        continue
+    }
+
+    $huboCambios = $true
+    Write-Host "$($a.Nombre): DISTINTO (local $($hashLocal.Substring(0,12)))" -ForegroundColor Yellow
+    if ($Verificar) { continue }
+
+    # El bot es codigo: si sube roto, el chat de soporte deja de contestar.
+    if ($a.Local -like "*.js") {
+        node --check $local
+        if ($LASTEXITCODE -ne 0) { throw "$($a.Local) no pasa node --check. No se sube nada." }
+    }
+
+    $tmp = "/tmp/" + (Split-Path $a.Remoto -Leaf)
+    scp $local "do:$tmp"
+    # Respaldo de lo que estaba: si alguien habia editado en el servidor, no se
+    # pierde sin dejar rastro.
+    ssh do "if [ -f $($a.Remoto) ]; then cp $($a.Remoto) $($a.Remoto).previa; fi; mv $tmp $($a.Remoto)"
+
+    $verif = (ssh do "sha256sum $($a.Remoto) | cut -d' ' -f1").Trim()
+    if ($verif -ne $hashLocal) { throw "El sha del servidor no coincide con el local. Reintentar." }
+    Write-Host "$($a.Nombre): publicado" -ForegroundColor Green
 }
 
-$hashLocal = (Get-FileHash $kbLocal -Algorithm SHA256).Hash.ToLower()
-$lineas = (Get-Content $kbLocal | Measure-Object -Line).Lines
-Write-Host "KB local : $lineas lineas, sha $($hashLocal.Substring(0,12))" -ForegroundColor Cyan
-
-$hashRemoto = (ssh do "sha256sum $kbRemota 2>/dev/null | cut -d' ' -f1").Trim()
-if ([string]::IsNullOrWhiteSpace($hashRemoto)) {
-    Write-Host "KB remota: NO EXISTE todavia" -ForegroundColor Yellow
-} else {
-    Write-Host "KB remota: sha $($hashRemoto.Substring(0,12))" -ForegroundColor Cyan
-}
-
-if ($hashLocal -eq $hashRemoto) {
-    Write-Host "`nIguales: no hay nada que subir." -ForegroundColor Green
+if (-not $huboCambios) {
+    Write-Host "`nTodo al dia: no hay nada que publicar." -ForegroundColor Green
     exit 0
 }
 
 if ($Verificar) {
-    Write-Host "`nDISTINTAS. Corre sin -Verificar para publicar la del repo." -ForegroundColor Yellow
+    Write-Host "`nHay cambios sin publicar. Corre sin -Verificar." -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "`nSubiendo la KB del repo al bot..." -ForegroundColor Cyan
-scp $kbLocal "do:/tmp/kb-pilotx.md"
-# Respaldo de la que estaba: si alguien habia editado en el servidor, no se
-# pierde sin dejar rastro.
-ssh do "if [ -f $kbRemota ]; then cp $kbRemota ${kbRemota}.previa; fi; mv /tmp/kb-pilotx.md $kbRemota"
-
-$verif = (ssh do "sha256sum $kbRemota | cut -d' ' -f1").Trim()
-if ($verif -ne $hashLocal) {
-    throw "El sha del servidor no coincide con el local. Reintentar."
-}
-
-Write-Host "`nOK: la KB del bot quedo igual a la del repo." -ForegroundColor Green
-Write-Host "OJO: soporte-bot.js la lee al cargar el modulo. El bot sigue" -ForegroundColor Yellow
-Write-Host "     contestando con la vieja hasta que se reinicie OrbitX:" -ForegroundColor Yellow
+Write-Host "`nOJO: OrbitX carga el modulo y la KB al arrancar. Sigue" -ForegroundColor Yellow
+Write-Host "     contestando con lo viejo hasta que se reinicie:" -ForegroundColor Yellow
 Write-Host "       ssh do 'pm2 restart OrbitX'" -ForegroundColor Yellow
