@@ -192,6 +192,17 @@ namespace PilotX.GuidanceEngine.Adapters
             if (Directory.Exists(dir))
                 return Task.FromResult(ResultadoCrearLote.Falla(MotivoCrearLote.YaExiste));
 
+            // Sin fix NO se crea: el origen del plano local sale de la posicion
+            // actual, y sin senal esa posicion es la ULTIMA conocida — el campo
+            // anterior. Es el caso tipico de llegar al lote y crearlo antes de
+            // que el GPS enganche: el lote quedaba anclado kilometros lejos y
+            // nada avisaba. Se usa el MISMO watchdog que apaga la velocidad y la
+            // calidad de fix (3 s sin dato = sin GPS).
+            bool gpsVivo = _host.lastFixUtc != default(DateTime)
+                && (DateTime.UtcNow - _host.lastFixUtc).TotalSeconds <= 3;
+            if (!gpsVivo)
+                return Task.FromResult(ResultadoCrearLote.Falla(MotivoCrearLote.SinGps));
+
             try
             {
                 // Cerrar el lote actual (si hay) antes de crear el nuevo.

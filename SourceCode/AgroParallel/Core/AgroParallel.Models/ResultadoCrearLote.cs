@@ -11,6 +11,13 @@ namespace AgroParallel.Models
         YaExiste,
         NombreInvalido,
         SinDirectorioDeLotes,
+        /// <summary>Sin fix de GPS al crear. El origen del plano local del lote
+        /// sale de la posicion actual, y sin senal esa posicion es la ULTIMA
+        /// conocida — el campo anterior, o 0/0 si nunca hubo fix. El lote queda
+        /// anclado en el lugar equivocado y todo lo que se calcule contra ese
+        /// origen sale corrido (probado en banco: se creo un lote con
+        /// fix_quality 0 y quedo con el StartFix del simulador de 20 min antes).</summary>
+        SinGps,
         Error,
     }
 
@@ -34,6 +41,7 @@ namespace AgroParallel.Models
                 case MotivoCrearLote.YaExiste:             return "ya_existe";
                 case MotivoCrearLote.NombreInvalido:       return "nombre_invalido";
                 case MotivoCrearLote.SinDirectorioDeLotes: return "sin_directorio_de_lotes";
+                case MotivoCrearLote.SinGps:               return "sin_gps";
                 default:                                   return "error";
             }
         }

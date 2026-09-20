@@ -699,6 +699,9 @@ public sealed class LotePanel : Border
         "ya_existe"               => PilotX.Cockpit.Bars.Traductor.T("Ya existe un lote con ese nombre"),
         "nombre_invalido"         => PilotX.Cockpit.Bars.Traductor.T("Ese nombre no se puede usar"),
         "sin_directorio_de_lotes" => PilotX.Cockpit.Bars.Traductor.T("No está configurada la carpeta de lotes"),
+        // Dice QUE HACER, no solo que falta: el operario esta parado en el lote
+        // esperando que enganche.
+        "sin_gps"                 => PilotX.Cockpit.Bars.Traductor.T("Sin señal de GPS: esperá a que enganche. El lote se ancla donde estás parado."),
         _                         => PilotX.Cockpit.Bars.Traductor.T("No se pudo crear el lote"),
     };
 
