@@ -12,6 +12,63 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.82] — 2026-09-19
+
+Tanda pedida desde el tractor, sembrando en LAS GRINGAS. Todo lo de acá tiene
+la misma causa de fondo: **PilotX fallaba en silencio**. Arriba de la máquina,
+"no pasa nada" es el peor mensaje posible, porque no se puede distinguir un
+equipo roto de un requisito que falta.
+
+### Fixed
+
+- **PilotX no se enteraba de que perdía la señal de GPS.** `fixQuality` retenía
+  el último valor recibido para siempre: al cortarse el GPS, el estado seguía
+  diciendo "RTK FIJO" (o "SIMULADOR") indefinidamente. La barra superior mentía
+  y nadie se enteraba de que se había perdido la señal. El Engine ya tenía el
+  watchdog de 3 s —lo usaba para poner la velocidad en cero, "sin GPS no se
+  dosifica"— pero no lo aplicaba a la calidad de fix. Ahora sí. Verificado
+  apagando el simulador con PilotX andando: `8 → 0`.
+
+- **Crear un lote sin GPS lo anclaba al campo anterior.** El origen del plano
+  local salía de la posición actual sin verificar que hubiera señal, así que
+  con el GPS todavía sin enganchar el lote quedaba anclado a la última posición
+  conocida — y al enganchar, el plano estaba corrido kilómetros. Probado en
+  banco: con `fix_quality 0` el lote se creaba igual, con el `StartFix` del
+  simulador de 20 minutos antes. Si nunca hubo fix desde el arranque, el origen
+  quedaba en 0/0 (el golfo de Guinea). Ahora no se crea y se explica por qué.
+
+### Added
+
+- **Cartel con el motivo por el que el mapa no puede mostrar la máquina**
+  (sin GPS / sin conexión / sin lote). Es el estado que más confunde: la
+  pantalla se ve normal, el mapa está, y nada funciona. El cartel cambia solo
+  al siguiente motivo a medida que se resuelven, y desaparece cuando está todo
+  en orden.
+
+- **La guía A/B no arranca sin lote**, y dice que la guía se guarda adentro del
+  lote. Antes el flujo arrancaba igual y se perdía al final.
+
+- **El piloto dice qué falta** (GPS, lote o guía) en vez de no hacer nada.
+  Cuando falta la guía dice qué hacer: "Tirá una A/B o elegí una guardada".
+
+- **Aviso al activar el piloto fuera del lindero**: "no va a pintar ni a sembrar
+  hasta que entres". Avisa pero NO bloquea — se puede estar entrando al lote o
+  haciendo una pasada a propósito.
+
+- **Aviso de lote lejano**: a más de 20 km del lote abierto se avisa una vez,
+  con la distancia. Es el caso de quedarse con el lote de ayer puesto.
+
+### Notas para soporte
+
+- Los motivos de cabina viven en `AvisosCabina`, función pura sobre el estado:
+  el texto que lee el operario está fijado por tests, no se comprueba a mano
+  arriba de una sembradora.
+- Queda pendiente: `open`/`close`/`delete` de lotes siguen devolviendo `ok`
+  pelado sin motivo, y el botón "Continuar" escribe el fallo en una consola que
+  en cabina no se ve.
+
+---
+
 ## [1.0.71] — 2026-09-10
 
 ### Added
