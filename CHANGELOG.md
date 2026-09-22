@@ -12,6 +12,41 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.83] — 2026-09-22
+
+### Fixed
+
+- **El mapa pinta cuando ABRE la válvula, de fábrica.** Reporte de campo
+  (pulverizadora de 31 m): *"abre las secciones pero no pinta y deja el mapa sin
+  pintar"*. La máquina aplicaba bien; lo que mentía era el mapa.
+
+  El mecanismo para arreglarlo ya existía desde la 1.0.79 —un retardo del mapa
+  separado del look-ahead de la válvula— pero venía **apagado de fábrica**
+  (`-1` = seguir el look-ahead, o sea el comportamiento viejo). Se eligió así
+  para no cambiarle la conducta a nadie al actualizar, y el resultado fue que
+  el arreglo no le sirvió a nadie: dos versiones después, el equipo seguía igual
+  porque nadie sabía que había que ir a prenderlo.
+
+  Por qué el síntoma era **peor cuanto mejor estaba configurada la máquina**: el
+  pedido de sección se levanta anticipado, la válvula abre en el instante, pero
+  el mapa esperaba el look-ahead entero y pintaba recién cuando el implemento
+  llegaba al punto proyectado. Los dos tiempos coinciden solo si el look-ahead
+  es exactamente el retardo físico; como se lo sube de más a propósito para no
+  dejar huecos de aplicación, **subirlo mejoraba la aplicación y empeoraba el
+  mapa**.
+
+  Los equipos que tengan un valor propio guardado lo conservan. `-1` sigue
+  disponible para volver al comportamiento histórico, y un valor `>= 0` para
+  máquinas que de verdad tardan entre que abre la válvula y sale el producto
+  (`Configuración › Vehículo › Tiempos`).
+
+### Notas
+
+- Ayuda de cabina: sección nueva **"Cuándo empieza a pintar"**, con qué mirar si
+  el mapa arranca tarde.
+
+---
+
 ## [1.0.82] — 2026-09-19
 
 Tanda pedida desde el tractor, sembrando en LAS GRINGAS. Todo lo de acá tiene
