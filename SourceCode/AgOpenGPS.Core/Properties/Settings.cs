@@ -179,7 +179,19 @@ namespace AgOpenGPS.Properties
         /// Separarlo permite bajar el retardo del PINTADO sin tocar la anticipacion
         /// de la VALVULA, que es la que evita los huecos de siembra.
         /// </summary>
-        public double setVehicle_toolPaintDelay = -1;
+        // Segundos que espera el MAPA para empezar a pintar, aparte del
+        // look-ahead de la valvula.
+        //
+        // 0 = pinta cuando la valvula ABRE, que es lo que el operario espera:
+        // la maquina empezo a aplicar, el mapa lo muestra. Era -1 ("seguir el
+        // look-ahead") para que nadie cambiara de conducta al actualizar, pero
+        // eso dejaba el arreglo apagado de fabrica y el reporte de campo seguia
+        // igual — porque el look-ahead se sube de mas a proposito para no dejar
+        // huecos de aplicacion, y cuanto mejor se configura la valvula, mas
+        // tarde pinta el mapa.
+        //
+        // -1 sigue disponible para volver al comportamiento historico.
+        public double setVehicle_toolPaintDelay = 0;
         public bool setTool_isToolTrailing = true;
         public double setVehicle_toolOffset = 0;
         public bool setTool_isToolRearFixed = false;

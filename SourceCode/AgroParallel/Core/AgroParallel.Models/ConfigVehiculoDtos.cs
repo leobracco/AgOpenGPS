@@ -83,7 +83,7 @@ namespace AgroParallel.Models
         /// <summary>Segundos que espera el MAPA para empezar a pintar. -1 = seguir
         /// el look-ahead de encendido (comportamiento historico). Ver
         /// Settings.setVehicle_toolPaintDelay.</summary>
-        public double PaintDelay { get; set; } = -1;
+        public double PaintDelay { get; set; } = 0;
     }
 
     public class ConfigSeccionesSec
