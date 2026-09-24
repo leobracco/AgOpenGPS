@@ -89,7 +89,34 @@ $zipNombre = Split-Path -Leaf $reg.paquete
 $zip = "$kit\$zipNombre"
 Paso "Bajando $zipNombre (unos 200 MB, paciencia)..."
 Avisar "bajando $zipNombre"
-Invoke-WebRequest -UseBasicParsing -Uri "$Servidor$($reg.paquete)" -OutFile $zip -TimeoutSec 1800
+
+# De donde bajar los 200 MB. Por LAN da igual, pero cuando este servidor se
+# alcanza por un TUNEL TCP (AnyDesk/RustDesk, pantalla en el campo con
+# Starlink) todo el trafico pasa por la sesion de escritorio remoto: lento, y
+# se corta con la sesion. La pantalla tiene internet propio y el registro ya le
+# dio su token de OrbitX, asi que puede bajarlo de la nube ella misma.
+# Se intenta el cloud primero cuando el control vino por loopback; si falla, se
+# cae al servidor de provisioning, que siempre funciona.
+$porTunel = ($Servidor -match "127\.0\.0\.1|localhost")
+$bajado = $false
+
+if ($porTunel -and $reg.device_token -and $reg.version) {
+    $urlCloud = "$($reg.server_url)/api/ota/firmware/PilotX/$($reg.version)"
+    Paso "Servidor alcanzado por tunel: bajando de OrbitX en vez de por la sesion remota"
+    try {
+        Invoke-WebRequest -UseBasicParsing -Uri $urlCloud -OutFile $zip -TimeoutSec 3600 `
+            -Headers @{ "X-Device-ID" = $reg.device_id; "X-Auth-Token" = $reg.device_token }
+        $bajado = (Test-Path $zip) -and ((Get-Item $zip).Length -gt 50MB)
+        if ($bajado) { Paso "Bajado de OrbitX (no paso por el tunel)" }
+        else { Write-Host "   la descarga del cloud quedo corta, se reintenta por el servidor" -ForegroundColor Yellow }
+    } catch {
+        Write-Host "   OrbitX no sirvio el paquete ($($_.Exception.Message)); se usa el servidor" -ForegroundColor Yellow
+    }
+}
+
+if (-not $bajado) {
+    Invoke-WebRequest -UseBasicParsing -Uri "$Servidor$($reg.paquete)" -OutFile $zip -TimeoutSec 1800
+}
 Paso "Paquete bajado: $([math]::Round((Get-Item $zip).Length / 1MB)) MB"
 
 # ── 5. Aprovisionamiento base (usuarios, limpieza, energía, red, runtimes…) ──

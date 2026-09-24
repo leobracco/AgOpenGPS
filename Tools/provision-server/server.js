@@ -158,7 +158,25 @@ function slugDe(nombre) {
 // El script que corre la tablet: plantilla con el servidor y el pedido adentro.
 function scriptInstalar(req, codigo) {
   const tpl = fs.readFileSync(path.join(AQUI, "instalar.ps1"), "utf8");
-  const base = "http://" + ipServidor(req) + ":" + cfg.puerto;
+
+  // Regla del TUNEL TCP (AnyDesk/RustDesk, pantalla en el campo con Starlink):
+  // si el script lo pide PowerShell y la peticion entro por loopback, la
+  // pantalla esta viendo este servidor en su propio 127.0.0.1 y hay que
+  // devolverle esa direccion. Darle la IP de la LAN la manda a un lugar que
+  // del otro lado del tunel no existe, y fallan registro, kit y paquete.
+  //
+  // Solo cuando lo pide PowerShell: si lo pide un NAVEGADOR en localhost es el
+  // tecnico mirando el panel, y ese comando se copia a una pantalla de la LAN,
+  // asi que ahi la IP de la red es la correcta.
+  const hostCrudo = (req && req.headers.host || "");
+  const soloHost = hostCrudo.split(":")[0];
+  const porLoopback = soloHost === "127.0.0.1" || soloHost === "localhost" || soloHost === "::1";
+  const esPowerShell = /powershell|windowspowershell|curl|wget/i.test((req && req.headers["user-agent"]) || "");
+
+  const base = (porLoopback && esPowerShell && hostCrudo)
+    ? "http://" + hostCrudo
+    : "http://" + ipServidor(req) + ":" + cfg.puerto;
+
   return tpl.replace(/__SERVIDOR__/g, base).replace(/__PEDIDO__/g, codigo || "");
 }
 
