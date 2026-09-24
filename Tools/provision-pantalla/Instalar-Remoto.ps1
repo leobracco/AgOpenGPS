@@ -27,7 +27,8 @@ param(
     [string]$NombreEquipo = "",            # vacío = PILOTX-<CLIENTE>
     [string]$SoportePass = "Agro2026",
     [switch]$SinKiosko,
-    [switch]$SinRescate                    # saltear el backup de AgOpenGPS viejo
+    [switch]$SinRescate,                   # saltear el backup de AgOpenGPS viejo
+    [switch]$RescateListo                  # el ZIP ya esta a salvo fuera de la pantalla
 )
 
 $ErrorActionPreference = "Continue"
@@ -59,33 +60,100 @@ Write-Host "  Equipo: $env:COMPUTERNAME   $(Get-Date)" -ForegroundColor DarkGray
 # workingDirectory, así que después de instalar nadie sabe dónde estaban.
 $zipRescate = $null
 if (-not $SinRescate) {
-    Titulo "1/8  Lotes de la instalación anterior"
+    Titulo "1/8  Lotes y configuración de la instalación anterior"
+
     $rescatar = Join-Path (Split-Path -Parent $Aqui) "migrar-desde-aog\Rescatar-AOG.ps1"
     $hayAog = (Test-Path "HKCU:\SOFTWARE\AgOpenGPS") -or
-              (Test-Path "$env:USERPROFILE\Documents\AgOpenGPS\Fields")
+              (Test-Path "$env:USERPROFILE\Documents\AgOpenGPS\Fields") -or
+              (Test-Path "$env:USERPROFILE\Documents\AgOpenGPS\Vehicles")
+
     if (-not $hayAog) {
         Aviso "no hay instalación previa de AgOpenGPS: nada que rescatar"
     }
-    elseif (Test-Path $rescatar) {
-        & $rescatar
+    else {
+        if (Test-Path $rescatar) {
+            # Rescatar-AOG.ps1 lee primero HKCU\SOFTWARE\AgOpenGPS\workingDirectory
+            # (la carpeta de trabajo real, que no siempre es Documentos) y se lleva
+            # Fields + Vehicles + los .json de config + esas claves del registro.
+            & $rescatar
+        }
+        else {
+            # Sin el kit al lado, copia cruda. Menos prolija, pero no se pierde nada.
+            $origen = (Get-ItemProperty "HKCU:\SOFTWARE\AgOpenGPS" -EA 0).workingDirectory
+            if (-not $origen) { $origen = "$env:USERPROFILE\Documents" }
+            $src = Join-Path $origen "AgOpenGPS"
+            if (Test-Path $src) {
+                $crudo = "C:\Rescate-PilotX\rescate-$env:COMPUTERNAME-$(Get-Date -f yyyyMMdd-HHmm).zip"
+                New-Item -ItemType Directory -Path (Split-Path $crudo) -Force | Out-Null
+                Compress-Archive -Path $src -DestinationPath $crudo -Force
+            }
+        }
+
         $zipRescate = (Get-ChildItem "C:\Rescate-PilotX\*.zip" -EA 0 |
                        Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-        if ($zipRescate) { Ok "rescate en $zipRescate" } else { Mal "el rescate no dejó ZIP" }
-    }
-    else {
-        # Sin el kit al lado, copia cruda. Menos prolija, pero no se pierde nada.
-        $origen = (Get-ItemProperty "HKCU:\SOFTWARE\AgOpenGPS" -EA 0).workingDirectory
-        if (-not $origen) { $origen = "$env:USERPROFILE\Documents" }
-        $src = Join-Path $origen "AgOpenGPS"
-        if (Test-Path $src) {
-            $zipRescate = "C:\Rescate-PilotX\rescate-$env:COMPUTERNAME-$(Get-Date -f yyyyMMdd-HHmm).zip"
-            New-Item -ItemType Directory -Path (Split-Path $zipRescate) -Force | Out-Null
-            Compress-Archive -Path $src -DestinationPath $zipRescate -Force
-            Ok "copia cruda en $zipRescate"
-        } else { Aviso "no se encontró la carpeta AgOpenGPS" }
-    }
-    if ($zipRescate) {
-        Write-Host "  Bajate ese ZIP por RustDesk ANTES de seguir." -ForegroundColor Yellow
+
+        # ACÁ SE FRENA SI ALGO NO CIERRA. Instalar PilotX borra la clave del
+        # registro que dice dónde estaban los lotes: si seguimos sin un rescate
+        # bueno, el cliente pierde su trabajo y nadie puede reconstruirlo.
+        if (-not $zipRescate) {
+            Mal "HAY una instalación de AgOpenGPS pero el rescate NO dejó ningún ZIP."
+            Write-Host ""
+            Write-Host "  NO se instala nada. Los lotes del cliente estan en juego." -ForegroundColor Red
+            Write-Host "  Probá a mano y volvé a correr esto:" -ForegroundColor Yellow
+            Write-Host "    ..\migrar-desde-aog\Rescatar-AOG.ps1 -Buscar" -ForegroundColor Yellow
+            Write-Host "    ..\migrar-desde-aog\Rescatar-AOG.ps1 -Datos D:\AgOpenGPS" -ForegroundColor Yellow
+            Stop-Transcript | Out-Null
+            exit 10
+        }
+
+        # Que el ZIP tenga contenido de verdad, no que exista y esté vacío.
+        try {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zr = [System.IO.Compression.ZipFile]::OpenRead($zipRescate)
+            try {
+                $nFields   = @($zr.Entries | Where-Object { $_.FullName -match '(^|/)Fields/' }).Count
+                $nVehicles = @($zr.Entries | Where-Object { $_.FullName -match '(^|/)Vehicles/' }).Count
+            } finally { $zr.Dispose() }
+        } catch { $nFields = -1; $nVehicles = -1 }
+
+        $mb = [math]::Round((Get-Item $zipRescate).Length / 1MB, 1)
+        Ok "rescate: $([IO.Path]::GetFileName($zipRescate))  ($mb MB, $nFields archivos de lotes, $nVehicles de perfiles)"
+
+        if ($nFields -le 0 -and $nVehicles -le 0) {
+            Mal "el ZIP no trae ni lotes ni perfiles: el rescate no sirvió."
+            Write-Host "  NO se instala nada. Revisá con -Buscar dónde están los datos." -ForegroundColor Red
+            Stop-Transcript | Out-Null
+            exit 11
+        }
+
+        # Segunda copia en otra unidad si hay alguna: el disco de la pantalla es
+        # justamente lo que estamos por reescribir.
+        $otra = Get-Volume -EA 0 | Where-Object {
+            $_.DriveLetter -and $_.DriveLetter -ne 'C' -and $_.DriveType -in 'Fixed','Removable' -and $_.SizeRemaining -gt 200MB
+        } | Select-Object -First 1
+        if ($otra) {
+            try {
+                Copy-Item $zipRescate "$($otra.DriveLetter):\" -Force
+                Ok "copia de seguridad en $($otra.DriveLetter):\"
+            } catch { Aviso "no se pudo copiar a $($otra.DriveLetter): $($_.Exception.Message)" }
+        }
+
+        # Y la parada obligatoria: el seguro de verdad es que el ZIP salga de
+        # esta máquina. Se pide confirmación escrita a propósito — un Enter
+        # distraído no alcanza para arriesgar los lotes de un cliente.
+        Write-Host ""
+        Write-Host "  ANTES DE SEGUIR: bajate ese ZIP a tu PC" -ForegroundColor Yellow
+        Write-Host "  (RustDesk/AnyDesk -> transferencia de archivos):" -ForegroundColor Yellow
+        Write-Host "     $zipRescate" -ForegroundColor White
+        Write-Host ""
+        if (-not $RescateListo) {
+            $r = Read-Host "  Escribi BAJADO cuando lo tengas en tu PC (cualquier otra cosa cancela)"
+            if ($r.Trim().ToUpper() -ne "BAJADO") {
+                Write-Host "  Cancelado. No se instalo nada; el rescate quedo en C:\Rescate-PilotX." -ForegroundColor Yellow
+                Stop-Transcript | Out-Null
+                exit 0
+            }
+        } else { Aviso "-RescateListo: se saltea la confirmación" }
     }
 }
 
