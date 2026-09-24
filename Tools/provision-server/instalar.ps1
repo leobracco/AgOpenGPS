@@ -101,6 +101,19 @@ if ($reg.soporte_pass) { $psArgs += @("-SoportePass", $reg.soporte_pass) }   # l
 $p = Start-Process powershell -ArgumentList $psArgs -Wait -PassThru -NoNewWindow
 Paso "Provision-Pantalla terminó con código $($p.ExitCode)"
 
+# El 2026-09-24 este paso devolvió 1 (no instaló el VC++) y la instalación siguió
+# igual hasta activar el kiosko: la pantalla quedó sin escritorio y en bucle de
+# reinicios, y hubo que rescatarla a mano con un teclado. El código de salida de
+# un paso no se ignora nunca más.
+$provisionFallo = ($p.ExitCode -ne 0)
+if ($provisionFallo) {
+    Write-Host ""
+    Write-Host "!! Provision-Pantalla falló (código $($p.ExitCode))." -ForegroundColor Red
+    Write-Host "   PilotX se instala igual, pero el KIOSKO NO se va a activar." -ForegroundColor Yellow
+    Write-Host "   Revisá C:\PilotX\instalar-log.txt antes de entregar la pantalla." -ForegroundColor Yellow
+    Avisar "Provision-Pantalla falló (código $($p.ExitCode)): no se activa el kiosko" "instalando"
+}
+
 # ── 6. PilotX ────────────────────────────────────────────────────────────────
 Avisar "extrayendo PilotX $($reg.version) en C:\PilotX" "instalando"
 Get-Process | Where-Object { $_.ProcessName -match "^PilotX|^AgroParallel|msedgewebview2" } | Stop-Process -Force -ErrorAction SilentlyContinue
@@ -142,11 +155,151 @@ if (Test-Path "C:\PilotX\setup_pilotx_lan.bat") {
     Paso "Firewall: $reglas reglas PilotX"
 }
 
+# La red tiene que quedar en perfil Privado: con perfil Público el firewall tapa
+# los módulos aunque las reglas existan.
+try {
+    Get-NetConnectionProfile | Where-Object { $_.NetworkCategory -eq "Public" } | ForEach-Object {
+        Set-NetConnectionProfile -InterfaceIndex $_.InterfaceIndex -NetworkCategory Private
+        Paso "Red '$($_.Name)': Pública -> Privada"
+    }
+} catch { }
+
+# Y después se verifica PUERTO POR PUERTO, no "se corrió el .bat". En Ottaviano
+# el .bat dejó 5 reglas y faltaban justo las dos que usan los nodos: sin 1883
+# ningún QuantiX se conecta al broker, y sin 8088 toda OTA falla al bajar el .bin.
+$puertosPilotX = @(
+    @{ p = 1883; n = "MQTT" },
+    @{ p = 5180; n = "Hub" },
+    @{ p = 5181; n = "CoreX" },
+    @{ p = 8088; n = "Firmware OTA" },
+    @{ p = 9999; n = "PGN UDP"; udp = $true },
+    @{ p = 5985; n = "WinRM" }
+)
+foreach ($x in $puertosPilotX) {
+    $nombre = "PilotX $($x.n) $($x.p)"
+    if (-not (Get-NetFirewallRule -DisplayName $nombre -ErrorAction SilentlyContinue)) {
+        try {
+            New-NetFirewallRule -DisplayName $nombre -Direction Inbound `
+                -Protocol $(if ($x.udp) { "UDP" } else { "TCP" }) `
+                -LocalPort $x.p -Action Allow -Profile Any -ErrorAction Stop | Out-Null
+            Paso "Firewall: faltaba y se agregó -> $nombre"
+        } catch { Write-Host "   no se pudo abrir $($x.p): $($_.Exception.Message)" -ForegroundColor Yellow }
+    }
+}
+
+# ── 6c. Ajustes de cabina ────────────────────────────────────────────────────
+# Tres cosas que vinieron mal de fábrica en la pantalla de Ottaviano.
+
+# Zona horaria: venía en Pacific (4 horas menos). Los lotes y el sync a OrbitX se
+# sellan con la hora local; con ese corrimiento nada cuadra después.
+try {
+    Set-TimeZone -Id "Argentina Standard Time"
+    Start-Service w32time -ErrorAction SilentlyContinue
+    w32tm /resync /force 2>&1 | Out-Null
+    Paso "Hora: $(Get-Date) (Argentina)"
+} catch { }
+
+# Suspensión: venía a 15 minutos. Una pantalla de tractor no se duerme nunca; se
+# apaga cuando se corta la llave.
+try {
+    foreach ($t in @("standby-timeout-ac", "standby-timeout-dc", "hibernate-timeout-ac",
+                     "hibernate-timeout-dc", "monitor-timeout-ac", "monitor-timeout-dc",
+                     "disk-timeout-ac")) {
+        powercfg /change $t 0 2>&1 | Out-Null
+    }
+    Paso "Energía: no se suspende ni se apaga la pantalla"
+} catch { }
+
+# WinRM: sin esto, diagnosticar una pantalla exige ir físicamente hasta ella.
+try {
+    Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop | Out-Null
+    Paso "Soporte remoto por consola habilitado (WinRM)"
+} catch { Write-Host "   WinRM no se pudo habilitar: $($_.Exception.Message)" -ForegroundColor Yellow }
+
+# Acceso directo: en Ottaviano no quedó ninguno, y con el kiosko caído no había
+# forma de abrir PilotX. Va al escritorio PÚBLICO para que lo vea el operario.
+try {
+    $ws = New-Object -ComObject WScript.Shell
+    $lnk = $ws.CreateShortcut("$env:PUBLIC\Desktop\PilotX.lnk")
+    $lnk.TargetPath       = "C:\PilotX\Lanzar-PilotX.bat"
+    $lnk.WorkingDirectory = "C:\PilotX"
+    $lnk.WindowStyle      = 7
+    $lnk.Description      = "PilotX - Agro Parallel"
+    if (Test-Path "C:\PilotX\Desktop\PilotX.Desktop.exe") {
+        $lnk.IconLocation = "C:\PilotX\Desktop\PilotX.Desktop.exe,0"
+    }
+    $lnk.Save()
+    Paso "Acceso directo de PilotX en el escritorio"
+} catch { }
+
 # ── 7. Kiosko ────────────────────────────────────────────────────────────────
+# El kiosko cambia el Shell de Windows por PilotX: si después PilotX no puede
+# arrancar, la PC queda SIN ESCRITORIO al que volver y entra en bucle de
+# reinicios. Por eso acá no se activa nada "por las dudas": primero hay que
+# PROBAR que el motor levanta. Una pantalla sin kiosko se arregla en dos
+# minutos; una en bucle hay que ir a buscarla al campo.
 if ($reg.kiosko -and (Test-Path "$kit\PilotX-KioskSetup.exe")) {
-    Avisar "activando modo kiosko" "instalando"
-    $k = Start-Process "$kit\PilotX-KioskSetup.exe" -ArgumentList "/yes" -Wait -PassThru -NoNewWindow
-    Paso "Kiosko: código $($k.ExitCode)"
+
+    $frenos = @()
+    if ($provisionFallo) { $frenos += "el aprovisionamiento base falló" }
+
+    # PilotX es nativo: sin VC++ Redistributable no levanta. Se comprueba el DLL,
+    # que es la prueba real; la clave de registro sobrevive a desinstalaciones.
+    $sys = Join-Path $env:SystemRoot "System32"
+    if (-not (Test-Path (Join-Path $sys "vcruntime140_1.dll"))) {
+        if (Test-Path "$kit\vc_redist.x64.exe") {
+            Paso "Falta el VC++ Redistributable: instalándolo"
+            Start-Process "$kit\vc_redist.x64.exe" -ArgumentList "/install", "/quiet", "/norestart" -Wait
+        }
+        if (-not (Test-Path (Join-Path $sys "vcruntime140_1.dll"))) {
+            $frenos += "falta el VC++ Redistributable"
+        }
+    }
+
+    # Windows no permite una cuenta local homónima del equipo: con la PC llamada
+    # "PILOTX" el usuario del operario no se puede crear y el autologon apunta a
+    # la nada. Es exactamente lo que pasó en Ottaviano.
+    if ($env:COMPUTERNAME -ieq "pilotx") {
+        $frenos += "el equipo se llama 'PILOTX', igual que el usuario del operario"
+    }
+
+    # Prueba real: se levanta el Engine headless y se le pregunta por HTTP.
+    if ($frenos.Count -eq 0) {
+        Avisar "probando que PilotX arranque" "instalando"
+        $eng = "C:\PilotX\Engine\PilotX.GuidanceEngine.exe"
+        $pr = $null
+        try {
+            $pr = Start-Process $eng -ArgumentList "--webhost", "--corex" `
+                                -WorkingDirectory "C:\PilotX\Engine" -PassThru -WindowStyle Hidden
+            $arranco = $false
+            foreach ($i in 1..20) {
+                Start-Sleep -Seconds 2
+                try {
+                    Invoke-WebRequest "http://127.0.0.1:5180/api/aog/state" -TimeoutSec 3 -UseBasicParsing | Out-Null
+                    $arranco = $true; break
+                } catch { }
+            }
+            if ($arranco) { Paso "PilotX arranca correctamente" }
+            else { $frenos += "PilotX no llegó a responder en 40 s" }
+        } catch {
+            $frenos += "PilotX no pudo ejecutarse: $($_.Exception.Message)"
+        } finally {
+            if ($pr -and -not $pr.HasExited) { Stop-Process -Id $pr.Id -Force -ErrorAction SilentlyContinue }
+        }
+    }
+
+    if ($frenos.Count -gt 0) {
+        Write-Host ""
+        Write-Host "!! KIOSKO NO ACTIVADO. Motivos:" -ForegroundColor Red
+        foreach ($f in $frenos) { Write-Host "   - $f" -ForegroundColor Yellow }
+        Write-Host "   Windows arranca normal: la pantalla es usable y se arregla acá mismo." -ForegroundColor Yellow
+        Write-Host "   Cuando esté resuelto:  C:\PilotX\PilotX-KioskSetup.exe /yes" -ForegroundColor Yellow
+        Avisar "kiosko NO activado: $($frenos -join '; ')" "instalando"
+    } else {
+        Avisar "activando modo kiosko" "instalando"
+        $k = Start-Process "$kit\PilotX-KioskSetup.exe" -ArgumentList "/yes" -Wait -PassThru -NoNewWindow
+        Paso "Kiosko: código $($k.ExitCode)"
+    }
 }
 
 # ── 8. Helper de red (tarea SYSTEM PilotXNetApply, de ViewX TabletTools) ────

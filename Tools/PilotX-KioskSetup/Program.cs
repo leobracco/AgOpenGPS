@@ -64,6 +64,58 @@ namespace AgroParallel.PilotX.KioskSetup
             }
         }
 
+        // ── CHEQUEOS PREVIOS ────────────────────────────────────────────────────
+        // Por que existen: el kiosko cambia el Shell de Windows a PilotX. Si
+        // despues PilotX no puede arrancar, la PC queda SIN ESCRITORIO al que
+        // volver y entra en bucle de reinicios — hay que ir al campo con un
+        // teclado a rescatarla. Paso el 2026-09-24 en la pantalla de OTTAVIANO:
+        // la PC se llamaba "PILOTX", Windows no deja crear una cuenta local con
+        // el mismo nombre que el equipo, el "net user pilotx" fallo sin que
+        // nadie mirara el resultado, y el kiosko se activo igual apuntando a un
+        // usuario que no existia. Encima faltaba el VC++ Redistributable, asi
+        // que PilotX tampoco hubiera arrancado.
+        //
+        // Regla: NADA de esto se toca hasta que las tres condiciones den bien.
+
+        /// <summary>Windows no permite una cuenta local homonima del equipo.</summary>
+        private static bool NombreEquipoChoca()
+        {
+            return string.Equals(Environment.MachineName, KioskUser,
+                                 StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>PilotX es nativo: sin el VC++ Redistributable no levanta.</summary>
+        private static bool FaltaVcRedist()
+        {
+            // El DLL es la prueba real de que esta instalado; la clave de
+            // registro puede quedar de una desinstalacion a medias.
+            string sys = Environment.GetFolderPath(Environment.SpecialFolder.System);
+            return !File.Exists(Path.Combine(sys, "vcruntime140.dll"))
+                || !File.Exists(Path.Combine(sys, "vcruntime140_1.dll"));
+        }
+
+        /// <summary>Crea el usuario del operario y CONFIRMA que quedo creado.</summary>
+        private static bool CrearUsuarioKiosko()
+        {
+            if (UserExists(KioskUser))
+            {
+                Console.WriteLine("  ya existe, saltando creacion.");
+            }
+            else
+            {
+                Run("net", "user " + KioskUser + " \"\" /add /passwordreq:no /passwordchg:no /expires:never");
+                if (!UserExists(KioskUser))
+                {
+                    WriteErr("No se pudo crear el usuario '" + KioskUser + "'.");
+                    return false;
+                }
+            }
+            Run("net", "localgroup Usuarios " + KioskUser + " /add");
+            Run("net", "localgroup Users " + KioskUser + " /add");
+            Run("wmic", "useraccount where Name='" + KioskUser + "' set PasswordExpires=FALSE");
+            return true;
+        }
+
         // ── APPLY ───────────────────────────────────────────────────────────────
         private static int Apply(bool yes, string aogExplicit)
         {
@@ -101,25 +153,46 @@ namespace AgroParallel.PilotX.KioskSetup
             Console.WriteLine("Para revertir:  PilotX-KioskSetup.exe /undo");
             Console.WriteLine();
 
+            // Cortar ACA si algo impide que PilotX arranque despues. Una PC sin
+            // kiosko se arregla en dos minutos; una PC en bucle de reinicios hay
+            // que ir a buscarla.
+            if (NombreEquipoChoca())
+            {
+                WriteErr("El equipo se llama '" + Environment.MachineName + "', igual que el usuario del");
+                WriteErr("operario. Windows no permite una cuenta local con el nombre del equipo:");
+                WriteErr("el usuario no se puede crear y el kiosko quedaria apuntando a la nada.");
+                Console.WriteLine();
+                Console.WriteLine("  Renombra el equipo y reinicia. Por ejemplo:");
+                Console.WriteLine("    Rename-Computer -NewName PILOTX-<CLIENTE> -Force");
+                Pause();
+                return 4;
+            }
+
+            if (FaltaVcRedist())
+            {
+                WriteErr("Falta el Visual C++ Redistributable (x64): PilotX no va a poder arrancar.");
+                Console.WriteLine();
+                Console.WriteLine("  Instalalo primero:  vc_redist.x64.exe /install /quiet /norestart");
+                Console.WriteLine("  Viene en el kit del servidor de provisioning.");
+                Pause();
+                return 5;
+            }
+
             if (!yes && !Confirm("Continuar?"))
             {
                 Console.WriteLine("Cancelado.");
                 return 1;
             }
 
-            // 1) Crear usuario kiosko
+            // 1) Crear usuario kiosko. Si no queda creado se aborta: activar el
+            //    autologon a un usuario inexistente es lo que deja la PC en bucle.
             Step("Creando usuario '" + KioskUser + "'");
-            if (UserExists(KioskUser))
+            if (!CrearUsuarioKiosko())
             {
-                Console.WriteLine("  ya existe, saltando creacion.");
+                WriteErr("No se activo el kiosko. Windows sigue arrancando normal.");
+                Pause();
+                return 6;
             }
-            else
-            {
-                Run("net", "user " + KioskUser + " \"\" /add /passwordreq:no /passwordchg:no /expires:never");
-            }
-            Run("net", "localgroup Usuarios " + KioskUser + " /add");
-            Run("net", "localgroup Users " + KioskUser + " /add");
-            Run("wmic", "useraccount where Name='" + KioskUser + "' set PasswordExpires=FALSE");
 
             // 2) AutoLogon
             Step("Configurando AutoLogon");
@@ -273,7 +346,7 @@ namespace AgroParallel.PilotX.KioskSetup
             }
         }
 
-        private static void Run(string cmd, string args)
+        private static int Run(string cmd, string args)
         {
             try
             {
@@ -296,12 +369,14 @@ namespace AgroParallel.PilotX.KioskSetup
                         if (!string.IsNullOrWhiteSpace(outp)) Console.WriteLine("    out: " + outp.Trim());
                         if (!string.IsNullOrWhiteSpace(errp)) Console.WriteLine("    err: " + errp.Trim());
                     }
+                    return p.ExitCode;
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine("  [" + cmd + "] EXCEPTION: " + ex.Message);
             }
+            return -1;
         }
 
         private static bool HasFlag(string[] args, string flag) =>
