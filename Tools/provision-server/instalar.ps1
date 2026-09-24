@@ -94,10 +94,18 @@ Paso "Paquete bajado: $([math]::Round((Get-Item $zip).Length / 1MB)) MB"
 
 # ── 5. Aprovisionamiento base (usuarios, limpieza, energía, red, runtimes…) ──
 Avisar "corriendo Provision-Pantalla.ps1" "instalando"
-$psArgs = @("-ExecutionPolicy", "Bypass", "-File", "$kit\Provision-Pantalla.ps1", "-Cliente", $reg.cliente, "-SinKiosko")
-if ($reg.cuit) { $psArgs += @("-Cuit", $reg.cuit) }
-if ($reg.nombre_equipo) { $psArgs += @("-NombreEquipo", $reg.nombre_equipo) }
-if ($reg.soporte_pass) { $psArgs += @("-SoportePass", $reg.soporte_pass) }   # la genera y guarda el instalador
+# OJO: Start-Process -ArgumentList con un array concatena con espacios y NO
+# comilla nada. Con un cliente de varias palabras ("OTTAVIANO, MARIO HORACIO")
+# el script recibia -Cliente con la primera palabra sola y el resto como
+# argumentos sueltos: error de enlace de parametros, exit 1, y ni una linea
+# ejecutada. Clientes de una sola palabra andaban, por eso tardo en aparecer.
+# Cada valor va comillado a mano.
+function Cita($v) { '"' + (([string]$v) -replace '"', '\"') + '"' }
+$psArgs = @("-ExecutionPolicy", "Bypass", "-File", (Cita "$kit\Provision-Pantalla.ps1"),
+            "-Cliente", (Cita $reg.cliente), "-SinKiosko")
+if ($reg.cuit) { $psArgs += @("-Cuit", (Cita $reg.cuit)) }
+if ($reg.nombre_equipo) { $psArgs += @("-NombreEquipo", (Cita $reg.nombre_equipo)) }
+if ($reg.soporte_pass) { $psArgs += @("-SoportePass", (Cita $reg.soporte_pass)) }   # la genera y guarda el instalador
 $p = Start-Process powershell -ArgumentList $psArgs -Wait -PassThru -NoNewWindow
 Paso "Provision-Pantalla terminó con código $($p.ExitCode)"
 

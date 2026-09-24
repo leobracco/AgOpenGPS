@@ -359,3 +359,8 @@ Write-Host "  2. Verificar orbitX.json SIN device_id de otra máquina (identidad
 Write-Host "  3. Vincular el equipo a la org del cliente desde el panel OrbitX"
 Write-Host "  4. Reiniciar para aplicar nombre de equipo y fondo"
 Stop-Transcript | Out-Null
+
+# Salida explicita: sin esto, `powershell -File` devuelve 1 ante cualquier
+# error no terminante del ultimo tramo, y el instalador (que ahora frena el
+# kiosko si este paso falla) daria por rota una provision que salio bien.
+exit 0
