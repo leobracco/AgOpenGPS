@@ -316,17 +316,63 @@ try {
 } catch { }
 
 # ── 6. Devolver los lotes ───────────────────────────────────────────────────
+# PilotX busca los lotes en el Documentos DEL USUARIO QUE LO CORRE. Con kiosko
+# eso es 'pilotx', no el usuario con el que estamos instalando: restaurar solo
+# "acá" deja al operario sin un lote a la vista. Por eso se copia a todos los
+# destinos que importan — pesan poco y es preferible duplicar que perderlos.
+#   · el usuario actual        (el técnico los ve al instante)
+#   · C:\Users\pilotx          (el operario, si el perfil ya existe)
+#   · C:\Users\Default         (si 'pilotx' todavía no inició sesión: Windows
+#                               copia Default al crear el perfil nuevo)
 Titulo "6/8  Lotes del cliente"
-if ($zipRescate) {
-    $restaurar = Join-Path (Split-Path -Parent $Aqui) "migrar-desde-aog\Restaurar-AOG.ps1"
-    if (Test-Path $restaurar) {
-        & $restaurar -Zip $zipRescate
-        Ok "lotes restaurados desde $([IO.Path]::GetFileName($zipRescate))"
-        Write-Host "  Verificá la geometría del perfil contra la máquina real." -ForegroundColor Yellow
-    } else {
-        Aviso "falta Restaurar-AOG.ps1: el ZIP quedó en $zipRescate"
+if (-not $zipRescate) { Aviso "no había lotes que devolver" }
+else {
+    $tmp = Join-Path $env:TEMP "restaurar-$(Get-Date -f yyyyMMddHHmmss)"
+    New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipRescate, $tmp)
+    } catch { Mal "no se pudo abrir el rescate: $($_.Exception.Message)" }
+
+    # El ZIP trae Fields/Vehicles en la raíz, o bajo origen1/, origen2/… cuando
+    # se encontraron datos en varios discos.
+    $origenes = @()
+    if ((Test-Path "$tmp\Fields") -or (Test-Path "$tmp\Vehicles")) { $origenes += $tmp }
+    $origenes += @(Get-ChildItem $tmp -Directory -Filter "origen*" -EA 0 | ForEach-Object { $_.FullName })
+
+    $destinos = @([Environment]::GetFolderPath("MyDocuments"))
+    if (Test-Path "C:\Users\pilotx")  { $destinos += "C:\Users\pilotx\Documents" }
+    else                              { $destinos += "C:\Users\Default\Documents" }
+    $destinos = $destinos | Select-Object -Unique
+
+    $totalLotes = 0
+    foreach ($d in $destinos) {
+        $base = Join-Path $d "AgOpenGPS"
+        foreach ($carpeta in @("Fields", "Vehicles")) {
+            $dst = Join-Path $base $carpeta
+            New-Item -ItemType Directory -Path $dst -Force | Out-Null
+            foreach ($o in $origenes) {
+                $src = Join-Path $o $carpeta
+                if (-not (Test-Path $src)) { continue }
+                foreach ($item in Get-ChildItem $src -EA 0) {
+                    $destino = Join-Path $dst $item.Name
+                    # Un lote que ya exista NO se pisa: entra como "<nombre>~aog".
+                    if (Test-Path $destino) {
+                        $destino = Join-Path $dst ($item.BaseName + "~aog" + $item.Extension)
+                    }
+                    try { Copy-Item $item.FullName $destino -Recurse -Force -EA Stop } catch { }
+                }
+            }
+        }
+        $n = @(Get-ChildItem (Join-Path $base "Fields") -Directory -EA 0).Count
+        if ($d -eq $destinos[0]) { $totalLotes = $n }
+        Ok "$n lotes en $base"
     }
-} else { Aviso "no había lotes que devolver" }
+    Remove-Item $tmp -Recurse -Force -EA SilentlyContinue
+
+    if ($totalLotes -eq 0) { $problemas += "no quedó ningún lote restaurado" }
+    Write-Host "  Verificá la geometría del perfil contra la máquina real antes de trabajar." -ForegroundColor Yellow
+}
 
 # ── 7. Probar que PilotX arranca ────────────────────────────────────────────
 # La prueba de fuego. Si el motor no responde, el kiosko no se toca.
