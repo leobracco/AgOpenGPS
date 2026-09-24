@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 #  Instalar-Remoto.ps1 — deja una pantalla lista SIN estar en la misma red.
 #
 #  Para qué: el flujo normal (Tools\provision-server) sirve el paquete por LAN.

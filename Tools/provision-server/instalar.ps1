@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # instalar.ps1 — instalación de PilotX en una pantalla/tablet nueva, con UN
 # comando, desde el servidor interno del taller (Tools/provision-server).
 #

@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 #  fix.ps1 — saca la pantalla del bucle de reinicios del kiosko.
 #
 #  Para que existe: si el modo kiosko se activa ANTES de que PilotX pueda

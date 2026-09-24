@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 #  instalar-remoto.ps1 — instalación de UNA LÍNEA para una pantalla que VIENE
 #  DE AgOpenGPS y cuyos lotes hay que conservar.
 #

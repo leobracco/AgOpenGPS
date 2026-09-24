@@ -195,7 +195,13 @@ function leerBody(req) {
   });
 }
 function json(res, code, obj) { const b = JSON.stringify(obj); res.writeHead(code, { "Content-Type": "application/json; charset=utf-8", "Content-Length": Buffer.byteLength(b), "Cache-Control": "no-store" }); res.end(b); }
-function texto(res, code, t, tipo) { res.writeHead(code, { "Content-Type": (tipo || "text/plain") + "; charset=utf-8", "Cache-Control": "no-store" }); res.end(t); }
+// Los .ps1 del repo se guardan CON BOM UTF-8: sin el, PowerShell 5.1 los lee
+// como ANSI al ejecutarlos como archivo y un acento o un guion largo rompe el
+// parseo. Pero por HTTP el BOM tiene que salir: con `irm | iex` quedaria como
+// un caracter invisible al principio del script. Se guarda con BOM, se sirve
+// sin el.
+function sinBom(t) { return typeof t === "string" && t.charCodeAt(0) === 0xFEFF ? t.slice(1) : t; }
+function texto(res, code, t, tipo) { res.writeHead(code, { "Content-Type": (tipo || "text/plain") + "; charset=utf-8", "Cache-Control": "no-store" }); res.end(sinBom(t)); }
 function archivo(res, ruta, nombre) {
   fs.stat(ruta, (err, st) => {
     if (err || !st.isFile()) return json(res, 404, { error: "no existe " + (nombre || path.basename(ruta)) });
@@ -390,6 +396,10 @@ const server = http.createServer(async (req, res) => {
     let rel = u.pathname === "/" ? "/index.html" : u.pathname;
     const f = path.join(AQUI, "public", path.normalize(rel).replace(/^([.][.][\\/])+/, ""));
     if (f.startsWith(path.join(AQUI, "public")) && fs.existsSync(f) && fs.statSync(f).isFile()) {
+      // Los .ps1 van por texto para poder sacarles el BOM (ver sinBom).
+      if (path.extname(f).toLowerCase() === ".ps1") {
+        return texto(res, 200, fs.readFileSync(f, "utf8"));
+      }
       res.writeHead(200, { "Content-Type": (MIME[path.extname(f)] || "application/octet-stream") + "; charset=utf-8", "Cache-Control": "no-store" });
       return fs.createReadStream(f).pipe(res);
     }
