@@ -56,7 +56,25 @@ $problemas = @()
 # ── 1. Registro ─────────────────────────────────────────────────────────────
 Titulo "1/8  Registro del equipo"
 Avisar "pantalla $env:COMPUTERNAME conectada (migración desde AgOpenGPS)" "instalando"
-$deviceId = "OX-" + ((Get-CimInstance Win32_ComputerSystemProduct).UUID -replace '[^A-Fa-f0-9]', '').Substring(0, 12).ToUpper()
+# MISMO calculo que instalar.ps1, a proposito: si cada instalador deriva el id
+# a su manera, la misma pantalla se registra dos veces y en OrbitX aparecen dos
+# equipos para una sola maquina (paso con RODRIGUEZ el 2026-09-24). Ademas el
+# UUID de SMBIOS no sirve: en placas baratas viene un valor generico igual en
+# muchas maquinas, y dos pantallas distintas colisionarian en el mismo id.
+function DeviceId {
+    foreach ($nic in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+        if ($nic.OperationalStatus -eq "Up" -and $nic.NetworkInterfaceType -ne "Loopback") {
+            $mac = $nic.GetPhysicalAddress().ToString()
+            if ($mac -and $mac.Length -ge 12) {
+                $md5 = [System.Security.Cryptography.MD5]::Create()
+                $hash = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($mac))
+                return "OX-" + (([System.BitConverter]::ToString($hash)) -replace "-", "").Substring(0, 12).ToUpper()
+            }
+        }
+    }
+    return "OX-" + ([guid]::NewGuid().ToString("N").Substring(0, 12).ToUpper())
+}
+$deviceId = DeviceId
 try {
     $reg = Invoke-RestMethod -Method Post -Uri "$Servidor/api/registrar" -ContentType "application/json" `
         -Body (@{ pedido = $Pedido; device_id = $deviceId; hostname = $env:COMPUTERNAME } | ConvertTo-Json) -TimeoutSec 60
