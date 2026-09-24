@@ -93,6 +93,10 @@ function kit() {
     { nombre: "TabletTools/NetApplyWatcher.ps1", ruta: path.join(cfg.tablettools_dir, "NetApplyWatcher.ps1"), req: true },
     { nombre: "RustDesk.exe", ruta: rustdeskExe(), descarga: rustdeskNombre() },
     { nombre: "PilotX-KioskSetup.exe", ruta: path.join(REPO, "Build", "PilotX-KioskSetup.exe"), req: true },
+    // Migracion desde AgOpenGPS: instalar-remoto.ps1 baja estos a la pantalla
+    // para rescatar los lotes del cliente antes de tocar nada.
+    { nombre: "Rescatar-AOG.ps1", ruta: path.join(REPO, "Tools", "migrar-desde-aog", "Rescatar-AOG.ps1"), req: true },
+    { nombre: "Restaurar-AOG.ps1", ruta: path.join(REPO, "Tools", "migrar-desde-aog", "Restaurar-AOG.ps1") },
     { nombre: "Branding/logo.png", ruta: path.join(REPO, "Build", "Branding", "logo.png") },
     { nombre: "Branding/logo-fondo-blanco.png", ruta: path.join(REPO, "Build", "Branding", "logo-fondo-blanco.png") },
     { nombre: "Branding/fondo.png", ruta: path.join(REPO, "Build", "AgroParallel", "wwwroot", "img", "fondo.png") },
@@ -156,8 +160,8 @@ function slugDe(nombre) {
 }
 
 // El script que corre la tablet: plantilla con el servidor y el pedido adentro.
-function scriptInstalar(req, codigo) {
-  const tpl = fs.readFileSync(path.join(AQUI, "instalar.ps1"), "utf8");
+function scriptInstalar(req, codigo, archivo) {
+  const tpl = fs.readFileSync(path.join(AQUI, archivo || "instalar.ps1"), "utf8");
 
   // Regla del TUNEL TCP (AnyDesk/RustDesk, pantalla en el campo con Starlink):
   // si el script lo pide PowerShell y la peticion entro por loopback, la
@@ -358,6 +362,11 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, await rutas[clave](req, body));
     }
     if (u.pathname === "/instalar.ps1") return texto(res, 200, scriptInstalar(req, u.searchParams.get("p") || ""));
+    // Variante para pantallas que VIENEN de AgOpenGPS: rescata los lotes antes
+    // de tocar nada y no instala si ese rescate no salio bien.
+    if (u.pathname === "/instalar-remoto.ps1") {
+      return texto(res, 200, scriptInstalar(req, u.searchParams.get("p") || "", "instalar-remoto.ps1"));
+    }
     if (u.pathname === "/rustdesk.ps1") {
       const base = "http://" + ipServidor(req) + ":" + cfg.puerto;
       return texto(res, 200, fs.readFileSync(path.join(AQUI, "rustdesk.ps1"), "utf8").replace(/__SERVIDOR__/g, base).replace(/__PEDIDO__/g, u.searchParams.get("p") || ""));
