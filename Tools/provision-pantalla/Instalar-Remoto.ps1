@@ -111,8 +111,11 @@ if (-not $SinRescate) {
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             $zr = [System.IO.Compression.ZipFile]::OpenRead($zipRescate)
             try {
-                $nFields   = @($zr.Entries | Where-Object { $_.FullName -match '(^|/)Fields/' }).Count
-                $nVehicles = @($zr.Entries | Where-Object { $_.FullName -match '(^|/)Vehicles/' }).Count
+            # .Replace() y no -replace: el segundo es regex y una barra
+            # invertida sola ahi es un escape incompleto.
+            $ent = @($zr.Entries | ForEach-Object { $_.FullName.Replace('\', '/') })
+            $nFields = @($ent | Where-Object { $_ -match '(^|/)Fields/' }).Count
+            $nVehicles = @($ent | Where-Object { $_ -match '(^|/)Vehicles/' }).Count
             } finally { $zr.Dispose() }
         } catch { $nFields = -1; $nVehicles = -1 }
 

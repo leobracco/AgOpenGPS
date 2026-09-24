@@ -13,6 +13,14 @@
 #  194 MB no pasan por el túnel de la sesión remota.
 # ============================================================================
 $ErrorActionPreference = "Continue"
+
+# Este script entra por `irm | iex`, que la politica de ejecucion no toca. Pero
+# los scripts que baja (Rescatar-AOG.ps1) se invocan como ARCHIVO, y ahi si
+# aplica: en una pantalla con la politica por defecto fallan con
+# UnauthorizedAccess. Se habilita solo para ESTE proceso; la maquina queda como
+# estaba cuando la consola se cierra.
+try { Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction Stop } catch { }
+
 $Servidor = "__SERVIDOR__"
 $Pedido   = "__PEDIDO__"
 $Destino  = "C:\PilotX"
@@ -63,6 +71,7 @@ Avisar "rescatando lotes de AgOpenGPS" "instalando"
 try {
     Invoke-WebRequest -UseBasicParsing -Uri "$Servidor/kit/Rescatar-AOG.ps1" -OutFile "$Kit\Rescatar-AOG.ps1" -TimeoutSec 120
 } catch { Mal "no se pudo bajar Rescatar-AOG.ps1: $($_.Exception.Message)" }
+Get-ChildItem $Kit -Filter *.ps1 -EA 0 | Unblock-File -EA SilentlyContinue
 
 $hayAog = (Test-Path "HKCU:\SOFTWARE\AgOpenGPS") -or
           (Test-Path "$env:USERPROFILE\Documents\AgOpenGPS\Fields") -or
@@ -88,8 +97,11 @@ else {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zr = [System.IO.Compression.ZipFile]::OpenRead($zipRescate)
         try {
-            $nF = @($zr.Entries | Where-Object { $_.FullName -match '(^|/)Fields/' }).Count
-            $nV = @($zr.Entries | Where-Object { $_.FullName -match '(^|/)Vehicles/' }).Count
+            # .Replace() y no -replace: el segundo es regex y una barra
+            # invertida sola ahi es un escape incompleto.
+            $ent = @($zr.Entries | ForEach-Object { $_.FullName.Replace('\', '/') })
+            $nF = @($ent | Where-Object { $_ -match '(^|/)Fields/' }).Count
+            $nV = @($ent | Where-Object { $_ -match '(^|/)Vehicles/' }).Count
         } finally { $zr.Dispose() }
     } catch { $nF = -1; $nV = -1 }
 
