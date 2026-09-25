@@ -151,12 +151,23 @@
   }
 
   // Motores aplanados de todos los nodos, con numeración 1..N.
+  //
+  // El orden es el de los SURCOS, no el de los nodos. Antes se numeraba en el
+  // orden en que los nodos aparecían en el registro: en Las Gringas el nodo
+  // de las secciones 8-14 se registraba primero y el widget lo mostraba como
+  // motores 1-7 (2026-09-25). Cada motor sabe qué secciones corta
+  // (`cortes`); se ordena por la menor. Los motores sin cortes (eje que
+  // alimenta todo) van al final, en el orden de siempre. El comando MAN/AUTO
+  // sigue usando uid + idx dentro del nodo, así que el orden visual no lo toca.
   function allMotores() {
     const out = [];
-    let num = 1;
-    (state.nodos || []).forEach((n) => (n.motores || []).forEach((m) => {
-      out.push({ nodoUid: n.uid, nodoOnline: !!n.online, num: num++, m });
+    (state.nodos || []).forEach((n, ni) => (n.motores || []).forEach((m, mi) => {
+      const cortes = Array.isArray(m.cortes) ? m.cortes.filter((c) => c > 0) : [];
+      const primerCorte = cortes.length ? Math.min.apply(null, cortes) : Infinity;
+      out.push({ nodoUid: n.uid, nodoOnline: !!n.online, num: 0, m, primerCorte, ni, mi });
     }));
+    out.sort((a, b) => (a.primerCorte - b.primerCorte) || (a.ni - b.ni) || (a.mi - b.mi));
+    out.forEach((f, i) => { f.num = i + 1; });
     return out;
   }
 

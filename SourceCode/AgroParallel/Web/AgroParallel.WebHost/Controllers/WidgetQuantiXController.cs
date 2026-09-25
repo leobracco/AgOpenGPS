@@ -147,6 +147,12 @@ namespace AgroParallel.WebHost.Controllers
                         {
                             idx = mi,
                             nombre = motor.Nombre ?? ("M" + mi),
+                            // Secciones (1-based) que corta este motor. El widget
+                            // ordena los motores por la menor: así 1..N sigue a
+                            // los surcos y no al orden en que se registraron los
+                            // nodos (en Las Gringas el nodo de 8-14 aparecía
+                            // primero y se veía como 1-7).
+                            cortes = motor.Cortes,
                             manual_mode = motor.ManualMode,
                             manual_dosis = motor.ManualDosis,
                             // Apagado a mano por el operario (tercer estado del
