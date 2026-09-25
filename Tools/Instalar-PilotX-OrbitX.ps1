@@ -294,8 +294,15 @@ foreach ($exe in @((Join-Path $Destino "Desktop\PilotX.Desktop.exe"),
     if (Test-Path $exe) {
         $nombre = "PilotX - $([IO.Path]::GetFileNameWithoutExtension($exe))"
         Remove-NetFirewallRule -DisplayName $nombre -ErrorAction SilentlyContinue
+        # -Profile Any y NO "Private,Domain". Aprendido caro (Las Gringas,
+        # 2026-09-25, 45 min de sembradora parada): con el Allow limitado a
+        # Private/Domain, el dia que Windows reclasifica la NIC del tractor
+        # como Public --pasa solo: driver nuevo, hotspot recreado, red
+        # redetectada-- el permiso deja de aplicar. El exe abre sockets en
+        # escucha, el usuario de cabina no puede contestar el cartel de
+        # Windows, y Windows escribe reglas de BLOQUEO por su cuenta.
         New-NetFirewallRule -DisplayName $nombre -Direction Inbound -Program $exe `
-            -Action Allow -Profile Private,Domain | Out-Null
+            -Action Allow -Profile Any | Out-Null
         Paso "Regla de firewall: $nombre"
     }
 }

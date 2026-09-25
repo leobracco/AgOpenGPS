@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal enabledelayedexpansion
 rem ============================================================
 rem PilotX (stack nuevo): Engine headless + pantalla Avalonia.
@@ -74,7 +74,22 @@ set ERR=%errorlevel%
 rem Con el flag "actualizando.flag" presente el vigilante NO relanza: lo crea
 rem quien va a recompilar/actualizar (si no, el vigilante pelea contra el
 rem publish relanzando lo que se acaba de matar - paso el 2026-08-18).
-if exist "%~dp0actualizando.flag" exit /b 0
+rem
+rem PERO EL FLAG VENCE. Sin vencimiento, si el Updater se muere, lo matan o se
+rem corta la luz entre que lo crea y que lo borra, el vigilante NO RELANZA
+rem NUNCA MAS y la cabina queda muerta hasta que alguien borre un archivo a
+rem mano por consola remota. Un update no tarda 10 minutos: pasado ese rato el
+rem flag es basura de un intento que fracaso, y relanzar es siempre mejor que
+rem dejar al operario sin pantalla.
+if exist "%~dp0actualizando.flag" (
+    powershell -NoProfile -Command "exit ([int](((Get-Date) - (Get-Item '%~dp0actualizando.flag').LastWriteTime).TotalMinutes -gt 10))" >nul 2>&1
+    if errorlevel 1 (
+        echo [%date% %time%] actualizando.flag con mas de 10 min - update abortado, se borra y se relanza >> "%~dp0vigilante.log"
+        del /q "%~dp0actualizando.flag" >nul 2>&1
+    ) else (
+        exit /b 0
+    )
+)
 if %ERR% equ 0 exit /b 0
 
 call :marca FIN

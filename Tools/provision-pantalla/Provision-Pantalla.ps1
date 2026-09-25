@@ -260,12 +260,49 @@ foreach ($exe in $exes) {
     if (Test-Path $exe) {
         $nombre = "PilotX - $([IO.Path]::GetFileNameWithoutExtension($exe))"
         Remove-NetFirewallRule -DisplayName $nombre -ErrorAction SilentlyContinue
+        # -Profile Any y NO "Private,Domain". Aprendido caro (Las Gringas,
+        # 2026-09-25, 45 min de sembradora parada): con el Allow limitado a
+        # Private/Domain, el dia que Windows reclasifica la NIC del tractor
+        # como Public --pasa solo: driver nuevo, hotspot recreado, red
+        # redetectada-- el permiso deja de aplicar. El exe abre sockets en
+        # escucha, el usuario de cabina no puede contestar el cartel de
+        # Windows, y Windows escribe reglas de BLOQUEO por su cuenta.
         New-NetFirewallRule -DisplayName $nombre -Direction Inbound -Program $exe `
-            -Action Allow -Profile Private,Domain | Out-Null
+            -Action Allow -Profile Any | Out-Null
         Paso "Regla de firewall: $nombre"
     } else {
         Aviso "$exe no existe todavía — instalá PilotX y volvé a correr esta sección"
     }
+}
+
+# Reglas de BLOQUEO que Windows se crea solo cuando el usuario de cabina no
+# puede contestar el cartel (no es admin). Un Block por programa le GANA a
+# cualquier Allow, incluso a los de puerto: si quedan, no entra nada.
+# Se borran SOLO las que apuntan a un exe nuestro, nunca un Block ajeno.
+$borradas = 0
+foreach ($r in (Get-NetFirewallRule -Direction Inbound -Action Block -ErrorAction SilentlyContinue)) {
+    $prog = ($r | Get-NetFirewallApplicationFilter -ErrorAction SilentlyContinue).Program
+    if ($prog -and $prog -like "*\PilotX\*") {
+        Remove-NetFirewallRule -Name $r.Name -ErrorAction SilentlyContinue
+        Aviso "Regla de BLOQUEO borrada: $($r.DisplayName) -> $prog"
+        $borradas++
+    }
+}
+Paso "Reglas de bloqueo de PilotX borradas: $borradas"
+
+# Reglas por PUERTO, perfil Any: sobreviven a un update que reemplace el exe
+# (las reglas por programa se atan a la ruta y al binario).
+$puertos = @(
+    @{ n = "PilotX MQTT 1883"; p = 1883; t = "TCP" },   # broker de los nodos
+    @{ n = "PilotX LAN 9999";  p = 9999; t = "UDP" },   # modulos PGN / ToolX
+    @{ n = "PilotX Hub 5180";  p = 5180; t = "TCP" },   # Hub + .bin de las OTA
+    @{ n = "PilotX CoreX 5181"; p = 5181; t = "TCP" }   # panel CoreX
+)
+foreach ($x in $puertos) {
+    Remove-NetFirewallRule -DisplayName $x.n -ErrorAction SilentlyContinue
+    New-NetFirewallRule -DisplayName $x.n -Direction Inbound -Action Allow `
+        -Protocol $x.t -LocalPort $x.p -Profile Any | Out-Null
+    Paso "Regla de firewall: $($x.n) ($($x.t)/$($x.p))"
 }
 
 # ============================================================================
