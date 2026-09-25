@@ -12,6 +12,37 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.85] — 2026-09-25
+
+### Fixed
+
+- **El OTA a un nodo elige la IP de la pantalla por la SUBRED del nodo, no la
+  primera de la lista.** Reporte de campo (Las Gringas, 25/9, costó una mañana):
+  la tablet del tractor tiene dos redes —el hotspot de datos (`10.140.241.x`) y
+  la Ethernet de la sembradora (`192.168.5.10`)— y al armar la URL del firmware
+  se tomaba la **primera** que devolvía el sistema, que resultó ser la del
+  hotspot. El nodo recibía una dirección a la que no llega, la descarga moría
+  con `http_-1`, y ahí empezaba lo peor: cada intento fallido dejaba al nodo en
+  `panic`, tres de esos lo mandaban a `safe_mode`, y desde safe_mode rechazaba
+  la OTA siguiente. Hubo que falsear el `broker_address` de VistaX para
+  desempatar a mano y mandar `clear_safe_mode` a los dos nodos.
+
+  El dato para decidirlo bien siempre estuvo: el nodo publica su propia IP en
+  el announcement. Ahora, de todas las IP de la pantalla se usa la que está en
+  la misma subred que el nodo. Si el nodo está del lado del hotspot, se usa la
+  del hotspot — la regla es la subred, no "la Ethernet siempre". Con dos
+  candidatas gana la subred más específica (una `/24` le gana a una `/16` que
+  la engloba, que es la forma típica en que una VPN tapa la LAN). Si ninguna
+  comparte subred con el nodo, o el nodo todavía no anunció su IP, se cae al
+  método anterior: no se inventa una respuesta.
+
+  El log del OTA ahora dice **por qué** eligió esa IP, no sólo cuál. Eso es
+  exactamente lo que faltó en el campo: se veía la dirección equivocada y no
+  había forma de saber de dónde había salido.
+
+  El panel de firmwares muestra la misma IP que va a viajar en la URL, así lo
+  que se ve y lo que recibe el nodo no pueden discrepar.
+
 ## [1.0.84] — 2026-09-25
 
 ### Added

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // NodosController.cs
 // Endpoints REST del módulo Nodos:
 //   GET    /api/nodos                    → registry MQTT crudo
@@ -506,7 +506,10 @@ namespace AgroParallel.WebHost.Controllers
                 .ToList();
 
             int port = cfg != null && cfg.FirmwareHttpPort > 0 ? cfg.FirmwareHttpPort : 8088;
-            string lan = FirmwareOtaClient.ResolveLanIp();
+            // Por subred del nodo: es la MISMA IP que va a viajar en la URL del
+            // OTA, así lo que muestra el panel y lo que recibe el nodo no pueden
+            // discrepar.
+            string lan = FirmwareOtaClient.ResolveLanIpPara(u.Ip);
 
             await WriteJsonAsync(new
             {

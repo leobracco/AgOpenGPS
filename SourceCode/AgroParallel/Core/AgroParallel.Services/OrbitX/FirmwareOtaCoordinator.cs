@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // FirmwareOtaCoordinator.cs
 //
 // Coordinador único de OTA y comandos genéricos hacia nodos ESP32.
@@ -233,7 +233,25 @@ namespace AgroParallel.OrbitX
             }
             catch (Exception ex) { _log("OTA sha256 lookup error: " + ex.Message); }
 
-            string url = FirmwareOtaClient.BuildFirmwareUrl(prodCache, version, port);
+            // La URL se arma con la IP del PC que ESTE nodo puede alcanzar. El
+            // nodo publica su IP en el announcement; con eso elegimos la NIC por
+            // subred en vez de tomar la primera de la lista, que en una tablet
+            // con hotspot + Ethernet del tractor es una moneda al aire (Las
+            // Gringas, 2026-09-25: la URL salía con la IP del hotspot y el nodo
+            // moría en http_-1).
+            string ipNodo = null;
+            try
+            {
+                var vivos = _registry != null ? _registry.GetAll() : null;
+                if (vivos != null)
+                    foreach (var n in vivos)
+                        if (n != null && string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase))
+                        { ipNodo = n.Ip; break; }
+            }
+            catch (Exception ex) { _log("OTA ip-nodo lookup error: " + ex.Message); }
+
+            string url = FirmwareOtaClient.BuildFirmwareUrlPara(ipNodo, prodCache, version, port);
+            _log("OTA " + uid + ": URL " + url + " (" + FirmwareOtaClient.UltimaResolucion + ")");
             // FlowX usa convención 5-part `agp/flow/<uid>/cmd/<verb>` (verbo en el
             // topic, no en el payload). El resto de los firmwares
             // (QuantiX/VistaX/StormX) usan 4-part `agp/{prod}/<uid>/cmd` con
