@@ -12,6 +12,51 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.84] — 2026-09-25
+
+### Added
+
+- **La siembra queda registrada en OrbitX, no sólo en el lote.** Después del
+  caso Las Gringas (CV malo, "10 m bien / 10 m mal") quedó claro el problema de
+  fondo: se pudo *explicar* el defecto —microcortes de MQTT que dejaban a los
+  motores sin consigna— pero no *demostrarlo*, porque nada lo registraba en
+  ningún lado que no fuera el tractor mismo. Para cuando alguien llega con un
+  pendrive, el log ya rotó. Tres cosas nuevas viajan al cloud:
+
+  - **El registro de PID de QuantiX.** Los CSV a 5 Hz —uno por motor, sin
+    decimar— y el `sesion.json` con las ganancias de esa corrida se suben con
+    subtipo `quantix_pid`. La curva de rpm contra target es lo único que
+    distingue "el PID no sigue" de "el motor no da más" de "se cortó el MQTT":
+    en el lote las tres se ven igual, semilla despareja. Sólo suben las
+    corridas ya cerradas, de a una tanda por tick, así no tapan los lotes del
+    operario en la cola de sync.
+
+  - **Cada motor dentro del punto de tracking** (campo `qx`): pps pedidos y
+    pps reales, el PWM y la carga, si su sección estaba abierta, qué surcos
+    corta, y esos mismos pps traducidos a sem/m o kg/ha con la MISMA cuenta que
+    muestra el widget de cabina. Antes el cloud sabía por dónde anduvo el
+    tractor y nada de lo que iba dosificando cada surco.
+
+  - **El log de eventos de la pantalla** (`POST /api/aog/log`). El offset lo
+    lleva PilotX en su propio disco y sólo lo avanza cuando el server confirma:
+    un POST que falla en el lote —que son la mitad— no puede hacer que esas
+    líneas se pierdan. Y las altas y bajas de clientes del broker MQTT
+    embebido, que hasta ahora morían en el anillo de 200 tópicos del panel,
+    ahora entran a ese log: un nodo que se cae y vuelve queda en la misma línea
+    de tiempo que el hueco de semilla.
+
+  Nada de esto cambia la pantalla: el operario no ve ni un botón nuevo.
+
+### Fixed
+
+- **El widget de QuantiX numera los motores por surco, no por el orden en que
+  se registraron los nodos.** En Las Gringas (dos nodos de 7 motores) el nodo
+  de las secciones 8-14 se registraba antes que el de 1-7, y en el overlay los
+  motores 8-14 aparecían como 1-7 y viceversa. Era solo visual —MAN/AUTO
+  siempre fue por nodo + índice—, pero el operario tocaba "el motor 3" y estaba
+  mirando el 10. Ahora cada motor viaja con las secciones que corta y el widget
+  ordena por la menor: el 1 es el surco 1 sea cual sea el nodo que lo maneje.
+
 ## [1.0.83] — 2026-09-22
 
 ### Fixed

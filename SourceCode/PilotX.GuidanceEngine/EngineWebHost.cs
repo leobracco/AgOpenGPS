@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // EngineWebHost.cs — levanta el AgpWebHost (netstandard2.0, EmbedIO :5180)
 // contra el GuidanceEngineHost en vez de FormGPS. Sirve exactamente los 6
 // endpoints /api/aog/{state,coverage,tool,tram,paths,guidance} que PilotX.Desktop
@@ -346,6 +346,11 @@ namespace AgOpenGPS
                 lotes.AlBorrarLote = nombre => _orbitxSync.LotesBorrados.Encolar(nombre);
                 // Nodos (uid, tipo, firmware, online) para que OrbitX los muestre en Dispositivos.
                 _orbitxSync.NodosProvider = () => _nodos?.GetAll();
+                // Telemetría por motor de QuantiX dentro del punto de tracking:
+                // sin esto el cloud ve por dónde anduvo el tractor pero no qué
+                // dosificó cada surco, que es la pregunta que abrió Las Gringas.
+                _orbitxSync.NodosLiveProvider = () => _nodos?.GetAll();
+                _orbitxSync.QuantiXConfigProvider = () => quantixCfg.GetMotores();
                 _orbitxSync.Start();
             }
             catch (Exception ex)
@@ -502,6 +507,12 @@ namespace AgOpenGPS
                     lotes.AlBorrarLote = nombre => _orbitxSync.LotesBorrados.Encolar(nombre);
                     // Nodos (uid, tipo, firmware, online) para que OrbitX los muestre en Dispositivos.
                     _orbitxSync.NodosProvider = () => _nodos?.GetAll();
+                    // Igual que arriba: el sync que rearranca el vigilante
+                    // tiene que quedar con los MISMOS providers, si no la
+                    // telemetría de motores desaparece justo después de que el
+                    // operario vincula la pantalla.
+                    _orbitxSync.NodosLiveProvider = () => _nodos?.GetAll();
+                    _orbitxSync.QuantiXConfigProvider = () => quantixCfg.GetMotores();
                     _orbitxSync.Start();
                     Console.WriteLine("[Engine] OrbitXSync (re)arrancado: la vinculación apareció en orbitX.json.");
                 }

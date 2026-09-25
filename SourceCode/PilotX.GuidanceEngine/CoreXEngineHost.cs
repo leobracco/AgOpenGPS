@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // CoreXEngineHost.cs — lado "CoreX" del proceso único (bloque 14). Reemplaza
 // a AgIO/FormLoop.cs + SerialComm.Designer.cs + UDP.designer.cs: dueño de los
 // 6 puertos serie reales (GPS/GPS2/RTCM/IMU/Steer/Machine), el parser NMEA
@@ -212,6 +212,15 @@ namespace AgIO
         public void StartServices(int mqttPort = 1883, int lanPort = 9999, string loopbackIp = "127.0.0.1")
         {
             _mqttPort = mqttPort;
+            // Altas y bajas de nodos al log de eventos (y de ahí a OrbitX, ver
+            // OrbitXSync.SendLogEventos). Un nodo que se cae y vuelve es la
+            // explicación más probable de un hueco de semilla, y hasta ahora
+            // sólo quedaba en el anillo de 200 tópicos del panel — que se borra
+            // al reiniciar y nadie mira a tiempo (Las Gringas, 2026-09-25).
+            AgroParallel.Services.MqttBrokerService.EventoCliente = linea =>
+            {
+                try { Log.EventWriter(linea); } catch { }
+            };
             MqttBroker.StartAsync(mqttPort).GetAwaiter().GetResult();
             Log.EventWriter("CoreXEngine: broker MQTT en :" + mqttPort);
 

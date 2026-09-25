@@ -330,6 +330,9 @@ namespace AgroParallel.OrbitX
                 // Enviar posición del tractor (tracking).
                 await SendTracking();
 
+                // Subir lo nuevo del log de eventos.
+                await SendLogEventos();
+
                 // Descargar prescripciones pendientes.
                 await CheckPrescriptions();
 
@@ -372,6 +375,105 @@ namespace AgroParallel.OrbitX
             string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
             EnqueueIfChanged(Path.Combine(baseDir, "quantiX.json"), "quantix/quantiX.json", "quantix_config", "quantix");
             EnqueueIfChanged(Path.Combine(baseDir, "quantiX_motores.json"), "quantix/motores.json", "quantix_motores", "quantix");
+            EnqueueQuantiXPid(baseDir);
+        }
+
+        // Cuántos bytes de registro PID se encolan como MUCHO en un tick. El
+        // CSV va como string adentro del JSON del sync y la cola vive en RAM:
+        // sin tope, la primera sincronización de una pantalla con 100 corridas
+        // guardadas se come la memoria y tapa los lotes del operario detrás.
+        // Lo que no entra en este tick sale en el siguiente — el hash recién se
+        // anota cuando el server confirma, así que nada se pierde.
+        private const int PresupuestoPidPorTick = 4 * 1024 * 1024;
+
+        // Un CSV más grande que esto no se sube: es una corrida de horas y el
+        // POST no lo aguanta el enlace del tractor. Queda en disco para
+        // levantarlo con un pendrive.
+        private const int MaxCsvPidBytes = 8 * 1024 * 1024;
+
+        // CSV de PID que ya se avisó que es demasiado grande. Sin esto el aviso
+        // sale en CADA tick (cada 30 s, para siempre) y tapa el orbitx_sync.log
+        // justo cuando se lo va a leer para otra cosa.
+        private readonly HashSet<string> _pidDemasiadoGrande =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Sube el registro de PID de QuantiX: un CSV por motor a 5 Hz, SIN
+        /// decimar, más el sesion.json con las ganancias de esa corrida.
+        ///
+        /// Por qué urge (Las Gringas, 2026-09-25): el CV de siembra se explica
+        /// por huecos de consigna, pero NADA lo registraba donde se lo pueda
+        /// mirar sin ir al tractor. La curva de rpm contra target es lo único
+        /// que distingue "el PID no sigue" de "el motor no da más" de "se cortó
+        /// el MQTT", y en el lote las tres se ven igual: semilla despareja.
+        ///
+        /// Sólo se suben las corridas CERRADAS — las que ya tienen sesion.json.
+        /// La corrida en curso está siendo apendeada a 5 Hz: subirla cada 30 s
+        /// sería mandar el archivo entero de nuevo cada vez, y encima
+        /// incompleto. Cuando la corrida cierra, sube una sola vez.
+        ///
+        /// El sesion.json va DESPUÉS de sus CSV a propósito: que esté en el
+        /// cloud significa que la corrida llegó completa.
+        /// </summary>
+        private void EnqueueQuantiXPid(string baseDir)
+        {
+            try
+            {
+                string raiz = Path.Combine(baseDir, "pid-quantix");
+                if (!Directory.Exists(raiz)) return;
+
+                var sesiones = new List<string>(Directory.GetDirectories(raiz));
+                // Los nombres son yyyy-MM-dd_HHmm: ordenar por nombre es
+                // ordenar por fecha. Las viejas primero — si hay backlog, sale
+                // en orden cronológico y no salteado.
+                sesiones.Sort(StringComparer.OrdinalIgnoreCase);
+
+                int presupuesto = PresupuestoPidPorTick;
+
+                foreach (string sesionDir in sesiones)
+                {
+                    string sidecar = Path.Combine(sesionDir, "sesion.json");
+                    if (!File.Exists(sidecar)) continue;   // corrida en curso
+
+                    string sesion = Path.GetFileName(sesionDir);
+                    string prefijo = "quantix/pid/" + sesion + "/";
+                    bool completa = true;
+
+                    foreach (string csv in Directory.GetFiles(sesionDir, "*.csv"))
+                    {
+                        long largo;
+                        try { largo = new FileInfo(csv).Length; }
+                        catch { continue; }
+
+                        if (largo > MaxCsvPidBytes)
+                        {
+                            if (_pidDemasiadoGrande.Add(csv))
+                                Trace(string.Format(
+                                    "[PID] {0}/{1} pesa {2} bytes — no se sube (tope {3}). Queda en disco.",
+                                    sesion, Path.GetFileName(csv), largo, MaxCsvPidBytes));
+                            continue;
+                        }
+
+                        // El presupuesto lo gasta SOLO lo que realmente se
+                        // encoló: un CSV ya confirmado en un tick anterior sale
+                        // por el early-return de EnqueueIfChanged y no cuenta.
+                        int antes = _queue.Count;
+                        EnqueueIfChanged(csv, prefijo + Path.GetFileName(csv), "quantix_pid", "quantix");
+                        if (_queue.Count == antes) continue;
+
+                        presupuesto -= (int)largo;
+                        if (presupuesto <= 0) { completa = false; break; }
+                    }
+
+                    if (!completa) break;   // se sigue en el próximo tick
+
+                    EnqueueIfChanged(sidecar, prefijo + "sesion.json", "quantix_pid", "quantix");
+                }
+            }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "encolar registro PID de QuantiX", ex);
+            }
         }
 
         private void EnqueueSectionXFiles()
@@ -756,6 +858,19 @@ namespace AgroParallel.OrbitX
         /// <summary>Lo cablea el host con el registro de nodos (NodoRegistryService.GetAll).
         /// Sin proveedor el heartbeat manda una lista vacia.</summary>
         public Func<IReadOnlyList<AgroParallel.Models.NodoStatus>> NodosProvider { get; set; }
+
+        /// <summary>Mismo registro que NodosProvider, pero para el tracking:
+        /// de acá sale la telemetría VIVA de cada motor (MotorsLive). Va
+        /// separado a propósito — el censo del heartbeat corta en 64 nodos y
+        /// aplana el estado; el tracking necesita el detalle por motor y de
+        /// los QuantiX nada más. Lo cablea el host con NodoRegistryService.GetAll.</summary>
+        public Func<IReadOnlyList<AgroParallel.Models.NodoStatus>> NodosLiveProvider { get; set; }
+
+        /// <summary>Config de motores de QuantiX (QuantiXConfigService.GetMotores).
+        /// Sin ella el tracking no puede traducir pps a sem/m ni saber qué
+        /// surcos corta cada motor: los pulsos por segundo solos no le dicen
+        /// nada a nadie.</summary>
+        public Func<AgroParallel.Models.QxMotoresConfigDto> QuantiXConfigProvider { get; set; }
 
         private List<Dictionary<string, object>> ArmarNodos()
         {
@@ -1253,6 +1368,13 @@ namespace AgroParallel.OrbitX
                     }
                 };
 
+                // Cada motor de QuantiX con lo que está haciendo AHORA. Sin
+                // esto, la posición del tractor en el cloud no dice nada de la
+                // siembra: se veía un recorrido y había que creerle al operario
+                // que "iba despareja". Ver ArmarQx.
+                var qx = ArmarQx(snap);
+                if (qx.Count > 0) payload["qx"] = qx;
+
                 string json = JsonSerializer.Serialize(payload);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 var request = new HttpRequestMessage(HttpMethod.Post, url);
@@ -1267,6 +1389,413 @@ namespace AgroParallel.OrbitX
             catch (Exception ex)
             {
                 AgpLog.Warn("OrbitXSync", "enviar posición GPS al cloud", ex);
+            }
+        }
+
+        // Un motor, no un nodo: el nodo es la caja, el motor es el surco.
+        private const int MaxMotoresTracking = 64;
+
+        /// <summary>
+        /// Qué está dosificando cada motor de QuantiX en este instante, para
+        /// que el punto de tracking sirva de diagnóstico y no sólo de mapita.
+        ///
+        /// Van pps objetivo y pps real (lo que PilotX pidió y lo que el sensor
+        /// contó), el PWM y la carga, y esos mismos pps traducidos a la unidad
+        /// que usa el operario — sem/m o kg/ha, NUNCA pps. Los pps quedan igual
+        /// porque son el único dato crudo: si la calibración está mal cargada,
+        /// la traducción miente y los pulsos no.
+        ///
+        /// La inversa es la MISMA que muestra el widget de cabina
+        /// (WidgetQuantiXController): sem/m = pps × sem_vuelta / ppr / (vel ×
+        /// surcos del motor). Que el cloud calcule distinto que la pantalla es
+        /// peor que no tener el dato — se discutiría cuál de los dos miente.
+        ///
+        /// `seccion_on` es el PEDIDO de PilotX (SectionOnRequest cruzado con
+        /// los cortes del motor), no el estado ya filtrado que manda el bridge:
+        /// el antirrebote de apagado vive en el bridge y acá se quiere ver el
+        /// pedido crudo, que es contra lo que se compara el pps real.
+        /// </summary>
+        private List<Dictionary<string, object>> ArmarQx(AgroParallel.Models.AogStateSnapshot snap)
+        {
+            var lista = new List<Dictionary<string, object>>();
+            try
+            {
+                var cfg = QuantiXConfigProvider?.Invoke();
+                if (cfg == null || cfg.Nodos == null || cfg.Nodos.Count == 0) return lista;
+
+                // Live por UID. Sólo QuantiX: el resto de los nodos no tiene motores.
+                var liveByUid = new Dictionary<string, AgroParallel.Models.NodoStatus>(
+                    StringComparer.OrdinalIgnoreCase);
+                var vivos = NodosLiveProvider?.Invoke();
+                if (vivos != null)
+                {
+                    foreach (var n in vivos)
+                    {
+                        if (n == null || string.IsNullOrEmpty(n.Uid)) continue;
+                        if (n.Type == null ||
+                            n.Type.IndexOf("quantix", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                        liveByUid[n.Uid] = n;
+                    }
+                }
+
+                double velMs = (snap != null ? snap.AvgSpeed : 0) / 3.6;
+                double anchoM = (snap != null && snap.ToolWidth > 0) ? snap.ToolWidth : 0;
+                bool[] secciones = snap != null ? snap.SectionOnRequest : null;
+
+                foreach (var nodo in cfg.Nodos)
+                {
+                    if (nodo == null || string.IsNullOrEmpty(nodo.Uid)) continue;
+                    if (!nodo.Habilitado || nodo.Motores == null) continue;
+
+                    AgroParallel.Models.NodoStatus live;
+                    liveByUid.TryGetValue(nodo.Uid, out live);
+
+                    for (int mi = 0; mi < nodo.Motores.Length; mi++)
+                    {
+                        var motor = nodo.Motores[mi];
+                        if (motor == null || !motor.Habilitado) continue;
+
+                        double ppsObj = 0, ppsReal = 0;
+                        int pwm = 0, carga = 0;
+                        if (live != null && live.MotorsLive != null)
+                        {
+                            foreach (var ml in live.MotorsLive)
+                            {
+                                if (ml == null || ml.Id != mi) continue;
+                                ppsObj = ml.PpsTarget;
+                                ppsReal = ml.PpsReal;
+                                pwm = ml.Pwm;
+                                carga = ml.LoadPct;
+                                break;
+                            }
+                        }
+
+                        bool esSem = string.Equals(motor.UnidadDosis, "sem_m",
+                                                   StringComparison.OrdinalIgnoreCase);
+
+                        bool seccionOn = false;
+                        if (secciones != null && motor.Cortes != null)
+                        {
+                            foreach (int corte in motor.Cortes)
+                            {
+                                int idx = corte - 1;
+                                if (idx >= 0 && idx < secciones.Length && secciones[idx])
+                                {
+                                    seccionOn = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        lista.Add(new Dictionary<string, object>
+                        {
+                            { "uid", nodo.Uid },
+                            { "id", mi },
+                            { "pps_obj", Redondear(ppsObj, 2) },
+                            { "pps_real", Redondear(ppsReal, 2) },
+                            { "obj", Redondear(PpsADosis(ppsObj, motor, esSem, velMs, anchoM), 2) },
+                            { "real", Redondear(PpsADosis(ppsReal, motor, esSem, velMs, anchoM), 2) },
+                            { "unidad", esSem ? "sem_m" : "kg_ha" },
+                            { "pwm", pwm },
+                            { "carga_pct", carga },
+                            { "seccion_on", seccionOn },
+                            { "cortes", motor.Cortes },
+                        });
+
+                        if (lista.Count >= MaxMotoresTracking) return lista;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "armando motores de QuantiX para el tracking", ex);
+            }
+            return lista;
+        }
+
+        /// <summary>Inversa pps → dosis en la unidad del motor. 0 con el tractor
+        /// quieto: dividir por una velocidad de casi cero da números enormes que
+        /// después hay que explicar.</summary>
+        internal static double PpsADosis(double pps, AgroParallel.Models.QxMotorConfigDto motor,
+                                         bool esSem, double velMs, double anchoM)
+        {
+            if (pps <= 0 || velMs <= 0.1) return 0;
+            if (esSem)
+            {
+                double ppr = motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 24;
+                double semPorPulso = motor.SemillasVuelta / ppr;
+                int surcos = (motor.Cortes != null && motor.Cortes.Count > 0) ? motor.Cortes.Count : 1;
+                return pps * semPorPulso / (velMs * surcos);
+            }
+            if (motor.MeterCal > 0 && anchoM > 0)
+                return pps * motor.MeterCal * 10.0 / (anchoM * velMs);
+            return 0;
+        }
+
+        private static double Redondear(double v, int decimales)
+        {
+            if (double.IsNaN(v) || double.IsInfinity(v)) return 0;
+            return Math.Round(v, decimales, MidpointRounding.AwayFromZero);
+        }
+
+        // =====================================================================
+        // Log de eventos → cloud
+        // =====================================================================
+
+        // Espaciado cuando el server no tiene el endpoint todavía (404 del
+        // catch-all): mismo criterio que el aviso de lotes borrados.
+        private readonly BackoffReintentos _logBackoff =
+            new BackoffReintentos(TimeSpan.FromMinutes(5), TimeSpan.FromHours(1));
+
+        // Tope por envío. El log es una ayuda para diagnosticar, no un stream:
+        // si una pantalla estuvo dos días sin señal y juntó 40.000 líneas, sale
+        // de a tandas y no en un POST de varios MB que el enlace del tractor no
+        // banca.
+        // Tiene que quedar POR DEBAJO del tope del server (LOG_MAX_LINEAS_ENVIO
+        // en routes/aog.js): si mandáramos más de las que el server acepta, él
+        // guarda las primeras, contesta ok, y nosotros avanzamos el offset — o
+        // sea, las de más se pierden calladas.
+        private const int MaxLineasPorEnvio = 400;
+        private const int MaxBytesPorEnvio = 192 * 1024;
+
+        /// <summary>Archivo de eventos de PilotX. Lo escribe AgLibrary
+        /// (Log.EventWriter + FileSaveSystemEvents, que en el motor baja a disco
+        /// cada 30 s desde CrashLog). Se deja settable para el host que mueva el
+        /// directorio de trabajo.</summary>
+        public string EventLogPath { get; set; } = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "AgOpenGPS", "Logs", "AgOpenGPS_Events_Log.txt");
+
+        private string OffsetLogPath
+        {
+            get
+            {
+                return Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot,
+                                    "data", "orbitx_log_offset.json");
+            }
+        }
+
+        /// <summary>
+        /// Sube al cloud las líneas NUEVAS del log de eventos de PilotX.
+        ///
+        /// Por qué (Las Gringas, 2026-09-25): el CV de siembra se explicaba por
+        /// microcortes de MQTT, y nada los registraba donde se los pueda mirar.
+        /// Cuando el nodo se cae y vuelve, el broker embebido escribe [-] y [+]
+        /// en este mismo log; con el log en el cloud, el hueco de semilla y la
+        /// reconexión quedan en la misma línea de tiempo que el tracking. Sin
+        /// esto hay que ir hasta el tractor con un pendrive, y para entonces el
+        /// log ya rotó.
+        ///
+        /// El offset vive en disco y SOLO avanza cuando el server confirmó: un
+        /// POST que falla en el lote (que es la mitad de los POST) no puede
+        /// hacer que esas líneas se pierdan para siempre. Si el archivo se
+        /// achicó —AgLibrary lo recorta al pasar 1 MB— el offset vuelve a cero y
+        /// se sube todo de nuevo: repetir líneas es barato, perderlas no.
+        ///
+        /// Del corte se consume hasta el ÚLTIMO fin de línea: si el flush de
+        /// AgLibrary cayó justo en la mitad de una línea, esa mitad espera al
+        /// próximo tick en vez de viajar partida.
+        /// </summary>
+        private async Task SendLogEventos()
+        {
+            if (!_logBackoff.PuedeIntentar(DateTime.UtcNow)) return;
+
+            string ruta = EventLogPath;
+            if (string.IsNullOrEmpty(ruta) || !File.Exists(ruta)) return;
+
+            long offset;
+            string rutaAnotada;
+            LeerOffsetLog(out rutaAnotada, out offset);
+            // Log distinto (cambió el directorio de trabajo) o log recortado:
+            // arrancar de cero.
+            if (!string.Equals(rutaAnotada, ruta, StringComparison.OrdinalIgnoreCase)) offset = 0;
+
+            string bloque;
+            long nuevoOffset;
+            try
+            {
+                using (var fs = new FileStream(ruta, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    if (offset > fs.Length) offset = 0;      // el log se recortó
+                    if (offset == fs.Length) return;         // nada nuevo
+                    fs.Seek(offset, SeekOrigin.Begin);
+
+                    int cuanto = (int)Math.Min(fs.Length - offset, MaxBytesPorEnvio);
+                    var buf = new byte[cuanto];
+                    int leidos = fs.Read(buf, 0, cuanto);
+                    if (leidos <= 0) return;
+
+                    bool hastaElFinal = (offset + leidos) >= fs.Length;
+                    int corte = CorteHastaFinDeLinea(buf, leidos, hastaElFinal, MaxLineasPorEnvio);
+                    if (corte <= 0) return;   // una sola línea gigante a medio escribir
+
+                    bloque = Encoding.UTF8.GetString(buf, 0, corte);
+                    nuevoOffset = offset + corte;
+                }
+            }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "leer el log de eventos", ex);
+                return;
+            }
+
+            var lineas = PartirLineasLog(bloque, MaxLineasPorEnvio);
+            if (lineas.Count == 0)
+            {
+                // Puro separador: avanzar igual, si no el offset se traba acá.
+                GuardarOffsetLog(ruta, nuevoOffset);
+                return;
+            }
+
+            try
+            {
+                string url = _cfg.ServerUrl.TrimEnd('/') + "/api/aog/log";
+                var payload = new Dictionary<string, object>
+                {
+                    { "device_id", _cfg.DeviceId },
+                    { "ts", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() },
+                    { "archivo", Path.GetFileName(ruta) },
+                    { "lineas", lineas },
+                };
+
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
+                request.Content = new StringContent(
+                    JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+                request.Headers.Add("X-Device-ID", _cfg.DeviceId);
+                request.Headers.Add("X-Auth-Token", _cfg.DeviceToken);
+                if (!string.IsNullOrEmpty(_cfg.EstabSlug))
+                    request.Headers.Add("X-Estab-Slug", _cfg.EstabSlug);
+
+                var resp = await _http.SendAsync(request);
+                if (resp.IsSuccessStatusCode)
+                {
+                    _logBackoff.RegistrarExito();
+                    GuardarOffsetLog(ruta, nuevoOffset);
+                    Trace(string.Format("[LOG] {0} línea(s) subidas · offset {1}", lineas.Count, nuevoOffset));
+                    return;
+                }
+
+                if ((int)resp.StatusCode == 404)
+                {
+                    _logBackoff.RegistrarFallo(DateTime.UtcNow);
+                    Trace("[LOG] el server no tiene /api/aog/log todavía — se reintenta más tarde");
+                    return;
+                }
+
+                // 4xx que no es 404 (device sin estab, cuerpo rechazado): el
+                // offset NO avanza, pero insistir cada 30 s contra un rechazo
+                // permanente tampoco sirve.
+                _logBackoff.RegistrarFallo(DateTime.UtcNow);
+                Trace(string.Format("[LOG] el server contestó {0} — offset sin avanzar", (int)resp.StatusCode));
+            }
+            catch (Exception ex)
+            {
+                // Sin red en el lote: ni backoff ni offset. El próximo tick reintenta.
+                AgpLog.Warn("OrbitXSync", "subir el log de eventos", ex);
+            }
+        }
+
+        /// <summary>
+        /// Hasta dónde del bloque leído se puede consumir, en bytes. De acá sale
+        /// el offset nuevo, así que TIENE que coincidir con lo que después se
+        /// manda: cortar por bytes acá y volver a cortar por líneas más adelante
+        /// hacía que el offset avanzara sobre líneas que nunca salieron del
+        /// tractor. Por eso el tope de líneas se aplica ACÁ y no después.
+        ///
+        /// Reglas: se corta en un fin de línea (CRLF cuenta como uno solo), a
+        /// más tardar en la línea `maxLineas`. Si el bloque llega al final del
+        /// archivo y no se llegó al tope, se consume entero — la última línea
+        /// está completa aunque AgLibrary todavía no le haya puesto separador.
+        /// Devuelve 0 cuando no hay ningún fin de línea y queda archivo por
+        /// delante (una línea a medio escribir, más larga que el bloque): ahí no
+        /// se consume nada y se espera al próximo tick.
+        /// </summary>
+        internal static int CorteHastaFinDeLinea(byte[] buf, int leidos, bool hastaElFinal, int maxLineas)
+        {
+            if (buf == null || leidos <= 0) return 0;
+            if (leidos > buf.Length) leidos = buf.Length;
+            if (maxLineas <= 0) return 0;
+
+            int lineas = 0;
+            int ultimoFin = 0;
+            for (int i = 0; i < leidos; i++)
+            {
+                byte b = buf[i];
+                if (b != (byte)'\n' && b != (byte)'\r') continue;
+                // "\r\n" es UN fin de línea, no dos.
+                if (b == (byte)'\r' && i + 1 < leidos && buf[i + 1] == (byte)'\n') i++;
+                lineas++;
+                ultimoFin = i + 1;
+                if (lineas >= maxLineas) return ultimoFin;
+            }
+
+            if (hastaElFinal) return leidos;
+            return ultimoFin;
+        }
+
+        /// <summary>
+        /// Parte el bloque en líneas. AgLibrary separa los eventos con "\r"
+        /// PELADO, no con CRLF (ver Log.EventWriter): partir sólo por '\n' deja
+        /// el archivo entero convertido en una sola línea kilométrica, que es
+        /// exactamente lo que hacía la página de eventos del panel del motor.
+        /// </summary>
+        internal static List<string> PartirLineasLog(string bloque, int max)
+        {
+            var lineas = new List<string>();
+            if (string.IsNullOrEmpty(bloque)) return lineas;
+            foreach (var l in bloque.Split('\r', '\n'))
+            {
+                string t = l.Trim();
+                if (t.Length == 0) continue;
+                lineas.Add(Truncate(t, 1000));
+                if (lineas.Count >= max) break;
+            }
+            return lineas;
+        }
+
+        private void LeerOffsetLog(out string ruta, out long offset)
+        {
+            ruta = null;
+            offset = 0;
+            try
+            {
+                string p = OffsetLogPath;
+                if (!File.Exists(p)) return;
+                using (var doc = JsonDocument.Parse(File.ReadAllText(p)))
+                {
+                    JsonElement el;
+                    if (doc.RootElement.TryGetProperty("path", out el) && el.ValueKind == JsonValueKind.String)
+                        ruta = el.GetString();
+                    if (doc.RootElement.TryGetProperty("offset", out el) && el.TryGetInt64(out long v) && v >= 0)
+                        offset = v;
+                }
+            }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "leer el offset del log de eventos", ex);
+                ruta = null;
+                offset = 0;
+            }
+        }
+
+        private void GuardarOffsetLog(string ruta, long offset)
+        {
+            try
+            {
+                string p = OffsetLogPath;
+                string dir = Path.GetDirectoryName(p);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                var payload = new Dictionary<string, object>
+                {
+                    { "path", ruta },
+                    { "offset", offset },
+                    { "ts", DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture) },
+                };
+                File.WriteAllText(p, JsonSerializer.Serialize(payload), new UTF8Encoding(false));
+            }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "guardar el offset del log de eventos", ex);
             }
         }
 

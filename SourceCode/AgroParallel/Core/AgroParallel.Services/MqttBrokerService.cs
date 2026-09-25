@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // MqttBrokerService.cs — Broker MQTT embebido portable (netstandard2.0).
 // MQTTnet Server sin dependencias WinForms. Reemplaza el partial
 // FormLoop.MQTT de CoreX. Corre en cualquier host: WinForms, Android
@@ -21,6 +21,17 @@ namespace AgroParallel.Services
         private readonly LinkedList<string> _recentTopics = new LinkedList<string>();
         private readonly object _lock = new object();
 
+        /// <summary>
+        /// Adónde van, además del anillo de tópicos, los altas y bajas de
+        /// clientes del broker. El anillo se pierde al reiniciar y sólo se ve
+        /// abriendo el panel; estos eventos son la única huella de que un nodo
+        /// se cayó y volvió, que es exactamente lo que hay que cruzar contra un
+        /// hueco de semilla (Las Gringas, 2026-09-25). El host lo cablea a
+        /// Log.EventWriter — acá no se conoce AgLibrary a propósito: este
+        /// servicio también corre en Android.
+        /// </summary>
+        public static Action<string> EventoCliente { get; set; }
+
         public bool IsRunning { get; private set; }
         public int Port { get; private set; }
         public int ClientsConnected { get; private set; }
@@ -42,14 +53,14 @@ namespace AgroParallel.Services
             _server.ClientConnectedAsync += e =>
             {
                 ClientsConnected++;
-                AddTopic("[+] " + e.ClientId);
+                Anotar("[+] " + e.ClientId);
                 return Task.CompletedTask;
             };
 
             _server.ClientDisconnectedAsync += e =>
             {
                 if (ClientsConnected > 0) ClientsConnected--;
-                AddTopic("[-] " + e.ClientId);
+                Anotar("[-] " + e.ClientId);
                 return Task.CompletedTask;
             };
 
@@ -92,6 +103,19 @@ namespace AgroParallel.Services
         public void Dispose()
         {
             try { StopAsync().GetAwaiter().GetResult(); } catch { }
+        }
+
+        /// <summary>Alta o baja de un cliente: al anillo del panel Y al log de
+        /// eventos. Nunca tira: si el sink del host falla, el broker sigue.</summary>
+        private void Anotar(string linea)
+        {
+            AddTopic(linea);
+            try
+            {
+                var sink = EventoCliente;
+                if (sink != null) sink("MQTT: " + linea + " (clientes=" + ClientsConnected + ")");
+            }
+            catch { } // silencioso a propósito: loguear no puede voltear el broker
         }
 
         private void AddTopic(string topic)
