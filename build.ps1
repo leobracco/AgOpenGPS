@@ -214,9 +214,19 @@ if (-not $SinLinux) {
     # Los permisos +x no viajan desde NTFS Ã¢â‚¬â€ pilotx.sh se los da al arrancar.
     $tarPath = Join-Path $root ("PilotX_linux_v" + $Version + ".tar.gz")
     if (Test-Path $tarPath) { Remove-Item $tarPath -Force }
-    tar -czf $tarPath -C $linuxDir .
-    if ($LASTEXITCODE -ne 0) { Write-Host "tar linux FAILED" -ForegroundColor Red; exit 1 }
-    Write-Host ("Linux: " + $tarPath) -ForegroundColor Green
+    # RUTA COMPLETA a proposito: si hay Git for Windows instalado, su tar de
+    # MSYS gana en el PATH y lee "G:\..." como host remoto ("Cannot connect to
+    # G: resolve failed"). El bsdtar de System32 entiende rutas de Windows.
+    $tarExe = Join-Path $env:SystemRoot "System32\tar.exe"
+    if (-not (Test-Path $tarExe)) { $tarExe = "tar" }
+    & $tarExe -czf $tarPath -C $linuxDir .
+    # El paquete de Linux NO frena el build de Windows: son entregables
+    # distintos y el de Windows es el que va al OTA de los tractores.
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "tar linux FALLO — se sigue: el paquete de Windows no depende de esto" -ForegroundColor Yellow
+    } else {
+        Write-Host ("Linux: " + $tarPath) -ForegroundColor Green
+    }
 }
 
 # ----------------------------------------------------------------------------

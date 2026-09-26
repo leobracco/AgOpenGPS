@@ -12,6 +12,47 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.86] — 2026-09-26
+
+### Changed
+
+- **La barra de arriba, más grande y sin repetir el GPS.** Pedido de cabina
+  (pantalla de Andrés Bracco, 26/9). Tres cosas del mismo lugar:
+
+  El número de cada chip pasa de 15 a 20 px y la etiqueta de 8 a 11. Es lo que
+  el operario mira de reojo con la máquina andando, y a 15 px había que
+  acercarse a la pantalla. Los anchos mínimos acompañan, porque con la fuente
+  nueva el número se cortaba contra el borde. La barra sigue midiendo 52 px:
+  nada de lo que cuelga abajo se movió.
+
+  El GPS estaba **tres veces**: un botón «● GPS», el chip «SEÑAL» y el cartel
+  rojo de «sin señal de GPS». Se fue el botón. Su función no se pierde: abrir
+  los datos del GPS ahora es tocar el propio chip, igual que HA abre los datos
+  del lote, y el punto de color se mudó al lado de «SEÑAL». Se dejó el chip y
+  no el botón porque el chip distingue **RTK FIJO de FLOTANTE**, y en una
+  sembradora esa diferencia son centímetros — un punto verde no la muestra.
+
+- **Se sacó el ✕ de cerrar de la barra.** Estaba pegado al «maximizar», y con
+  guantes, en el tractor moviéndose, errarle cuesta perder el guiado en medio
+  de la pasada. Separarlo 14 px (1.0.7x) no había alcanzado. Para cerrar
+  PilotX quedan **SISTEMA › Cerrar PilotX** y Alt+F4.
+
+### Added
+
+- **Avisos de sistema: decir qué está roto abajo, en vez de quedarse mudo.**
+  El núcleo que decide qué mostrar cuando falla algo de la capa de abajo
+  (GPS, módulos, implemento) llega a la cabina en lugar de morir en un log.
+
+### Fixed
+
+- **El firewall se abre con perfil `Any`, y el flag de actualización vence.**
+  Las reglas creadas sólo para el perfil activo dejaban los módulos sin
+  alcanzar cuando Windows reclasificaba la red. Y el `actualizando.flag` —que
+  el actualizador crea para que el lanzador no relance PilotX en mitad de la
+  extracción— quedaba colgado si la actualización se cortaba: el lanzador salía
+  sin hacer nada y **PilotX no volvía a arrancar nunca**, sin un solo error a la
+  vista. Pasó en la pantalla de Francisco Barbero (25/9). Ahora el flag expira.
+
 ## [1.0.85] — 2026-09-25
 
 ### Fixed
