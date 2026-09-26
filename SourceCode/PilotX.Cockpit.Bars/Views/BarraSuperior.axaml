@@ -86,7 +86,7 @@
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="10"/>
       <Setter Property="Padding" Value="8,2"/>
-      <Setter Property="MinWidth" Value="56"/>
+      <Setter Property="MinWidth" Value="70"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -97,13 +97,13 @@
     </Style>
     <!-- Telemetría value/label -->
     <Style Selector="TextBlock.televal">
-      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontSize" Value="20"/>
       <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="Foreground" Value="#101612"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
     </Style>
     <Style Selector="TextBlock.telelbl">
-      <Setter Property="FontSize" Value="8"/>
+      <Setter Property="FontSize" Value="11"/>
       <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="Foreground" Value="#747D75"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -137,13 +137,10 @@
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
         <Button Classes="tab" Content="TRABAJO"
                 Command="{Binding SendCommand}" CommandParameter="lote_menu"/>
-        <Button Classes="tab" Command="{Binding SendCommand}" CommandParameter="datos_gps">
-          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                     Fill="{Binding GpsDotColor, Converter={StaticResource StringToBrush}}"/>
-            <TextBlock Text="GPS" VerticalAlignment="Center"/>
-          </StackPanel>
-        </Button>
+        <!-- Aca estaba el tab "● GPS" (pedido 2026-09-26). Entre el, el chip
+             SEÑAL y el cartel rojo de "sin senal", habia TRES cosas diciendo
+             lo mismo. Se fue el tab: abrir los datos del GPS ahora es tocar el
+             propio chip, como HA abre los datos del lote. -->
         <Button Classes="tab" Content="{Binding LoteText}" IsEnabled="{Binding LoteEnabled}"
                 Command="{Binding SendCommand}" CommandParameter="lote_datos"/>
         <!-- SISTEMA queda en DOS entradas (pedido usuario 2026-08-06):
@@ -179,7 +176,7 @@
            donde ya estaban duplicadas. -->
       <Border Grid.Column="3" VerticalAlignment="Center"
               Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10"
-              Padding="12,2" MinWidth="76" IsVisible="{Binding HaHoraVisible}">
+              Padding="12,2" MinWidth="92" IsVisible="{Binding HaHoraVisible}">
         <StackPanel VerticalAlignment="Center">
           <TextBlock Classes="televal" Text="{Binding HaHoraText}"/>
           <TextBlock Classes="telelbl" Text="HA/H"/>
@@ -198,19 +195,24 @@
 
       <!-- ===== telemetría + botones ventana ===== -->
       <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="60">
+        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="74">
           <StackPanel VerticalAlignment="Center">
             <TextBlock Classes="televal" Text="{Binding SpeedText}"/>
             <TextBlock Classes="telelbl" Text="KM/H"/>
           </StackPanel>
         </Border>
-        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="62">
+        <Button Classes="telebtn" MinWidth="80" ToolTip.Tip="Datos del GPS"
+                Command="{Binding SendCommand}" CommandParameter="datos_gps">
           <StackPanel VerticalAlignment="Center">
-            <TextBlock Classes="televal" FontSize="12" Text="{Binding GpsText}"/>
-            <TextBlock Classes="telelbl" Text="SEÑAL"/>
+            <TextBlock Classes="televal" FontSize="15" Text="{Binding GpsText}"/>
+            <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+              <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                       Fill="{Binding GpsDotColor, Converter={StaticResource StringToBrush}}"/>
+              <TextBlock Classes="telelbl" Text="SEÑAL" Margin="0"/>
+            </StackPanel>
           </StackPanel>
-        </Border>
-        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="56">
+        </Button>
+        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="70">
           <StackPanel VerticalAlignment="Center">
             <TextBlock Classes="televal" Text="{Binding FechaText}"/>
             <TextBlock Classes="telelbl" Text="TIEMPO"/>
@@ -231,11 +233,11 @@
              (tablet/notebook). Enchufada = gris; a batería = ámbar; <15% a
              batería = rojo. El rayito ⚡ va en el texto cuando carga. -->
         <Border Background="#FFFFFF" BorderThickness="1" CornerRadius="10"
-                Padding="8,2" MinWidth="56"
+                Padding="8,2" MinWidth="70"
                 IsVisible="{Binding BateriaVisible}"
                 BorderBrush="{Binding BateriaColorBorde, Converter={StaticResource StringToBrush}}">
           <StackPanel VerticalAlignment="Center">
-            <TextBlock Classes="televal" FontSize="13" Text="{Binding BateriaText}"
+            <TextBlock Classes="televal" FontSize="17" Text="{Binding BateriaText}"
                        Foreground="{Binding BateriaColorTexto, Converter={StaticResource StringToBrush}}"/>
             <TextBlock Classes="telelbl" Text="BAT"/>
           </StackPanel>
@@ -248,13 +250,12 @@
                   IsVisible="{Binding BotonesVentanaVisibles}">
         <Button Classes="wbtn" Content="–" Command="{Binding SendCommand}" CommandParameter="minimizar"/>
         <Button Classes="wbtn" Content="☐" Command="{Binding SendCommand}" CommandParameter="maximizar"/>
-        <!-- El ✕ queda DONDE ESTABA (pegado al borde derecho, memoria
-             muscular): el margen extra empuja a – y ☐ hacia la izquierda, así
-             la separación entre "maximizar" y "cerrar" pasa de 4 a 18 px. Con
-             guantes y el tractor moviéndose, 4 px no alcanzan para no errarle
-             al botón que apaga el guiado. -->
-        <Button Classes="wbtn close" Content="✕" Margin="14,0,0,0"
-                Command="{Binding SendCommand}" CommandParameter="apagar"/>
+        <!-- El ✕ SE SACO (pedido 2026-09-26). Estaba al lado de "maximizar" y
+             con guantes, en el tractor moviendose, errarle cuesta perder el
+             guiado en medio de la pasada. Separarlo 14 px no alcanzaba.
+             Para cerrar PilotX hay dos caminos que no se tocan sin querer:
+             el menu SISTEMA de esta misma barra, y Alt+F4. -->
+
       </StackPanel>
     </Grid>
   </Border>
