@@ -45,6 +45,12 @@ namespace AgOpenGPS
         void IPgnReceiveHost.DoRemoteSwitches() { }
 
         void IPgnReceiveHost.OnGpsSentenceReceived() => sentenceCounter = 0;
-        void IPgnReceiveHost.OnSteerModuleTraffic() { }
+        void IPgnReceiveHost.OnSteerModuleTraffic()
+            => ultimoPgn253Ticks = System.Diagnostics.Stopwatch.GetTimestamp();
+
+        /// <summary>Stopwatch.GetTimestamp() del último PGN 253 del módulo de
+        /// dirección (los de ToolX no cuentan). 0 = nunca llegó. Lo usa el
+        /// asistente de calibración para no mover el motor sin telemetría.</summary>
+        public long ultimoPgn253Ticks;
     }
 }

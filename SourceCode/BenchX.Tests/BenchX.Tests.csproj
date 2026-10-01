@@ -12,4 +12,12 @@
   <ItemGroup>
     <ProjectReference Include="..\BenchX\BenchX.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Asistente de calibración de la dirección: la máquina de estados es
+         pura (sin Settings/host), se LINKEA para correrla contra la ECU
+         simulada de BenchX sin arrastrar AgOpenGPS.Core entero. -->
+    <Compile Include="..\AgOpenGPS.Core\SteerCal\SteerCalModelos.cs" Link="SteerCal\SteerCalModelos.cs" />
+    <Compile Include="..\AgOpenGPS.Core\SteerCal\SteerCalAnalisis.cs" Link="SteerCal\SteerCalAnalisis.cs" />
+    <Compile Include="..\AgOpenGPS.Core\SteerCal\SteerCalWizard.cs" Link="SteerCal\SteerCalWizard.cs" />
+  </ItemGroup>
 </Project>

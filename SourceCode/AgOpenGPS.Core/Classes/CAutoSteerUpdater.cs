@@ -39,6 +39,15 @@ namespace AgOpenGPS
         public bool GuiadoImplementoActivo =>
             !GuiadoImplementoBloqueado && Properties.Settings.Default.setAS_guiadoImplemento == 1;
 
+        // ---- Asistente de calibración de la dirección ----
+
+        /// <summary>
+        /// Asistente de calibración (EngineSteerCalService). null = el PGN 254
+        /// sale como siempre. Con asistente, solo mientras pide motor el 254
+        /// lleva su setpoint y su velocidad (ver IAsistenteDireccionMotor).
+        /// </summary>
+        public SteerCal.IAsistenteDireccionMotor AsistenteDireccion { get; set; }
+
         private long ultimoTickImplemento;
         private bool ultimoEstadoImplemento;
 
@@ -208,8 +217,44 @@ namespace AgOpenGPS
                 }
             }
 
+            // Asistente de calibración: se consulta en cada PGN (así avanza
+            // al ritmo del GPS aunque la pantalla no consulte) y solo toma el
+            // 254 mientras pide motor. Con el manejo libre prendido no manda
+            // nunca (el asistente además se bloquea solo en ese caso).
+            double spAsistente = 0, velAsistente = 0;
+            bool asistenteMueve = false;
+            if (AsistenteDireccion != null)
+            {
+                try
+                {
+                    asistenteMueve = AsistenteDireccion.QuiereMotor(out spAsistente, out velAsistente)
+                                     && !mf.Vehicle.isInFreeDriveMode;
+                }
+                catch (Exception ex)
+                {
+                    // Falla cerrado: sin asistente sano no se mueve nada.
+                    asistenteMueve = false;
+                    Log.EventWriter("Asistente de direccion: error al consultar, motor sin asistente: " + ex.Message);
+                }
+            }
+
+            if (asistenteMueve)
+            {
+                // Velocidad del asistente (0,5 km/h falsos parado, la real
+                // andando): la placa con < 0,2 km/h no mueve la rueda.
+                int vel10 = (int)Math.Round(Math.Abs(velAsistente) * 10.0);
+                p_254.pgn[p_254.speedHi] = unchecked((byte)(vel10 >> 8));
+                p_254.pgn[p_254.speedLo] = unchecked((byte)vel10);
+                p_254.pgn[p_254.status] = 1;
+
+                // El asistente ya lo acota a ±5°; acá se vuelve a acotar por las dudas.
+                double sp = Math.Max(-5.0, Math.Min(5.0, spAsistente));
+                mf.GuidanceLineSteerAngle = (Int16)Math.Round(sp * 100);
+                p_254.pgn[p_254.steerAngleHi] = unchecked((byte)(mf.GuidanceLineSteerAngle >> 8));
+                p_254.pgn[p_254.steerAngleLo] = unchecked((byte)(mf.GuidanceLineSteerAngle));
+            }
             // If Drive button off - normal autosteer
-            if (!mf.Vehicle.isInFreeDriveMode)
+            else if (!mf.Vehicle.isInFreeDriveMode)
             {
                 //fill up0 the appropriate arrays with new values
                 p_254.pgn[p_254.speedHi] = unchecked((byte)((int)(Math.Abs(mf.AvgSpeed) * 10.0) >> 8));

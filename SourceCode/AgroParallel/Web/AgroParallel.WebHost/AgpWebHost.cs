@@ -135,6 +135,11 @@ namespace AgroParallel.WebHost
         /// Null = /api/tareas/* no existe (404), igual que los módulos no
         /// inyectados.</summary>
         public AgroParallel.Services.Tareas.TareasService Tareas { get; set; }
+
+        /// <summary>Asistente de calibración de la dirección (opcional): lo setea
+        /// el Engine ANTES de Start(). Null = /api/steer/cal/* no existe (404) y
+        /// la pantalla de Dirección no ofrece el asistente.</summary>
+        public ISteerCalService SteerCal { get; set; }
         private readonly int _port;
         private WebServer _server;
         private CancellationTokenSource _cts;
@@ -409,6 +414,9 @@ namespace AgroParallel.WebHost
                 // Tareas de trabajo (cultivo, tipo, inicio/fin, área, export).
                 var tareas = Tareas;
                 if (tareas != null) m.WithController(() => new TareasController(tareas));
+                // Asistente de calibración de la dirección (Dirección › Asistente).
+                var steerCal = SteerCal;
+                if (steerCal != null) m.WithController(() => new SteerCalController(steerCal));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))

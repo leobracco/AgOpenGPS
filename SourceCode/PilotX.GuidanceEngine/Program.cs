@@ -200,8 +200,16 @@ namespace AgOpenGPS
             EngineWebHost webHost = null;
             if (useWebHost)
             {
-                webHost = new EngineWebHost(host, 5180);
+                webHost = new EngineWebHost(host, 5180)
+                {
+                    // Salida de emergencia del asistente de calibración de la
+                    // dirección: sin él, Dirección › Asistente dice "no disponible".
+                    AsistenteDireccionBloqueado = Array.IndexOf(args, "--sin-asistente-direccion") >= 0,
+                };
                 webHost.Start();
+                Console.WriteLine("Asistente de calibración de la dirección: " +
+                    (webHost.AsistenteDireccionBloqueado ? "APAGADO por --sin-asistente-direccion"
+                     : "disponible (Dirección › Asistente; inactivo hasta que se abre)"));
                 Console.WriteLine("Modo --webhost: API HTTP /api/aog/* arriba en " + webHost.Url
                     + " (state/coverage/tool/tram/paths/guidance) — PilotX.Desktop puede renderizar el mapa contra este motor.");
             }

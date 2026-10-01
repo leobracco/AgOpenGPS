@@ -93,6 +93,10 @@ namespace AgOpenGPS
 
         public string Url => _web?.Url;
 
+        /// <summary>`--sin-asistente-direccion`: no se conecta el asistente de
+        /// calibración (ni endpoints ni enganche al PGN 254). Antes de Start().</summary>
+        public bool AsistenteDireccionBloqueado { get; set; }
+
         public void Start()
         {
             if (_web != null) return;
@@ -140,6 +144,16 @@ namespace AgOpenGPS
                 () => _host.SettingsSender.SendSettings(),
                 applyLive: null,
                 avgSpeed: () => _host.avgSpeed);
+
+            // Asistente de calibración de la dirección (Dirección › Asistente).
+            // Arranca INACTIVO: hasta que el operario lo abre, el PGN 254 sale
+            // como siempre. `--sin-asistente-direccion` ni siquiera lo conecta.
+            EngineSteerCalService steerCal = null;
+            if (!AsistenteDireccionBloqueado)
+            {
+                steerCal = new EngineSteerCalService(_host, steerConfig);
+                _host.AutoSteerUpdater.AsistenteDireccion = steerCal;
+            }
 
             // ── Productos X-* ────────────────────────────────────────────────
             // Sin esto el motor headless servía el mapa pero NADA de QuantiX,
@@ -266,6 +280,7 @@ namespace AgOpenGPS
                 steerConfig: steerConfig,
                 configVehiculo: configVehiculo,
                 imuCalibracion: imuCalibracion);
+            _web.SteerCal = steerCal;
 
             // Alarmas sonoras de cabina: detecta piloto/dosis/motor/tubo/tolva
             // y publica disparos; los clientes (Desktop, pantalla Sonidos)
