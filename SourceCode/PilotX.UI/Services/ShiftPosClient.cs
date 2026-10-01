@@ -6,17 +6,19 @@
 //   · GET  /api/aog/shift-pos            → estado inicial del corrimiento de
 //     deriva GPS (north_cm / east_cm / offsets_on, snake_case AgpJson).
 //   · POST /api/aog/guidance/command     → escritura, body {"cmd":"..."} con
-//     shift_north_<cm> / shift_east_<cm> / shift_zero / offsets_on / offsets_off.
+//     shift_north_<cm> / shift_east_<cm> / shift_zero / offsets_on / offsets_off,
+//     y ref_marcar / ref_volver (punto de referencia contra la deriva, cuyo
+//     resultado viene en ref_mensaje / ref_ok del GET).
 //
-// EXACTAMENTE el mismo contrato que ya usaba la página HTML: cero endpoints
-// nuevos, cero cambios de casing, cero campos agregados.
+// El mismo contrato que ya usaba la página HTML: cero endpoints nuevos, cero
+// cambios de casing. Los únicos agregados son los campos ref_* del GET
+// (aditivos: la página los ignora).
 //
 // El POST devuelve tres estados distintos y el panel los pinta distinto, así
 // que acá se devuelve bool? en vez de bool:
 //   true  = el motor lo aceptó
-//   false = el motor lo RECHAZÓ (hoy es lo normal: GuidanceEngineHost.
-//           ExecuteCommand todavía no conoce los shift_*/offsets_*; es carril
-//           back-end, ver COORDINACION-SESIONES.md)
+//   false = el motor lo RECHAZÓ (valor fuera de rango, o un ref_* que no
+//           se pudo aplicar — el motivo viene en ref_mensaje)
 //   null  = no hubo respuesta usable (sin conexión / HTTP feo)
 // La página escondía el rechazo en un console.warn — invisible en cabina.
 // ============================================================================
@@ -42,6 +44,12 @@ public sealed class ShiftPosDto
     [JsonPropertyName("north_cm")]   public double? NorthCm   { get; set; }
     [JsonPropertyName("east_cm")]    public double? EastCm    { get; set; }
     [JsonPropertyName("offsets_on")] public bool?   OffsetsOn { get; set; }
+
+    // Punto de referencia contra la deriva (ref_marcar / ref_volver).
+    [JsonPropertyName("ref_marcada")]     public bool?   RefMarcada    { get; set; }
+    [JsonPropertyName("ref_marcada_utc")] public string? RefMarcadaUtc { get; set; }
+    [JsonPropertyName("ref_mensaje")]     public string? RefMensaje    { get; set; }
+    [JsonPropertyName("ref_ok")]          public bool?   RefOk         { get; set; }
 }
 
 public sealed class ShiftPosClient

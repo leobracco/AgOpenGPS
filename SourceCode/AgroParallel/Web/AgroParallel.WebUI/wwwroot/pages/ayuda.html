@@ -188,6 +188,7 @@
         <a href="#piloto">Piloto automático</a>
         <a href="#luces">Cómo leer el desvío — Banderillero y Piloto</a>
         <a href="#secciones">Secciones y pintado</a>
+        <a href="#deriva">Corregir posición y punto de referencia</a>
 
         <div class="ay-idx-tit">Equipos</div>
         <a href="#configuracion">Configuración</a>
@@ -474,6 +475,23 @@
           <p>El mapa <strong>empieza a pintar cuando abre la válvula</strong>: apenas la máquina arranca a aplicar, se ve en el mapa. Así viene de fábrica y es lo normal.</p>
           <div class="aviso">Si ves que <strong>la máquina aplica pero el mapa arranca a pintar tarde</strong> —quedan pedazos sin pintar donde la barra sí estaba tirando— revisá <strong>Configuración › Vehículo › Tiempos</strong>, la carta de <strong>retardo del pintado</strong>. Vacío o en <strong>0</strong> pinta al abrir la válvula. Ese número manda <em>solamente el mapa</em>: no toca la anticipación del corte, que es la que evita los huecos de aplicación.</div>
           <p>Si tu máquina tarda un momento entre que abre la válvula y que sale el producto, podés poner esos segundos ahí y el mapa los espera.</p>
+        </section>
+
+        <section id="deriva">
+          <h2>Corregir posición y punto de referencia</h2>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Herr.</b> <i>›</i> <b>Corregir posición</b></p>
+          <p>Con GPS sin corrección (señal libre) la posición <strong>se corre</strong> de una sesión a otra: después del almuerzo o al otro día, lo pintado y las guías ya no caen sobre el terreno, aunque el tractor esté en el mismo lugar. Esta pantalla corre la posición del tractor para que vuelvan a coincidir.</p>
+          <h3>Punto de referencia (recomendado)</h3>
+          <ol class="pasos">
+            <li>Antes de cortar (almuerzo, fin del día), <strong>clavá una bandera</strong> en el lote y parate con el tractor sobre ella.</li>
+            <li>Tocá <strong>Marcar referencia</strong>. PilotX guarda ese punto con el lote.</li>
+            <li>Al volver, abrí el mismo lote, poné el tractor <strong>exactamente sobre la bandera</strong>, en la misma posición que al marcar, y pará.</li>
+            <li>Tocá <strong>Volver a la referencia</strong> y confirmá con <strong>Sí, corregir</strong>. El mapa entero se acomoda y la pantalla dice cuánto corrigió (por ejemplo <em>30 cm al sur y 12 cm al este</em>).</li>
+          </ol>
+          <div class="aviso"><strong>Volver a la referencia</strong> no se aplica si no hay GPS o lote abierto, con el <strong>piloto enganchado</strong>, con el tractor <strong>andando</strong> o con <strong>secciones pintando</strong>; tampoco si la corrección da <strong>más de 50 m</strong> (eso no es deriva: es otra bandera u otro lote). En todos los casos la pantalla dice por qué y no toca nada.</div>
+          <div class="clave">La referencia queda guardada <strong>con el lote</strong>: sirve hasta que marques otra. La corrección, en cambio, <strong>vuelve a cero al cerrar el lote</strong> (salvo <strong>Mantener corrimiento</strong> en On): al volver a abrirlo, repetí el paso 3 y 4.</div>
+          <h3>Corrimiento a mano</h3>
+          <p>Arriba de la misma pantalla, <strong>Norte / Sur</strong> y <strong>Este / Oeste</strong> corren el tractor de a 1 o 10 cm (−10, −1, +1, +10). <strong>Poner en cero</strong> saca toda la corrección, incluida la del punto de referencia. Los números muestran la corrección total aplicada, en cm.</p>
         </section>
 
         <!-- ================= EQUIPOS ================= -->

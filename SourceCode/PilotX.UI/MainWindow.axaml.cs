@@ -776,6 +776,10 @@ public partial class MainWindow : Window
         if (_corregirPosHost != null)
         {
             _corregirPosHost.Aviso += MostrarToast;
+            // Punto de referencia contra la deriva: sin GPS o sin lote se dice
+            // por qué (mismos textos que el resto de la cabina).
+            _corregirPosHost.MotivoBloqueoReferencia = () =>
+                AgroParallel.Cabina.AvisosCabina.PorQueNoSePuedeUsarReferencia(EstadoDeCabina());
             _corregirPosHost.Cerrado += () =>
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }

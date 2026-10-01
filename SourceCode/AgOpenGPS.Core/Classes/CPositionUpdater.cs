@@ -181,7 +181,7 @@ namespace AgOpenGPS
                 {
                     pn.DefineLocalPlane(mf.AppModel.CurrentLatLon, false);
                 }
-                GeoCoord fixCoord = mf.AppModel.LocalPlane.ConvertWgs84ToGeoCoord(mf.AppModel.CurrentLatLon);
+                GeoCoord fixCoord = mf.AppModel.LocalPlane.ConvertWgs84ToFixGeoCoord(mf.AppModel.CurrentLatLon);
                 pn.fix.northing = fixCoord.Northing;
                 pn.fix.easting = fixCoord.Easting;
                 //Draw a grid once we know where in the world we are.

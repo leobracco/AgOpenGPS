@@ -17,5 +17,20 @@ namespace AgroParallel.Models
 
         /// <summary>Si el corrimiento se mantiene aplicado entre fixes.</summary>
         public bool OffsetsOn { get; set; }
+
+        // ── Punto de referencia contra la deriva (ref_marcar / ref_volver) ──
+
+        /// <summary>El lote abierto tiene un punto de referencia marcado.</summary>
+        public bool RefMarcada { get; set; }
+
+        /// <summary>Cuándo se marcó (ISO 8601 UTC), "" si no hay.</summary>
+        public string RefMarcadaUtc { get; set; } = "";
+
+        /// <summary>Qué pasó con el último ref_marcar/ref_volver, en castellano
+        /// para el operario (motivo del rechazo o cuánto se corrigió).</summary>
+        public string RefMensaje { get; set; } = "";
+
+        /// <summary>El último ref_marcar/ref_volver se aplicó.</summary>
+        public bool RefOk { get; set; }
     }
 }

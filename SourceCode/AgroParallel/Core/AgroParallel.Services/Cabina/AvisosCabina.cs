@@ -81,6 +81,20 @@ namespace AgroParallel.Cabina
             return null;
         }
 
+        /// <summary>Por que no se puede marcar ni volver al punto de referencia
+        /// contra la deriva (Corregir posicion). null = se puede. Vale para los
+        /// dos botones: los dos miden la posicion del tractor y la referencia
+        /// se guarda en el lote.</summary>
+        public static string PorQueNoSePuedeUsarReferencia(EstadoCabina e)
+        {
+            if (!e.Conectado) return "Sin conexión con el motor de guiado.";
+            if (!e.LoteAbierto)
+                return "Abrí un lote primero. La referencia se guarda adentro del lote.";
+            if (!e.HayGps)
+                return "Sin señal de GPS. La referencia se mide con la posición del tractor.";
+            return null;
+        }
+
         // ── Advertencias: NO bloquean, avisan ───────────────────────────────
         //
         // Son distintas de los requisitos: acá el operario PUEDE seguir, pero si

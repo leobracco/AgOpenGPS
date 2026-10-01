@@ -2937,5 +2937,45 @@
   "Alarmas sonoras: qué avisa la cabina y con qué sonido": {
     "en": "Sound alarms: what the cab warns about and with which sound",
     "pt": "Alarmes sonoros: o que a cabine avisa e com qual som"
+  },
+  "PUNTO DE REFERENCIA": {
+    "en": "REFERENCE POINT",
+    "pt": "PONTO DE REFERÊNCIA"
+  },
+  "Sin referencia en este lote": {
+    "en": "No reference point in this field",
+    "pt": "Sem referência neste talhão"
+  },
+  "Referencia marcada en este lote": {
+    "en": "Reference point marked in this field",
+    "pt": "Referência marcada neste talhão"
+  },
+  "Marcar referencia": {
+    "en": "Mark reference",
+    "pt": "Marcar referência"
+  },
+  "Volver a la referencia": {
+    "en": "Return to reference",
+    "pt": "Voltar à referência"
+  },
+  "¿El tractor está parado sobre la bandera? Esto corre todo el mapa.": {
+    "en": "Is the tractor stopped over the flag? This shifts the whole map.",
+    "pt": "O trator está parado sobre a bandeira? Isto desloca todo o mapa."
+  },
+  "Sí, corregir": {
+    "en": "Yes, correct",
+    "pt": "Sim, corrigir"
+  },
+  "Este lote no tiene referencia marcada. Marcala antes de cortar.": {
+    "en": "This field has no reference point. Mark it before stopping.",
+    "pt": "Este talhão não tem referência marcada. Marque-a antes de parar."
+  },
+  "Abrí un lote primero. La referencia se guarda adentro del lote.": {
+    "en": "Open a field first. The reference point is saved inside the field.",
+    "pt": "Abra um talhão primeiro. A referência é salva dentro do talhão."
+  },
+  "Sin señal de GPS. La referencia se mide con la posición del tractor.": {
+    "en": "No GPS signal. The reference point is measured with the tractor position.",
+    "pt": "Sem sinal de GPS. A referência é medida com a posição do trator."
   }
 }

@@ -97,7 +97,7 @@ namespace AgOpenGPS
 
                                 mf.AppModel.CurrentLatLon = new Wgs84(Lat, Lon);
 
-                                GeoCoord fixCoord = mf.AppModel.LocalPlane.ConvertWgs84ToGeoCoord(mf.AppModel.CurrentLatLon);
+                                GeoCoord fixCoord = mf.AppModel.LocalPlane.ConvertWgs84ToFixGeoCoord(mf.AppModel.CurrentLatLon);
                                 pn.fix.northing = fixCoord.Northing;
                                 pn.fix.easting = fixCoord.Easting;
 

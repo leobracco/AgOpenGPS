@@ -100,6 +100,10 @@ namespace AgOpenGPS
                 return OpenField(raw.Substring("job_start_".Length));
             }
 
+            // Corregir posición + punto de referencia contra la deriva
+            // (GuidanceEngineHost.Deriva.cs): shift_*/offsets_*/ref_*.
+            if (TryComandoDeriva(cmd, out bool okDeriva)) return okDeriva;
+
             // sim_coords_{lat}_{lon}: reubica el simulador a esa coordenada
             // (teletransporte). Port de GUI.FloatingMenu.cs — reemplaza el OK de
             // FormSimCoords. Mismos guards que el original: sin lote abierto (la

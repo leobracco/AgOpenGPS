@@ -506,12 +506,16 @@ namespace PilotX.GuidanceEngine.Adapters
                     var d = props.DriftCompensation;
                     s.NorthCm = System.Math.Round(d.NorthingDelta * 100.0, 0);
                     s.EastCm = System.Math.Round(d.EastingDelta * 100.0, 0);
-                    // OffsetsOn queda en false: el flag lo togglean los comandos
-                    // "offsets_on"/"offsets_off", que todavía no están en el
-                    // ExecuteCommand del motor. La deriva (los 2 valores de
-                    // arriba) sí es real y es lo que muestra la pantalla.
-                    s.OffsetsOn = false;
+                    // "Mantener corrimiento" (offsets_on/offsets_off).
+                    s.OffsetsOn = _host.mantenerCorrimiento;
                 }
+                // Punto de referencia contra la deriva (GuidanceEngineHost.Deriva.cs).
+                var rf = _host.referenciaDeriva;
+                s.RefMarcada = rf != null;
+                s.RefMarcadaUtc = rf != null && rf.MarcadoUtc != default(System.DateTime)
+                    ? rf.MarcadoUtc.ToString("o", System.Globalization.CultureInfo.InvariantCulture) : "";
+                s.RefMensaje = _host.referenciaMensaje ?? "";
+                s.RefOk = _host.referenciaMensajeOk;
             }
             catch { /* defensivo: 0/off si el modelo de campo no está listo */ }
             return s;

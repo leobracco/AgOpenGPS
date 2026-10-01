@@ -31,10 +31,9 @@
 // para el Hub remoto / celular / Android. No hay pestaña "Configurar": acá no
 // se configura nada, es 100% en vivo.
 //
-// SIN POLLING, a propósito (la página tampoco poleaba). Un re-GET periódico
-// hoy sería PEOR que no tenerlo: mientras el motor no implemente los
-// shift_*, el GET devuelve la deriva real (0) y le borraría al operario el
-// valor que acaba de marcar, cada medio segundo, sin explicación.
+// SIN POLLING, a propósito (la página tampoco poleaba): un re-GET periódico
+// pelearía con el pintado optimista de los toques rápidos. Se relee el estado
+// solo después de un ref_* (que cambia la deriva del lado del motor).
 //
 // MEJORA sobre la página: cuando el motor RECHAZA el comando, el HTML solo
 // hacía console.warn — invisible en cabina: el operario apretaba y el número
@@ -42,12 +41,19 @@
 // "comando rechazado" y sale UN toast (el primero después de un ok, para no
 // tapar el mapa con una lluvia de avisos).
 //
-// OJO — el motor todavía no conoce estos comandos: en esta rama
-// GuidanceEngineHost.ExecuteCommand no tiene handlers shift_north_/shift_east_/
-// shift_zero/offsets_on/offsets_off, así que devuelve {ok:false} (la página
-// HTML tampoco funciona hoy contra el engine headless). Es carril back-end
-// (ver COORDINACION-SESIONES.md); hasta que estén, el panel lo dice en la cara
-// en vez de mentir.
+// El motor atiende shift_north_/shift_east_/shift_zero/offsets_on/offsets_off
+// en GuidanceEngineHost.Deriva.cs: escriben SharedFieldProperties.
+// DriftCompensation, que se SUMA a la posición del GPS (mapa = gps + deriva).
+//
+// PUNTO DE REFERENCIA contra la deriva (idea del T-Wave de Sensor): con GPS
+// sin corrección la posición se corre entre una sesión y otra. Antes de cortar
+// el operario clava una bandera y toca "Marcar referencia" (el motor guarda el
+// pivote en <lote>/ReferenciaDeriva.txt). Al volver pone el tractor sobre la
+// bandera y toca "Volver a la referencia" → confirmación en línea (mueve TODO
+// el mapa) → ref_volver suma referencia − pivote a la MISMA deriva de arriba.
+// Los guards de cabina (sin GPS / sin lote) salen de AvisosCabina; los del
+// motor (piloto enganchado, andando, secciones pintando, > 50 m) vuelven en
+// ref_mensaje y se muestran tal cual.
 //
 // Wire: el MISMO GET /api/aog/shift-pos + POST /api/aog/guidance/command de
 // siempre (snake_case, sin cambios de contrato) — ver ShiftPosClient.
@@ -121,6 +127,25 @@ public sealed class CorregirPosicionPanel : Border
     private readonly TextBlock _valNorte;
     private readonly TextBlock _valEste;
     private readonly Button _btnOffsets;
+
+    // ---- punto de referencia contra la deriva ----
+    private readonly TextBlock _refEstado;
+    private readonly TextBlock _refMsg;
+    private readonly Border _refConfirmar;
+    private readonly Button _btnMarcar;
+    private readonly Button _btnVolver;
+    private bool _refMarcada;
+    private string _refUtc = "";
+    private string _refMensaje = "";
+    private bool _refMensajeOk;
+    private bool _refOcupado;
+
+    /// <summary>
+    /// Por qué no se puede usar la referencia ahora (sin GPS, sin lote…), o
+    /// null si se puede. Lo arma MainWindow con AvisosCabina sobre el último
+    /// estado: así el operario lee el motivo en vez de un botón muerto.
+    /// </summary>
+    public Func<string?>? MotivoBloqueoReferencia { get; set; }
 
     public CorregirPosicionPanel()
     {
@@ -267,12 +292,94 @@ public sealed class CorregirPosicionPanel : Border
         pie.Children.Add(btnCero);
         pie.Children.Add(toggle);
 
+        // ---------- punto de referencia contra la deriva ----------
+        var lblRef = new TextBlock
+        {
+            Text = "PUNTO DE REFERENCIA", FontSize = 10, FontWeight = FontWeight.SemiBold,
+            Foreground = TextoDim, VerticalAlignment = VerticalAlignment.Center,
+        };
+        _refEstado = new TextBlock
+        {
+            Text = "Sin referencia en este lote", FontSize = 11.5, Foreground = TextoMuted,
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0),
+        };
+        _btnMarcar = BotonAccion("Marcar referencia");
+        _btnMarcar.Click += async (_, _) => await MarcarReferenciaAsync();
+        _btnVolver = BotonAccion("Volver a la referencia");
+        _btnVolver.Click += (_, _) => PedirVolver();
+
+        var refBotones = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*"),
+            Margin = new Thickness(0, 8, 0, 0),
+        };
+        _btnMarcar.Margin = new Thickness(0, 0, 4, 0);
+        _btnVolver.Margin = new Thickness(4, 0, 0, 0);
+        Grid.SetColumn(_btnMarcar, 0);
+        Grid.SetColumn(_btnVolver, 1);
+        refBotones.Children.Add(_btnMarcar);
+        refBotones.Children.Add(_btnVolver);
+
+        // Confirmación EN LÍNEA (nada de popups sobre el mapa): "Volver" corre
+        // el mapa entero, así que pide un toque más.
+        var txtConfirmar = new TextBlock
+        {
+            Text = "¿El tractor está parado sobre la bandera? Esto corre todo el mapa.",
+            FontSize = 11.5, Foreground = Texto, TextWrapping = TextWrapping.Wrap,
+        };
+        var btnSi = BotonAccion("Sí, corregir");
+        btnSi.Background = Verde; btnSi.Foreground = Brushes.White; btnSi.BorderBrush = Verde;
+        btnSi.Click += async (_, _) => await ConfirmarVolverAsync();
+        var btnNo = BotonAccion("Cancelar");
+        var confBotones = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*"),
+            Margin = new Thickness(0, 8, 0, 0),
+        };
+        btnNo.Margin = new Thickness(0, 0, 4, 0);
+        btnSi.Margin = new Thickness(4, 0, 0, 0);
+        Grid.SetColumn(btnNo, 0);
+        Grid.SetColumn(btnSi, 1);
+        confBotones.Children.Add(btnNo);
+        confBotones.Children.Add(btnSi);
+        var confCol = new StackPanel();
+        confCol.Children.Add(txtConfirmar);
+        confCol.Children.Add(confBotones);
+        _refConfirmar = new Border
+        {
+            Child = confCol, Background = new SolidColorBrush(Color.Parse("#FFF8E8")),
+            BorderBrush = Warn, BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 8, 10, 10),
+            Margin = new Thickness(0, 8, 0, 0), IsVisible = false,
+        };
+        btnNo.Click += (_, _) => { _refConfirmar.IsVisible = false; };
+
+        _refMsg = new TextBlock
+        {
+            Text = "", FontSize = 11.5, FontWeight = FontWeight.SemiBold, Foreground = TextoMuted,
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0), IsVisible = false,
+        };
+
+        var refCol = new StackPanel();
+        refCol.Children.Add(lblRef);
+        refCol.Children.Add(_refEstado);
+        refCol.Children.Add(refBotones);
+        refCol.Children.Add(_refConfirmar);
+        refCol.Children.Add(_refMsg);
+        var cardRef = new Border
+        {
+            Child = refCol, Background = BgFila, BorderBrush = Borde,
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(10, 8, 10, 10), Margin = new Thickness(0, 12, 0, 0),
+        };
+
         // ---------- árbol ----------
         var root = new StackPanel();
         root.Children.Add(cabecera);
         root.Children.Add(cardNorte);
         root.Children.Add(cardEste);
         root.Children.Add(pie);
+        root.Children.Add(cardRef);
         Child = root;
 
         // Traductor.Aplicar() guarda el PRIMER texto de cada TextBlock y lo
@@ -308,6 +415,12 @@ public sealed class CorregirPosicionPanel : Border
         _north = 0;
         _east = 0;
         _offsets = false;
+        _refMarcada = false;
+        _refUtc = "";
+        _refMensaje = "";
+        _refMensajeOk = false;
+        _refOcupado = false;
+        _refConfirmar.IsVisible = false;
         SetPill("—", Dim);
         Render();
         IsVisible = true;
@@ -365,13 +478,155 @@ public sealed class CorregirPosicionPanel : Border
                 _lastOk = false;
                 return;
             }
-            _north = ClampCm(d.NorthCm);
-            _east = ClampCm(d.EastCm);
-            _offsets = d.OffsetsOn ?? false;
+            AplicarEstado(d, conMensaje: false);
             SetPill("en vivo", Ok);
             _lastOk = true;
             Render();
         });
+    }
+
+    /// <summary>Copia el estado del motor a los espejos locales.</summary>
+    private void AplicarEstado(ShiftPosDto d, bool conMensaje)
+    {
+        _north = ClampCm(d.NorthCm);
+        _east = ClampCm(d.EastCm);
+        _offsets = d.OffsetsOn ?? false;
+        _refMarcada = d.RefMarcada ?? false;
+        _refUtc = d.RefMarcadaUtc ?? "";
+        if (conMensaje)
+        {
+            _refMensaje = d.RefMensaje ?? "";
+            _refMensajeOk = d.RefOk ?? false;
+        }
+    }
+
+    // =========================================================================
+    //  punto de referencia contra la deriva
+    // =========================================================================
+
+    /// <summary>true = bloqueado (y ya se le dijo al operario por qué).</summary>
+    private bool BloqueadoReferencia()
+    {
+        string? motivo = null;
+        try { motivo = MotivoBloqueoReferencia?.Invoke(); } catch { motivo = null; }
+        if (string.IsNullOrEmpty(motivo)) return false;
+        MostrarMensajeRef(motivo, false);
+        Aviso?.Invoke(Traductor.T(motivo));
+        return true;
+    }
+
+    private async Task MarcarReferenciaAsync()
+    {
+        if (_refOcupado) return;
+        _refConfirmar.IsVisible = false;
+        if (BloqueadoReferencia()) return;
+        await EnviarReferenciaAsync("ref_marcar").ConfigureAwait(true);
+    }
+
+    private void PedirVolver()
+    {
+        if (_refOcupado) return;
+        if (BloqueadoReferencia()) return;
+        if (!_refMarcada)
+        {
+            MostrarMensajeRef("Este lote no tiene referencia marcada. Marcala antes de cortar.", false);
+            return;
+        }
+        _refMsg.IsVisible = false;
+        _refConfirmar.IsVisible = true;
+    }
+
+    private async Task ConfirmarVolverAsync()
+    {
+        _refConfirmar.IsVisible = false;
+        if (_refOcupado) return;
+        if (BloqueadoReferencia()) return;
+        await EnviarReferenciaAsync("ref_volver").ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Manda ref_marcar/ref_volver y relee el estado: el motor deja el motivo
+    /// (o cuánto corrigió) en ref_mensaje, y "Volver" cambió la deriva, así que
+    /// los números de arriba también se refrescan.
+    /// </summary>
+    private async Task EnviarReferenciaAsync(string cmd)
+    {
+        var client = _client;
+        var ct = _cts?.Token ?? CancellationToken.None;
+        if (client == null) { MostrarMensajeRef("Sin conexión con el motor de guiado.", false); return; }
+
+        _refOcupado = true;
+        _btnMarcar.IsEnabled = false;
+        _btnVolver.IsEnabled = false;
+        try
+        {
+            bool? r;
+            try { r = await client.SendCommandAsync(cmd, ct).ConfigureAwait(true); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+            catch { r = null; }
+            if (_cerrada) return;
+
+            if (r == null)
+            {
+                SetPill("sin conexión", Err);
+                _lastOk = false;
+                MostrarMensajeRef("Sin conexión con el motor de guiado.", false);
+                return;
+            }
+
+            ShiftPosDto? d;
+            try { d = await client.GetAsync(ct).ConfigureAwait(true); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+            catch { d = null; }
+            if (_cerrada) return;
+
+            SetPill("en vivo", Ok);
+            _lastOk = true;
+            if (d != null) AplicarEstado(d, conMensaje: true);
+            if (string.IsNullOrEmpty(_refMensaje) || d == null)
+            {
+                _refMensaje = r == true
+                    ? (cmd == "ref_marcar" ? "Referencia marcada." : "Posición corregida.")
+                    : "PilotX no aplicó el cambio.";
+                _refMensajeOk = r == true;
+            }
+            Render();
+            // El resultado de "Volver" se mira en el MAPA: el toast lo deja a la
+            // vista aunque el operario cierre la card enseguida.
+            if (cmd == "ref_volver" || r != true) Aviso?.Invoke(Traductor.T(_refMensaje));
+        }
+        finally
+        {
+            _refOcupado = false;
+            _btnMarcar.IsEnabled = true;
+            _btnVolver.IsEnabled = true;
+        }
+    }
+
+    private void MostrarMensajeRef(string texto, bool ok)
+    {
+        _refMensaje = texto;
+        _refMensajeOk = ok;
+        RenderReferencia();
+    }
+
+    private void RenderReferencia()
+    {
+        if (_refMarcada)
+        {
+            string cuando = "";
+            if (DateTime.TryParse(_refUtc, CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind, out var utc) && utc != default)
+                cuando = " · " + utc.ToLocalTime().ToString("dd/MM HH:mm", CultureInfo.InvariantCulture);
+            _refEstado.Text = Traductor.T("Referencia marcada en este lote") + cuando;
+        }
+        else
+        {
+            _refEstado.Text = Traductor.T("Sin referencia en este lote");
+        }
+        _refMsg.IsVisible = !string.IsNullOrEmpty(_refMensaje);
+        _refMsg.Text = Traductor.T(_refMensaje);
+        _refMsg.Foreground = _refMensajeOk ? Ok : Warn;
     }
 
     // =========================================================================
@@ -468,6 +723,7 @@ public sealed class CorregirPosicionPanel : Border
         _btnOffsets.Background = _offsets ? Verde : BgFila;
         _btnOffsets.Foreground = _offsets ? Brushes.White : Texto;
         _btnOffsets.BorderBrush = _offsets ? Verde : Borde;
+        RenderReferencia();
     }
 
     private void SetPill(string texto, IBrush color)
@@ -575,6 +831,18 @@ public sealed class CorregirPosicionPanel : Border
             Padding = new Thickness(10, 8, 10, 10),
         };
     }
+
+    /// <summary>Botón de acción de la card de referencia (52 de alto, táctil).</summary>
+    private static Button BotonAccion(string texto) => new()
+    {
+        Content = texto, Height = 52, FontSize = 13, FontWeight = FontWeight.SemiBold,
+        CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1),
+        Background = BgPanel, Foreground = Texto, BorderBrush = Borde,
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        HorizontalContentAlignment = HorizontalAlignment.Center,
+        VerticalContentAlignment = VerticalAlignment.Center,
+        Cursor = new Cursor(StandardCursorType.Hand),
+    };
 
     // 56 de alto y ~86 de ancho: piso táctil de la guía (64x56) con aire entre
     // botones — acá un toque de más corre la máquina 10 cm.

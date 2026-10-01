@@ -182,5 +182,34 @@ namespace AgroParallel.Services.Tests
         {
             Assert.That(AvisosCabina.DistanciaKm(-33.05, -61.60, -33.05, -61.60), Is.EqualTo(0).Within(0.001));
         }
+
+        // ── Punto de referencia contra la deriva ────────────────────────────
+
+        [Test]
+        public void Con_todo_en_orden_la_referencia_se_puede_usar()
+        {
+            Assert.That(AvisosCabina.PorQueNoSePuedeUsarReferencia(Todo()), Is.Null);
+        }
+
+        [Test]
+        public void Sin_lote_la_referencia_dice_que_se_guarda_en_el_lote()
+        {
+            var e = Todo(); e.LoteAbierto = false;
+            Assert.That(AvisosCabina.PorQueNoSePuedeUsarReferencia(e), Does.Contain("lote"));
+        }
+
+        [Test]
+        public void Sin_gps_la_referencia_dice_gps()
+        {
+            var e = Todo(); e.HayGps = false;
+            Assert.That(AvisosCabina.PorQueNoSePuedeUsarReferencia(e), Does.Contain("GPS"));
+        }
+
+        [Test]
+        public void Sin_conexion_la_referencia_lo_dice()
+        {
+            var e = Todo(); e.Conectado = false;
+            Assert.That(AvisosCabina.PorQueNoSePuedeUsarReferencia(e), Does.Contain("conexión"));
+        }
     }
 }

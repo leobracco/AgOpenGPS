@@ -92,6 +92,9 @@ namespace AgOpenGPS
 
             CargarCobertura(dir);
             CargarRestoDelLote(dir);
+            // Punto de referencia contra la deriva (la bandera). Solo el punto:
+            // la deriva NO se restaura sola (ver GuidanceEngineHost.Deriva.cs).
+            CargarReferenciaDeriva(dir);
 
             // Marcas de "Marcar giro": DESPUÉS de linderos Y cabecera porque
             // la materialización recorta la línea de giro que BuildTurnLines
@@ -204,6 +207,10 @@ namespace AgOpenGPS
             // apuntando más allá de las listas recién vaciadas y lo del próximo
             // lote no se consumiría nunca (además de retener el área de este).
             AntiSolape?.Reiniciar();
+
+            // La referencia es del lote que se cierra; la deriva vuelve a 0
+            // salvo "Mantener corrimiento" (JobClose de FormGPS).
+            SoltarDerivaDelLote();
 
             currentFieldDirectory = "";
             displayFieldName = "";
