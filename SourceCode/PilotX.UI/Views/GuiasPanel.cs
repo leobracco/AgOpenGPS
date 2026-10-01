@@ -101,6 +101,13 @@ public sealed class GuiasPanel : Border
     private readonly StackPanel _listaFilas;
     private readonly Button _btnIrLista;
 
+    // Guía por última pasada (SmartPath): se prende/apaga desde el menú.
+    // El estado viene del motor (/api/aog/state → smart_path_on), no se adivina.
+    private Button _btnSmartPath = null!;
+    private TextBlock _smartPathEstado = null!;
+    private bool _smartPathOn;
+    private int _smartPathPasadas;
+
     // Doble toque anti-roce del borrado (mismo gesto que el Lindero). El
     // índice apuntado al ARMAR queda guardado: si la selección cambia entre
     // los dos toques, el "¿Seguro?" pendiente borraría OTRA guía, así que se
@@ -180,8 +187,11 @@ public sealed class GuiasPanel : Border
             await CargarEstadoAsync();
             TrazaGuias("Abrir: reintento de estado -> HayGuias=" + HayGuias);
         }
-        TrazaGuias("Abrir -> HayGuias=" + HayGuias + " => " + (directoALista && HayGuias ? "lista" : "menu"));
-        Mostrar(directoALista && HayGuias ? "lista" : "menu");
+        // Con la guía por última pasada prendida se abre en el menú: es donde
+        // está su botón, y lo primero que se busca es ver/apagar esa función.
+        bool aLista = directoALista && HayGuias && !_smartPathOn;
+        TrazaGuias("Abrir -> HayGuias=" + HayGuias + " smartpath=" + _smartPathOn + " => " + (aLista ? "lista" : "menu"));
+        Mostrar(aLista ? "lista" : "menu");
         IsVisible = true;
         // Los textos que arma este código (filas, estados) nacen en castellano;
         // el diccionario los traduce acá igual que a los del XAML.
@@ -253,8 +263,84 @@ public sealed class GuiasPanel : Border
 
         var p = new StackPanel { Spacing = 2 };
         p.Children.Add(fila);
+        p.Children.Add(ArmarBotonSmartPath());
         p.Children.Add(pie);
         return p;
+    }
+
+    // ---- Guía por última pasada: un botón ancho que dice si está prendida --
+    private Button ArmarBotonSmartPath()
+    {
+        var titulo = new TextBlock
+        {
+            Text = "Guía por última pasada", FontSize = 15, FontWeight = FontWeight.SemiBold,
+            Foreground = Texto
+        };
+        _smartPathEstado = new TextBlock
+        {
+            Text = "Apagada · tocá para prender", FontSize = 13, Foreground = TextoMuted,
+            TextWrapping = TextWrapping.Wrap, MaxWidth = 300
+        };
+        var textos = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        textos.Children.Add(titulo);
+        textos.Children.Add(_smartPathEstado);
+
+        var fila = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        fila.Children.Add(new Image { Source = Icono("TrackCurve.png"), Width = 40, Height = 36 });
+        fila.Children.Add(textos);
+
+        _btnSmartPath = new Button
+        {
+            Width = 392, MinHeight = 68,
+            Margin = new Thickness(0, 10, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(14, 8),
+            Background = Brushes.White,
+            BorderBrush = Borde, BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Content = fila,
+        };
+        _btnSmartPath.Click += async (_, __) => await AlternarSmartPathAsync();
+        return _btnSmartPath;
+    }
+
+    private void PintarSmartPath()
+    {
+        if (_btnSmartPath == null) return;
+        _btnSmartPath.Background = _smartPathOn ? BgFilaSel : Brushes.White;
+        _btnSmartPath.BorderBrush = _smartPathOn ? Verde : Borde;
+        _btnSmartPath.BorderThickness = new Thickness(_smartPathOn ? 2 : 1);
+        string T(string s) => PilotX.Cockpit.Bars.Traductor.T(s);
+        _smartPathEstado.Text = !_smartPathOn
+            ? T("Apagada · tocá para prender")
+            : (_smartPathPasadas == 0
+                ? T("Activa · hacé la primera pasada a mano") + " · " + T("tocá para apagar")
+                : T("Activa") + " · " + _smartPathPasadas + " " + T("pasadas") + " · " + T("tocá para apagar"));
+    }
+
+    private async Task AlternarSmartPathAsync()
+    {
+        string T(string s) => PilotX.Cockpit.Bars.Traductor.T(s);
+        bool prender = !_smartPathOn;
+        bool ok = await ComandoGuiadoAsync(prender ? "smartpath_on" : "smartpath_off");
+        await CargarSmartPathAsync();
+
+        if (prender && !ok)
+        {
+            Aviso?.Invoke(T("Abrí un lote para usar la guía por última pasada."));
+            return;
+        }
+        if (prender)
+        {
+            Aviso?.Invoke(T("Guía por última pasada activa: hacé la primera pasada a mano. Al girar en la cabecera, esa pasada queda como guía de la siguiente."));
+            Cerrar();   // a manejar: el panel no tiene más nada que hacer
+        }
+        else
+        {
+            Aviso?.Invoke(T("Guía por última pasada apagada. La última guía queda activa."));
+        }
     }
 
     // ---- LISTA: filas + columna izquierda (edición) y derecha (orden/uso) --
@@ -582,6 +668,7 @@ public sealed class GuiasPanel : Border
 
     private async Task CargarEstadoAsync()
     {
+        await CargarSmartPathAsync();
         var s = await GetAsync("/state");
         if (s != null) AplicarEstado(s.Value);
         // "Guías guardadas" solo aparece si hay guías (pedido 2026-08-05).
@@ -642,6 +729,39 @@ public sealed class GuiasPanel : Border
             if (raiz.TryGetProperty("tracks", out _)) AplicarEstado(raiz.Clone());
         }
         catch { /* el toque no aplicó; la lista queda como estaba */ }
+    }
+
+    // Estado de la guía por última pasada: viene en el state general del motor.
+    private async Task CargarSmartPathAsync()
+    {
+        if (_http == null) return;
+        try
+        {
+            var json = await _http.GetStringAsync(_base + "/api/aog/state");
+            using var doc = JsonDocument.Parse(json);
+            var r = doc.RootElement;
+            _smartPathOn = r.TryGetProperty("smart_path_on", out var on) && on.ValueKind == JsonValueKind.True;
+            _smartPathPasadas = r.TryGetProperty("smart_path_pasadas", out var n) && n.TryGetInt32(out int v) ? v : 0;
+        }
+        catch (Exception ex) { TrazaGuias("GET /api/aog/state FALLO: " + ex.Message); }
+        PintarSmartPath();
+    }
+
+    // Comando de guiado (mismo endpoint que la barra de la pasada). Devuelve el ok del motor.
+    private async Task<bool> ComandoGuiadoAsync(string cmd)
+    {
+        if (_http == null) return false;
+        TrazaGuias("COMANDO " + cmd);
+        try
+        {
+            using var contenido = new StringContent(
+                JsonSerializer.Serialize(new { cmd }), Encoding.UTF8, "application/json");
+            using var resp = await _http.PostAsync(_base + "/api/aog/guidance/command", contenido);
+            var json = await resp.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True;
+        }
+        catch (Exception ex) { TrazaGuias("COMANDO " + cmd + " FALLO: " + ex.Message); return false; }
     }
 
     private async Task TecladoAsync(bool abrir)

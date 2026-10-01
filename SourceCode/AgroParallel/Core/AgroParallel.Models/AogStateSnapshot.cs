@@ -140,6 +140,12 @@ namespace AgroParallel.Models
         /// <summary>Contorno bloqueado a la pasada actual (ct.isLocked).</summary>
         public bool IsContourLocked { get; set; }
 
+        /// <summary>Guía por última pasada prendida: cada pasada se vuelve la guía de la siguiente.</summary>
+        public bool SmartPathOn { get; set; }
+
+        /// <summary>Pasadas que ya se volvieron guía desde que se prendió la guía por última pasada.</summary>
+        public int SmartPathPasadas { get; set; }
+
         /// <summary>Índice de la guía activa (trk.idx). -1 = sin guía.</summary>
         public int TrackIdx { get; set; } = -1;
 

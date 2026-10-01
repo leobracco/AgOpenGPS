@@ -178,6 +178,8 @@ namespace PilotX.GuidanceEngine.Adapters
                     snap.IsContourOn = _host.Ct.isContourBtnOn;
                     snap.IsContourLocked = _host.Ct.isLocked;
                 }
+                snap.SmartPathOn = _host.SmartPathActivo;
+                snap.SmartPathPasadas = _host.SmartPathPasadas;
                 if (_host.Isobus != null)
                 {
                     snap.IsobusAlive = _host.Isobus.IsAlive();

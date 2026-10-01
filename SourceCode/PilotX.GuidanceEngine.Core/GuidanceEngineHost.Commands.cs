@@ -226,6 +226,17 @@ namespace AgOpenGPS
                 case "contour":
                     ToggleContour();
                     return true;
+                // Guía por última pasada (ver GuidanceEngineHost.SmartPath.cs).
+                // "smartpath" alterna; _on/_off son idempotentes para la UI.
+                // _on devuelve false sin lote abierto: la cabina lo dice.
+                case "smartpath":
+                    if (_smartPathOn) { ProcesarFixSerializado(() => ApagarSmartPath("lo apago el operario")); return true; }
+                    return PrenderSmartPath();
+                case "smartpath_on":
+                    return PrenderSmartPath();
+                case "smartpath_off":
+                    ProcesarFixSerializado(() => ApagarSmartPath("lo apago el operario"));
+                    return true;
                 case "contour_lock":
                     // btnContourLock_Click
                     if (Ct.isContourBtnOn) Ct.SetLockToLine();

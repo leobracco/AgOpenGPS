@@ -5642,7 +5642,7 @@ public partial class MainWindow : Window
                     // ¿piloto enganchado? ¿hay lote? El auto-seguimiento de la guía
                     // más cercana SOLO corre si el usuario prendió AutoTrack; y con
                     // el piloto puesto NO reelegimos (se sostiene la línea activa).
-                    bool autoTrackOn = false, autoSteer = false, jobStarted = false;
+                    bool autoTrackOn = false, autoSteer = false, jobStarted = false, smartPathOn = false;
                     try
                     {
                         var sjson = await _trackHttp.GetStringAsync(url + "/api/aog/state", ct).ConfigureAwait(false);
@@ -5651,6 +5651,11 @@ public partial class MainWindow : Window
                         autoTrackOn = root.TryGetProperty("is_auto_track_on", out var atv) && atv.GetBoolean();
                         autoSteer = root.TryGetProperty("is_auto_steer_on", out var asv) && asv.GetBoolean();
                         jobStarted = root.TryGetProperty("is_job_started", out var jv) && jv.GetBoolean();
+                        // Guía por última pasada: la guía la pone el motor al
+                        // terminar cada pasada (y la primera es SIN guía). Si
+                        // acá se eligiera una sola, el motor lo tomaría como
+                        // que el operario eligió otra y la función se apagaría.
+                        smartPathOn = root.TryGetProperty("smart_path_on", out var spv) && spv.ValueKind == System.Text.Json.JsonValueKind.True;
                     }
                     catch { }
 
@@ -5670,7 +5675,7 @@ public partial class MainWindow : Window
                             if (vis) { anyVisible = true; if (firstVisible < 0) firstVisible = idx; }
                         }
 
-                        if (!_suppressAutoSelect && jobStarted)
+                        if (!_suppressAutoSelect && jobStarted && !smartPathOn)
                         {
                             if (autoTrackOn && !autoSteer && anyVisible)
                             {

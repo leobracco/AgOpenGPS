@@ -28,6 +28,7 @@ namespace AgOpenGPS
         {
             fieldName = (fieldName ?? "").Trim();
             if (fieldName.Length == 0) return false;
+            ApagarSmartPath("se abre otro lote");
 
             string dir = Path.Combine(RegistrySettings.fieldsDirectory, fieldName);
             if (!Directory.Exists(dir))
@@ -120,6 +121,9 @@ namespace AgOpenGPS
 
         public void CloseField()
         {
+            // La guía por última pasada es de ESTE lote: no se lleva al próximo.
+            ApagarSmartPath("lote cerrado");
+
             // Cerrar el mapeo de las tiras que estan pintando ANTES de guardar.
             //
             // patchSaveList solo se llena cuando un parche se corta a los 61

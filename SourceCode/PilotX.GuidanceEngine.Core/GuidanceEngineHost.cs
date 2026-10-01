@@ -755,6 +755,10 @@ namespace AgOpenGPS
                 // BuildMachineByte (dentro) puebla los bytes de sección de P239/P229.
                 SectionControlToUpdate();
 
+                // Guía por última pasada: graba la pasada y, al salir del giro
+                // de cabecera, la instala como guía. No hace nada si está apagada.
+                TickSmartPath();
+
                 P239Field.pgn[P239Field.geoStop] = Mc.isOutOfBounds ? (byte)1 : (byte)0;
                 SendPgnToLoop(P239Field.pgn);
                 SendPgnToLoop(P229Field.pgn);
