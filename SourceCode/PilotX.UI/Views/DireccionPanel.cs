@@ -441,6 +441,15 @@ public sealed class DireccionPanel : Border
             "Compensa que la rueda de adentro gira más que la de afuera. 100% = geometría ideal. Ajustá si midiendo el mismo giro a izquierda y derecha el ángulo difiere."));
         _scGuiado.Children.Add(FilaToggle("Guiar en marcha atrás", "steer_in_reverse",
             "Permite que el piloto siga guiando en reversa (maniobras de cabecera). Ojo: el GPS detecta la reversa con menos certeza."));
+        // Guiado del implemento, nivel A (CompensacionImplemento en el motor).
+        // APAGADO de fábrica hasta validarlo en lote: cambia por dónde pasa la
+        // máquina en las curvas.
+        _scGuiado.Children.Add(SubTituloSep("Implemento"));
+        _scGuiado.Children.Add(FilaToggle("Guiar el implemento en curvas", "guiado_implemento",
+            "En las curvas el implemento no pisa la huella del tractor: el de arrastre va por adentro y el de 3 puntos por afuera. " +
+            "Prendido, el tractor se abre (o se cierra) lo justo para que el IMPLEMENTO vaya sobre la línea, hasta 50 cm y de a poco. " +
+            "Usa las distancias del implemento cargadas en la configuración: si están mal, corrige mal. En recta no hace nada (no corrige deriva ni ladera). " +
+            "En prueba: apagado de fábrica."));
         _scGuiado.Children.Add(SubTituloSep("Avanzado"));
         _scGuiado.Children.Add(FilaAjusteD("Zona muerta de rumbo", "dead_zone_heading", 0.1, 0, 5, 1, "°",
             "Errores de rumbo más chicos que esto se ignoran: evita el zigzagueo fino cuando ya está arriba de la línea."));

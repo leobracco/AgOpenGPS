@@ -28,6 +28,8 @@ namespace AgOpenGPS
         CModuleComm Mc { get; }
         CISOBUS Isobus { get; }
         CPGN_FE P254 { get; }
+        /// <summary>Implemento — distancias para el guiado del implemento (CompensacionImplemento).</summary>
+        CTool Tool { get; }
 
         vec3 PivotAxlePos { get; }
         vec3 SteerAxlePos { get; }
@@ -46,6 +48,8 @@ namespace AgOpenGPS
         bool IsSteerInReverse { get; }
         bool IsMetric { get; }
         bool IsSimTimerEnabled { get; }
+        /// <summary>U-turn en curso: el guiado del implemento no corrige durante la vuelta.</summary>
+        bool IsYouTurnTriggered { get; }
 
         /// <summary>Envía un PGN al loop UDP (CoreX).</summary>
         void SendPgnToLoop(byte[] data);

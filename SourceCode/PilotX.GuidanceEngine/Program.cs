@@ -45,6 +45,11 @@ namespace AgOpenGPS
             // `--sin-antisolape` queda como salida de emergencia para poder
             // apagarlo en cabina sin recompilar si algún día se porta mal.
             bool useAntiSolape = Array.IndexOf(args, "--sin-antisolape") < 0;
+            // Guiado del implemento (nivel A, CompensacionImplemento): lo prende
+            // el setting setAS_guiadoImplemento (APAGADO de fábrica hasta
+            // validarlo en lote). `--sin-guiado-implemento` es la salida de
+            // emergencia: pisa el setting sin recompilar ni tocar el perfil.
+            bool bloquearGuiadoImplemento = Array.IndexOf(args, "--sin-guiado-implemento") >= 0;
 
             var baseDir = new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "GuidanceEngineData"));
             if (!baseDir.Exists) baseDir.Create();
@@ -168,6 +173,23 @@ namespace AgOpenGPS
             host.AntiSolape = antiSolape;
             Console.WriteLine("Anti-solape de secciones: " +
                 (useAntiSolape ? "ACTIVO" : "APAGADO por --sin-antisolape"));
+
+            host.AutoSteerUpdater.GuiadoImplementoBloqueado = bloquearGuiadoImplemento;
+            Console.WriteLine("Guiado del implemento: " +
+                (bloquearGuiadoImplemento ? "APAGADO por --sin-guiado-implemento"
+                 : host.AutoSteerUpdater.GuiadoImplementoActivo ? "ACTIVO (nivel A)"
+                 : "APAGADO (se prende en Menú izquierdo › Dirección › Guiado › Implemento)"));
+            if (host.Tool != null)
+            {
+                string avisoPerfil = CompensacionImplemento.ValidarPerfil(host.Tool.isToolTrailing,
+                    host.Tool.hitchLength, host.Tool.trailingHitchLength,
+                    host.Tool.tankTrailingHitchLength, host.Tool.isToolTBT);
+                if (avisoPerfil != null)
+                {
+                    Console.WriteLine("Guiado del implemento — revisar perfil: " + avisoPerfil);
+                    Log.EventWriter("Guiado del implemento — revisar perfil: " + avisoPerfil);
+                }
+            }
 
             host.Start();
             Console.WriteLine("Escuchando PGN en 127.0.0.1:15555, respondiendo a 127.255.255.255:17777.");

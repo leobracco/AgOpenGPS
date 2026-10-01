@@ -27,6 +27,7 @@ namespace AgOpenGPS
         CModuleComm IAutoSteerHost.Mc => Mc;
         CISOBUS IAutoSteerHost.Isobus => Isobus;
         CPGN_FE IAutoSteerHost.P254 => P254Field;
+        CTool IAutoSteerHost.Tool => Tool;
 
         vec3 IAutoSteerHost.PivotAxlePos => pivotAxlePos;
         vec3 IAutoSteerHost.SteerAxlePos => steerAxlePos;
@@ -45,6 +46,7 @@ namespace AgOpenGPS
         bool IAutoSteerHost.IsSteerInReverse => isSteerInReverse;
         bool IAutoSteerHost.IsMetric => isMetric;
         bool IAutoSteerHost.IsSimTimerEnabled => isSimTimerEnabled;
+        bool IAutoSteerHost.IsYouTurnTriggered => Yt.isYouTurnTriggered;
 
         // No hay botón físico detrás: alterna el estado directo. La lógica de
         // negocio real (btnAutoSteer_Click en FormGPS.cs) además toca color

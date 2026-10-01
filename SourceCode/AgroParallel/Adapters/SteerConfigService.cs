@@ -106,6 +106,7 @@ namespace AgroParallel.Adapters
                 UTurnComp = Math.Round(S.setAS_uTurnCompensation * 10.0),
                 SideHillComp = (int)Math.Round(S.setAS_sideHillComp * 100.0),
                 SteerInReverse = S.setAS_isSteerInReverse,
+                GuiadoImplemento = S.setAS_guiadoImplemento == 1,
 
                 Encoder = (set0 & 128) != 0,
                 PressureSensor = (set1 & 2) != 0,
@@ -174,6 +175,8 @@ namespace AgroParallel.Adapters
             S.setAS_uTurnCompensation = c.UTurnComp * 0.1;
             S.setAS_sideHillComp = c.SideHillComp * 0.01;
             S.setAS_isSteerInReverse = c.SteerInReverse;
+            // null = el cliente no conoce el campo: no tocar (ver SteerConfigDto).
+            if (c.GuiadoImplemento.HasValue) S.setAS_guiadoImplemento = c.GuiadoImplemento.Value ? 1 : 0;
 
             S.setAS_functionSpeedLimit = c.GuidanceSpeedLimit;
             S.setAS_minSteerSpeed = c.MinSteerSpeed;

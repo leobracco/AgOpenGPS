@@ -263,6 +263,12 @@ namespace AgOpenGPS.Properties
         // estos metros de la guía. 0 = no vigila: APAGADOS de fábrica.
         public double setAS_desacopleSinGpsSeg = 0;
         public double setAS_desacopleMaxDistanciaM = 0;
+        // Guiado del implemento (ver CompensacionImplemento): el tractor corrige
+        // su trayectoria en las curvas para que el IMPLEMENTO vaya sobre la línea.
+        // 0 = apagado, 1 = nivel A (pasivo, solo modelo, sin sensores). APAGADO
+        // de fábrica hasta validarlo en lote: decide por dónde pasa la máquina.
+        // Salida de emergencia en el Engine: --sin-guiado-implemento.
+        public int setAS_guiadoImplemento = 0;
         public HarvesterBrand setBrand_HBrand = HarvesterBrand.AgOpenGPS;
         public ArticulatedBrand setBrand_WDBrand = ArticulatedBrand.AgOpenGPS;
         public double setIMU_fusionWeight2 = 0.06;

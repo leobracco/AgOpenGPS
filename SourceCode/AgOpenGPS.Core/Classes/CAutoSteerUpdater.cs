@@ -24,6 +24,84 @@ namespace AgOpenGPS
             mf = host;
         }
 
+        // ---- Guiado del implemento (nivel A, ver CompensacionImplemento) ----
+
+        /// <summary>Estado de la corrección del implemento (lo lee el state/diagnóstico).</summary>
+        public CompensacionImplemento GuiadoImplemento { get; } = new CompensacionImplemento();
+
+        /// <summary>
+        /// Salida de emergencia (--sin-guiado-implemento en el Engine): pisa el
+        /// setting y deja el guiado como siempre, sin recompilar.
+        /// </summary>
+        public bool GuiadoImplementoBloqueado { get; set; }
+
+        /// <summary>true si el setting lo pide y nadie lo bloqueó.</summary>
+        public bool GuiadoImplementoActivo =>
+            !GuiadoImplementoBloqueado && Properties.Settings.Default.setAS_guiadoImplemento == 1;
+
+        private long ultimoTickImplemento;
+        private bool ultimoEstadoImplemento;
+
+        /// <summary>
+        /// Avanza la corrección del implemento un paso (con el dt real entre
+        /// PGN) y devuelve los puntos que van a GetCurrent*. Apagado, en
+        /// contorno, en U-turn o marcha atrás devuelve los reales tal cual.
+        /// </summary>
+        private void PivotesParaGuia(bool esCurva, out vec3 pivote, out vec3 eje)
+        {
+            pivote = mf.PivotAxlePos;
+            eje = mf.SteerAxlePos;
+
+            bool activo = GuiadoImplementoActivo;
+            CTool tool = mf.Tool;
+
+            long ahora = System.Diagnostics.Stopwatch.GetTimestamp();
+            double dt = ultimoTickImplemento == 0 ? 0
+                : (ahora - ultimoTickImplemento) / (double)System.Diagnostics.Stopwatch.Frequency;
+            ultimoTickImplemento = ahora;
+
+            if (activo != ultimoEstadoImplemento)
+            {
+                ultimoEstadoImplemento = activo;
+                Log.EventWriter("Guiado del implemento: " + (activo ? "ACTIVO (nivel A)" : "APAGADO"));
+                if (activo && tool != null)
+                {
+                    string aviso = CompensacionImplemento.ValidarPerfil(tool.isToolTrailing, tool.hitchLength,
+                        tool.trailingHitchLength, tool.tankTrailingHitchLength, tool.isToolTBT);
+                    if (aviso != null) Log.EventWriter("Guiado del implemento — revisar perfil: " + aviso);
+                }
+            }
+
+            if (!activo || tool == null)
+            {
+                GuiadoImplemento.Paso(false, false, 0, default, dt);
+                return;
+            }
+
+            bool anular = mf.IsYouTurnTriggered || mf.IsReverse;
+            double curvatura = 0;
+            if (esCurva && !anular)
+            {
+                CABCurve curve = mf.Curve;
+                try
+                {
+                    curvatura = CompensacionImplemento.CurvaturaEnMira(curve.curList, pivote, curve.isHeadingSameWay);
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    // La curva se rearmó en el medio: este ciclo va sin curvatura
+                    // (la rampa de 5 cm/s se encarga de que no se note).
+                    curvatura = 0;
+                }
+            }
+
+            var geo = GeometriaImplemento.DesdeTool(tool, tool.GetHitchLengthFromVehiclePivot());
+            GuiadoImplemento.Paso(true, anular, curvatura, geo, dt);
+
+            pivote = GuiadoImplemento.Aplicar(pivote);
+            eje = GuiadoImplemento.Aplicar(eje);
+        }
+
         public void SendCorrectedPositionPgn()
         {
             CNMEA pn = mf.Pn;
@@ -54,6 +132,9 @@ namespace AgOpenGPS
             if (mf.Ct.isContourBtnOn)
             {
                 mf.Ct.DistanceFromContourLine(mf.PivotAxlePos, mf.SteerAxlePos);
+                // En contorno no hay modelo de curva: sin corrección, y que no
+                // quede una vieja colgada para cuando se vuelva a una guía.
+                GuiadoImplemento.Paso(false, false, 0, default, 0);
             }
             else
             {
@@ -73,15 +154,20 @@ namespace AgOpenGPS
                 //like normal
                 if (trk.gArr != null && trk.gArr.Count > 0 && trk.idx >= 0 && trk.idx < trk.gArr.Count)
                 {
+                    // Elección de pasada (Build*) con el pivote REAL; el
+                    // seguimiento (GetCurrent*) con el pivote virtual del
+                    // guiado del implemento — igual al real si está apagado.
                     if (trk.gArr[trk.idx].mode == TrackMode.AB)
                     {
                         mf.ABLine.BuildCurrentABLineList(mf.PivotAxlePos);
-                        mf.ABLine.GetCurrentABLine(mf.PivotAxlePos, mf.SteerAxlePos);
+                        PivotesParaGuia(false, out vec3 pivote, out vec3 eje);
+                        mf.ABLine.GetCurrentABLine(pivote, eje);
                     }
                     else
                     {
                         mf.Curve.BuildCurveCurrentList(mf.PivotAxlePos);
-                        mf.Curve.GetCurrentCurveLine(mf.PivotAxlePos, mf.SteerAxlePos);
+                        PivotesParaGuia(true, out vec3 pivote, out vec3 eje);
+                        mf.Curve.GetCurrentCurveLine(pivote, eje);
                     }
                 }
             }

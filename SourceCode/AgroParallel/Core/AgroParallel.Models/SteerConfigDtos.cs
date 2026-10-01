@@ -84,6 +84,13 @@ namespace AgroParallel.Models
         /// <summary>setAS_isSteerInReverse.</summary>
         [JsonPropertyName("steer_in_reverse")] public bool SteerInReverse { get; set; }
 
+        /// <summary>
+        /// setAS_guiadoImplemento (0/1) — guiado del implemento en curvas, nivel A
+        /// (CompensacionImplemento). Nullable: un cliente viejo manda null y no
+        /// se pisa lo que eligió el operario.
+        /// </summary>
+        [JsonPropertyName("guiado_implemento")] public bool? GuiadoImplemento { get; set; }
+
         // ---- Sensor de fin de giro (excluyentes) — setArdSteer_setting0/1 ----
         [JsonPropertyName("encoder")] public bool Encoder { get; set; }
         [JsonPropertyName("pressure_sensor")] public bool PressureSensor { get; set; }
