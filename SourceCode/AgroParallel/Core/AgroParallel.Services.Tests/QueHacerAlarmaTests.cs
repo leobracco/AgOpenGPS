@@ -122,6 +122,9 @@ namespace AgroParallel.Services.Tests
         [TestCase("Piloto desenganchado: sin señal de GPS hace 3 s.", QueHacerAlarma.PilotoSinGps)]
         [TestCase("Piloto desenganchado: el tractor se fue 2,5 m de la guía (máximo 1,0 m).", QueHacerAlarma.PilotoLejosDeLaGuia)]
         [TestCase("Piloto desenganchado: se perdió el RTK fijo.", QueHacerAlarma.PilotoSinRtk)]
+        [TestCase("Piloto desenganchado: pasaste la velocidad máxima de 15 km/h.", QueHacerAlarma.PilotoVelocidadMaxima)]
+        [TestCase("Piloto desenganchado: por debajo de la velocidad mínima de 1,0 km/h.", QueHacerAlarma.PilotoVelocidadMinima)]
+        [TestCase("Piloto desenganchado: se terminó la guía.", QueHacerAlarma.PilotoFinDeGuia)]
         public void EnLinea_ReconoceLosDesenganchesDelPiloto(string linea, string codigo)
         {
             Assert.That(QueHacerAlarma.EnLinea("09:12:01 " + linea), Is.EqualTo(QueHacerAlarma.Para(codigo)));

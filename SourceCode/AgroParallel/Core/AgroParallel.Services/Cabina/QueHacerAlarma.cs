@@ -48,6 +48,9 @@ namespace AgroParallel.Cabina
         public const string PilotoSinGps = "piloto-sin-gps";
         public const string PilotoLejosDeLaGuia = "piloto-lejos-guia";
         public const string PilotoSinRtk = "piloto-sin-rtk";
+        public const string PilotoVelocidadMaxima = "piloto-vel-max";
+        public const string PilotoVelocidadMinima = "piloto-vel-min";
+        public const string PilotoFinDeGuia = "piloto-fin-guia";
 
         private static readonly Dictionary<string, string> _queHacer =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -73,6 +76,12 @@ namespace AgroParallel.Cabina
               "Llevá el tractor a mano cerca de la guía y tocá Piloto de nuevo." },
             { PilotoSinRtk,
               "Esperá a que el GPS vuelva a verde (RTK) y tocá Piloto de nuevo." },
+            { PilotoVelocidadMaxima,
+              "Bajá la velocidad y tocá Piloto de nuevo." },
+            { PilotoVelocidadMinima,
+              "Subí la velocidad y tocá Piloto de nuevo." },
+            { PilotoFinDeGuia,
+              "Girá y encará la pasada siguiente, o extendé la guía." },
 
             // ── Red de la maquina (nodos) ───────────────────────────────────
             { "AGP-MQTT-001",
@@ -160,6 +169,10 @@ namespace AgroParallel.Cabina
             if (resto.IndexOf("sin señal de GPS", StringComparison.Ordinal) >= 0) return PilotoSinGps;
             if (resto.IndexOf("de la guía", StringComparison.Ordinal) >= 0) return PilotoLejosDeLaGuia;
             if (resto.IndexOf("RTK", StringComparison.Ordinal) >= 0) return PilotoSinRtk;
+            // Textos de CAutoSteerUpdater / CABCurve (AvisoPiloto.TituloDesenganche).
+            if (resto.IndexOf("velocidad máxima", StringComparison.Ordinal) >= 0) return PilotoVelocidadMaxima;
+            if (resto.IndexOf("velocidad mínima", StringComparison.Ordinal) >= 0) return PilotoVelocidadMinima;
+            if (resto.IndexOf("se terminó la guía", StringComparison.Ordinal) >= 0) return PilotoFinDeGuia;
             return null;
         }
 
