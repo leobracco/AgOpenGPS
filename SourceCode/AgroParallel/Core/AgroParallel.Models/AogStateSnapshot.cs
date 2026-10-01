@@ -367,6 +367,12 @@ namespace AgroParallel.Models
         /// motor; la cabina solo lo muestra al tocar el piloto.</summary>
         public string PilotoNoAcopla { get; set; }
 
+        /// <summary>Último desenganche automático del piloto (sin GPS, lejos de
+        /// la guía, RTK perdido). Seq crece con cada uno: la cabina muestra el
+        /// cartel una vez por Seq nuevo. 0 = ninguno desde el arranque.</summary>
+        public long PilotoAvisoSeq { get; set; }
+        public string PilotoAviso { get; set; }
+
         /// <summary>Desvío respecto de la guía, en metros. Por encima de ~1 km
         /// el updater descarta el giro en curso y vuelve a empezar.</summary>
         public double CrossTrackErrorM { get; set; }

@@ -159,6 +159,12 @@ namespace PilotX.GuidanceEngine.Adapters
                 // tractor fuera del lote, desviado, o con el lote roto.
                 if (_host.Mc != null) snap.IsOutOfBounds = _host.Mc.isOutOfBounds;
                 snap.PilotoNoAcopla = _host.MotivoNoAcopla();
+                var avisoPiloto = _host.UltimoAvisoPiloto;
+                if (avisoPiloto != null)
+                {
+                    snap.PilotoAvisoSeq = avisoPiloto.Seq;
+                    snap.PilotoAviso = avisoPiloto.Motivo;
+                }
                 // crossTrackError viene en MILIMETROS en el host (int).
                 snap.CrossTrackErrorM = _host.crossTrackError / 1000.0;
                 // Las luces de banderillero se prenden con el modo (Menú izquierdo

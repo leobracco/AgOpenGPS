@@ -133,6 +133,13 @@ namespace AgroParallel.Models
         /// <summary>setAS_acopleMaxAnguloDeg (°) — no acoplar más cruzado a la guía.</summary>
         [JsonPropertyName("acople_max_angulo_deg")] public double? AcopleMaxAnguloDeg { get; set; }
 
+        // ---- Desenganche automático (0 = no vigila; nullable por lo mismo) ----
+        /// <summary>setAS_desacopleSinGpsSeg (s) — soltar el piloto tras estos segundos sin GPS.</summary>
+        [JsonPropertyName("desacople_sin_gps_seg")] public double? DesacopleSinGpsSeg { get; set; }
+
+        /// <summary>setAS_desacopleMaxDistanciaM (m) — soltar el piloto si se va más lejos de la guía.</summary>
+        [JsonPropertyName("desacople_max_distancia_m")] public double? DesacopleMaxDistanciaM { get; set; }
+
         // ---- Pantalla / sobre la línea ----
         /// <summary>setDisplay_lineWidth (px).</summary>
         [JsonPropertyName("line_width")] public int LineWidth { get; set; }

@@ -271,8 +271,9 @@ namespace AgOpenGPS
                     if (isRTK_KillAutosteer && isBtnAutoSteerOn)
                     {
                         ((IAutoSteerHost)this).PerformAutoSteerClick();
-                        ((IAutoSteerHost)this).TimedMessageBox(2000, "Piloto desenganchado", "Alarma de fix RTK");
-                        Log.EventWriter("RTK perdido: piloto desenganchado");
+                        // Antes solo quedaba en el log: la cabina no se enteraba
+                        // de por qué se soltó el piloto.
+                        AvisarPiloto("Piloto desenganchado: se perdió el RTK fijo.");
                     }
 
                     Log.EventWriter("Alarma RTK: fix perdido");
@@ -495,6 +496,7 @@ namespace AgOpenGPS
             // andaba).
             PgnReceiverField.StartWatch();
             ArmarRecepcionLoopback();
+            ArrancarVigiaPiloto();
             Log.EventWriter("GuidanceEngine: UDP loopback escuchando en 127.0.0.1:15555");
         }
 
@@ -728,6 +730,8 @@ namespace AgOpenGPS
             // velocidad vieja si el GPS se corta (el HUD mostraba 3,5 km/h
             // congelados para siempre, y QuantiX seguia dosificando con ella).
             lastFixUtc = DateTime.UtcNow;
+            MarcarFixParaVigia();
+            ArrancarVigiaPiloto();
 
             HeadingUpdater.UpdateHeading();
             AutoSteerUpdater.SendCorrectedPositionPgn();

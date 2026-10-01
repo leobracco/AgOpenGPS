@@ -258,6 +258,11 @@ namespace AgOpenGPS.Properties
         // hasta validarlas en lote (restringen cuándo acopla el piloto).
         public double setAS_acopleMaxDistanciaM = 0;
         public double setAS_acopleMaxAnguloDeg = 0;
+        // Desenganche automático (ver VigiaDesacople): con el piloto puesto, se
+        // suelta si pasan estos segundos sin GPS o si el tractor se va más de
+        // estos metros de la guía. 0 = no vigila: APAGADOS de fábrica.
+        public double setAS_desacopleSinGpsSeg = 0;
+        public double setAS_desacopleMaxDistanciaM = 0;
         public HarvesterBrand setBrand_HBrand = HarvesterBrand.AgOpenGPS;
         public ArticulatedBrand setBrand_WDBrand = ArticulatedBrand.AgOpenGPS;
         public double setIMU_fusionWeight2 = 0.06;

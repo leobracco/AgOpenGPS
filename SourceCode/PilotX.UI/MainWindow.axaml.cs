@@ -8403,8 +8403,26 @@ public partial class MainWindow : Window
 
     /// <summary>Cartel de "sin GPS" y aviso de lote lejano. Corre en cada tick
     /// del HUD, pero el aviso de distancia se da UNA vez por lote.</summary>
+    // Seq del último desenganche automático ya mostrado. -1 = todavía no se
+    // leyó ninguno: el primero solo fija la base (un aviso viejo del motor no
+    // se muestra al abrir la pantalla).
+    private long _avisoPilotoVisto = -1;
+
     private void AtenderAvisosDeCabina(HudSnapshot s, bool hayGps)
     {
+        // El piloto se soltó solo (sin GPS, lejos de la guía, RTK perdido):
+        // decirlo. Un piloto que se suelta en silencio se confunde con un
+        // equipo roto.
+        if (_avisoPilotoVisto < 0)
+        {
+            _avisoPilotoVisto = s.PilotoAvisoSeq;
+        }
+        else if (s.PilotoAvisoSeq != _avisoPilotoVisto)
+        {
+            _avisoPilotoVisto = s.PilotoAvisoSeq;
+            if (!string.IsNullOrEmpty(s.PilotoAviso)) MostrarToast(s.PilotoAviso);
+        }
+
         // Cartel con el MOTIVO por el que el mapa no puede mostrar la maquina.
         // Es el pedido de "siempre que haya un problema y no se muestre la
         // sembradora, que diga el porque": si esto devuelve null y la sembradora

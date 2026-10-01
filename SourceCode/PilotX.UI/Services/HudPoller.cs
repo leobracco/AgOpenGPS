@@ -66,6 +66,9 @@ public sealed class HudSnapshot
     /// <summary>Por qué el motor no dejaría acoplar el piloto ahora (lejos o
     /// cruzado a la guía). null = puede. Lo decide el motor; acá solo se dice.</summary>
     public string? PilotoNoAcopla { get; set; }
+    /// <summary>Último desenganche automático (seq crece con cada uno; 0 = ninguno).</summary>
+    public long PilotoAvisoSeq { get; set; }
+    public string? PilotoAviso { get; set; }
     /// <summary>Ancho del salto del giro en guías (1 = contigua). El menú
     /// muestra guías SALTEADAS = ancho − 1.</summary>
     public int YouTurnSkipWidth { get; set; }

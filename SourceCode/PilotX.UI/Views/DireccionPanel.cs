@@ -503,6 +503,12 @@ public sealed class DireccionPanel : Border
             "Más lejos que esto de la guía, el piloto no engancha y la pantalla dice cuánto falta. Evita el volantazo de acoplar lejos. 0 = sin límite."));
         _scPantalla.Children.Add(FilaAjusteD("Ángulo máximo con la guía", "acople_max_angulo_deg", 5, 0, 85, 0, "°",
             "Más cruzado que esto a la guía, el piloto no engancha. 0 = sin límite."));
+        // Desenganche automático (VigiaDesacople en el motor), también en 0.
+        _scPantalla.Children.Add(SubTituloSep("Corte automático del piloto"));
+        _scPantalla.Children.Add(FilaAjusteD("Cortar sin GPS después de", "desacople_sin_gps_seg", 1, 0, 30, 0, "s",
+            "Si el GPS se corta, el piloto se suelta pasado este tiempo y la pantalla lo avisa. Sin esto, al volver la señal el piloto vuelve a agarrar solo. 0 = no corta."));
+        _scPantalla.Children.Add(FilaAjusteD("Cortar si se aleja de la guía", "desacople_max_distancia_m", 0.5, 0, 10, 1, "m",
+            "Con el piloto puesto, si el tractor queda más lejos que esto de la guía durante un segundo, el piloto se suelta y avisa. 0 = no corta."));
         _scPantalla.Children.Add(SubTituloSep("Barra de guiado"));
         _scPantalla.Children.Add(FilaAjuste("Grosor de línea", "line_width", 1, 8, 1, 0, "px",
             "Grosor de la línea de guiado dibujada en el mapa."));
