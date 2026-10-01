@@ -34,7 +34,14 @@ using System.Text.RegularExpressions;
 
 namespace AgroParallel.Cabina
 {
+    // PilotX.UI compila este archivo LINKEADO (sin referenciar Services). Ahí
+    // el tipo queda internal: PilotX.Android referencia los dos proyectos y
+    // con dos tipos públicos iguales no compila (CS0433).
+#if ENLAZADO_EN_UI
+    internal static class QueHacerAlarma
+#else
     public static class QueHacerAlarma
+#endif
     {
         // ── Claves de alarmas de cabina que no traen codigo AGP-* ───────────
 

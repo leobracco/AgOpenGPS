@@ -19,6 +19,9 @@
   -->
 
   <PropertyGroup>
+    <!-- Los archivos de AgroParallel.Services linkeados acá (TiposBandera,
+         QueHacerAlarma) se compilan internal: ver el #if en cada uno. -->
+    <DefineConstants>$(DefineConstants);ENLAZADO_EN_UI</DefineConstants>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
