@@ -342,6 +342,9 @@
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_continuar"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileOpen.png"/><TextBlock Classes="slbl" Text="Continuar"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_abrir"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileOpen.png"/><TextBlock Classes="slbl" Text="Abrir"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_nuevo"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileNew.png"/><TextBlock Classes="slbl" Text="Nuevo"/></StackPanel></Button>
+              <!-- Tarea de trabajo del lote abierto (cultivo, tipo, área,
+                   pausar/cerrar, exportar informe + SHP). Card nativa. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tarea"><StackPanel><Image Classes="sico" Source="/Assets/menu/JobActive.png"/><TextBlock Classes="slbl" Text="Tarea"/></StackPanel></Button>
               <!-- "Nuevo desde KML" se sacó del menú (pedido 2026-08-06);
                    el comando lote_kml sigue cableado por si vuelve. -->
               <!-- Rescatado del difunto "Herr. lote" (pedido 2026-08-06):

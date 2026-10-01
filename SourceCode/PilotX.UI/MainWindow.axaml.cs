@@ -336,6 +336,8 @@ public partial class MainWindow : Window
     // Card chica sobre el mapa vivo; la página HTML queda para el Hub
     // remoto/celular/Android.
     private RecPathPanel? _recPathHost;
+    private TareasPanel? _tareasHost;
+    private TareasClient? _tareasClient;
     private RecPathClient? _recPathClient;
 
     // Cabecera nativa, ex cabecera.html: el diálogo HTML tapaba y APAGABA el
@@ -795,6 +797,18 @@ public partial class MainWindow : Window
         {
             _recPathHost.Aviso += MostrarToast;
             _recPathHost.Cerrado += () =>
+            {
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
+        }
+
+        // Tarea del lote abierto (LOTE › Tarea). Cerrarla no cambia nada en el
+        // motor: la tarea sigue corriendo (o en pausa) aunque la card no esté.
+        _tareasHost = this.FindControl<TareasPanel>("TareasHost");
+        if (_tareasHost != null)
+        {
+            _tareasHost.Aviso += MostrarToast;
+            _tareasHost.Cerrado += () =>
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
@@ -2665,6 +2679,7 @@ public partial class MainWindow : Window
         // la card y el operario la veía muerta con la lista de .rec parada
         // arriba del mapa.
         if (_recPathHost != null && _recPathHost.IsVisible) { _recPathHost.Cerrar(); return; }
+        if (_tareasHost != null && _tareasHost.IsVisible) { _tareasHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
         if (_redIpHost     != null && _redIpHost.IsVisible)     { CloseRedIp();     return; }
@@ -6777,6 +6792,9 @@ public partial class MainWindow : Window
             // absolutamente nada y no quedaba ni un error en ningún lado.
             case "lote_cerrar":
                 CerrarLote(); return true;
+            // Tarea de trabajo del lote abierto: card nativa (TareasPanel).
+            case "tarea":
+                AbrirTareas(); return true;
 
             // Borrar pintado: el guard del motor (secciones apagadas) devolvía
             // false MUDO — el operario tocaba el botón con secciones activas y
@@ -7654,6 +7672,8 @@ public partial class MainWindow : Window
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
             _guiasHttp = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+        // Tarea está CENTRADA en el mismo lugar que esta card.
+        if (_tareasHost != null && _tareasHost.IsVisible) _tareasHost.Cerrar();
         _loteHost.Attach(_guiasHttp, DeriveOrigin(App.TargetUrl));
         _loteHost.Abrir(pantalla);
     }
@@ -7885,6 +7905,27 @@ public partial class MainWindow : Window
     // grabación (el ex btnPathRecordStop): hoy nadie lo dispara — el flujo
     // "parar → nombrar" quedó huérfano desde que murieron las WinForms — pero
     // el back (/api/recpath/save|discard) está vivo y probado.
+    // Tarea del lote abierto: card chica CENTRADA (mismo lugar que Rutas
+    // grabadas y Lote, que se cierran para no pisarse). El mapa sigue vivo.
+    private void AbrirTareas()
+    {
+        if (_tareasHost == null) return;
+        if (_tareasHost.IsVisible) return;
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        // El comando también puede nacer con el WebView ocupando la pantalla.
+        if (_webView != null) CloseWebView();
+        _tareasClient ??= new TareasClient(DeriveOrigin(App.TargetUrl));
+        _tareasHost.Attach(_tareasClient);
+        _tareasHost.Abrir();
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+    }
+
     private void AbrirRutaGrabada(bool modoSalvar = false)
     {
         if (_recPathHost == null) return;
@@ -7914,6 +7955,7 @@ public partial class MainWindow : Window
         // quedaría abajo y el operario vería que "no pasó nada".
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente se crea una sola vez y se reusa.
+        if (_tareasHost != null && _tareasHost.IsVisible) _tareasHost.Cerrar();
         _recPathClient ??= new RecPathClient(DeriveOrigin(App.TargetUrl));
         _recPathHost.Attach(_recPathClient);
         _recPathHost.Abrir(modoSalvar);

@@ -1126,6 +1126,13 @@
                 <vw:RecPathPanel x:Name="RecPathHost" Grid.Row="1" ZIndex="10"
                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
+                <!-- TAREA del lote abierto (LOTE › Tarea): cultivo, tipo de
+                     trabajo, área y tiempo; pausar/reanudar/cerrar y exportar
+                     (informe + SHP). Card chica (440) CENTRADA como Rutas
+                     grabadas: el mapa queda vivo alrededor. -->
+                <vw:TareasPanel x:Name="TareasHost" Grid.Row="1" ZIndex="10"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
                 <!-- CABECERA nativa (reemplaza pages/cabecera.html): el diálogo
                      HTML tapaba y APAGABA el mapa justo en la pantalla donde lo
                      único que importa es ver la franja verde dibujándose contra

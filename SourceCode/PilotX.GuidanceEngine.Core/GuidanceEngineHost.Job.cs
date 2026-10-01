@@ -122,10 +122,23 @@ namespace AgOpenGPS
             return true;
         }
 
+        /// <summary>
+        /// Se dispara al empezar CloseField, con el lote TODAVÍA abierto (su
+        /// carpeta y su área siguen vigentes). Lo usa la tarea de trabajo para
+        /// pausarse con lo trabajado hasta acá. Un suscriptor que tira no frena
+        /// el cierre: se loguea y se sigue.
+        /// </summary>
+        public event Action AntesDeCerrarLote;
+
         public void CloseField()
         {
             // La guía por última pasada es de ESTE lote: no se lleva al próximo.
             ApagarSmartPath("lote cerrado");
+            if (!string.IsNullOrEmpty(currentFieldDirectory))
+            {
+                try { AntesDeCerrarLote?.Invoke(); }
+                catch (Exception ex) { Log.EventWriter("GuidanceEngine: AntesDeCerrarLote: " + ex.Message); }
+            }
 
             // Cerrar el mapeo de las tiras que estan pintando ANTES de guardar.
             //

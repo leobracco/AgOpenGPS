@@ -75,6 +75,8 @@ namespace AgOpenGPS
         private AgroParallel.SectionX.SectionsSpeedPublisher _sectionsSpeed;
         private System.Threading.Timer _cutRetry;
         private EnginePilotXUpdateService _pilotxUpdate;
+        private AgroParallel.Services.Tareas.TareasService _tareas;
+        private System.Threading.Timer _tareasTick;
 
         /// <summary>Registro de nodos MQTT compartido: lo usan los bridges que
         /// publican targets (QuantiX/SectionX) en vez de abrir otra conexión.</summary>
@@ -277,6 +279,36 @@ namespace AgOpenGPS
             catch (Exception ex)
             {
                 Console.Error.WriteLine("[Engine] SonidosAlarm: " + ex.Message);
+            }
+
+            // Tareas de trabajo: la tarea del lote abierto (Tareas.json en la
+            // carpeta del lote). El área es la MISMA que ve el operario en el
+            // HA de la barra de arriba (WorkedAreaTotalM2); la cobertura y el
+            // plano local salen del lote abierto para el export a SHP.
+            try
+            {
+                _tareas = new AgroParallel.Services.Tareas.TareasService(
+                    loteDir: () => lotes.GetCurrentFieldDirectory(),
+                    areaTrabajadaM2: () => _host.Fd.workedAreaTotal,
+                    insumoActivo: () => insumosCat.GetActivo(),
+                    cobertura: () => coverage.GetSnapshot(),
+                    aLatLon: (e, n) =>
+                    {
+                        var w = _host.AppModelField.LocalPlane.ConvertGeoCoordToWgs84(
+                            new AgOpenGPS.Core.Models.GeoCoord(n, e));
+                        return new[] { w.Latitude, w.Longitude };
+                    });
+                // Cerrar el lote con la tarea en curso la deja en pausa (el
+                // lote sigue abierto en el momento del evento).
+                _host.AntesDeCerrarLote += _tareas.AntesDeCerrarLote;
+                // Vigila el área cada 5 s: si borran el pintado con la tarea
+                // activa, lo trabajado hasta ahí no se pierde.
+                _tareasTick = new System.Threading.Timer(_ => _tareas?.Tick(), null, 5000, 5000);
+                _web.Tareas = _tareas;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] Tareas: " + ex.Message);
             }
 
             _web.Start();
@@ -525,6 +557,10 @@ namespace AgOpenGPS
 
         public void Stop()
         {
+            try { _tareasTick?.Dispose(); } catch { }
+            _tareasTick = null;
+            if (_tareas != null) { try { _host.AntesDeCerrarLote -= _tareas.AntesDeCerrarLote; } catch { } }
+            _tareas = null;
             try { _flowxRetry?.Dispose(); } catch { }
             _flowxRetry = null;
             try { _soporte?.Dispose(); } catch { }

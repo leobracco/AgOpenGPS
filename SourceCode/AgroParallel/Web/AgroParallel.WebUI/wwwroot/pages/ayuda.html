@@ -278,7 +278,7 @@
             <div class="btn-i"><img src="../img/cockpit/menu/NavigationSettings.png" alt=""><div class="tx"><div class="nm">Pantalla</div><div class="ds">Día/noche y brillo.</div></div></div>
             <div class="btn-i"><img src="../img/cockpit/menu/SpecialFunctions.png" alt=""><div class="tx"><div class="nm">Herramientas</div><div class="ds">Gráficos (incluido el de PID), webcam, utilidades.</div></div></div>
             <div class="btn-i"><img src="../img/cockpit/menu/Settings48.png" alt=""><div class="tx"><div class="nm">Configuración</div><div class="ds">Vehículo, implemento, módulos.</div></div></div>
-            <div class="btn-i"><img src="../img/cockpit/menu/JobActive.png" alt=""><div class="tx"><div class="nm">LOTE</div><div class="ds">Abrir, nuevo, cerrar, borrar pintado.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/JobActive.png" alt=""><div class="tx"><div class="nm">LOTE</div><div class="ds">Abrir, nuevo, tarea, cerrar, borrar pintado.</div></div></div>
             <div class="btn-i"><img src="../img/cockpit/menu/AutoSteerConf.png" alt=""><div class="tx"><div class="nm">Dirección</div><div class="ds">Cómo responde el volante.</div></div></div>
             <div class="btn-i"><img src="../img/cockpit/menu/CoreX.png" alt=""><div class="tx"><div class="nm">CoreX</div><div class="ds">Estado del GPS y las conexiones.</div></div></div>
             <div class="btn-i"><img src="../img/cockpit/menu/Soporte.png" alt=""><div class="tx"><div class="nm">Soporte</div><div class="ds">Chat con soporte, sin salir del mapa.</div></div></div>
@@ -332,8 +332,9 @@
             <li><strong>Elegir o crear la guía</strong> por donde vas a sembrar.</li>
             <li>Si hace falta, marcar el <strong>lindero</strong> y construir la <strong>cabecera</strong>.</li>
             <li>Poner las <strong>secciones en Automático</strong>.</li>
+            <li>Si querés llevar registro: <strong>LOTE › Tarea</strong>, elegir el trabajo y <strong>Iniciar tarea</strong>.</li>
             <li>Enganchar el <strong>Piloto</strong> y trabajar.</li>
-            <li>Al terminar: <strong>cerrar el lote</strong> (guarda todo y lo manda a la nube si está configurada).</li>
+            <li>Al terminar: <strong>cerrar la tarea</strong> (si la iniciaste) y <strong>cerrar el lote</strong> (guarda todo y lo manda a la nube si está configurada).</li>
           </ol>
         </section>
 
@@ -345,6 +346,7 @@
             <li><strong>Continuar</strong> — vuelve al último lote trabajado.</li>
             <li><strong>Abrir</strong> — lista de lotes guardados.</li>
             <li><strong>Nuevo</strong> — crea uno en la posición actual.</li>
+            <li><strong>Tarea</strong> — registra el trabajo que estás haciendo en el lote abierto (ver abajo).</li>
             <li><strong>Borrar pintado</strong> (en rojo) — borra lo trabajado (lo verde del mapa) sin borrar el lote.</li>
             <li><strong>Cerrar</strong> — termina la jornada y guarda.</li>
           </ul>
@@ -354,6 +356,28 @@
           <div class="clave">Un lote dibujado en <strong>OrbitX</strong> que tenga el mismo nombre que uno tuyo baja a la lista como <strong>&lt;nombre&gt; (OrbitX)</strong>. Tu lote <strong>no se toca</strong>: quedan los dos y vos elegís cuál abrir.</div>
           <div class="clave">Para <strong>borrar un lote</strong>: <strong>Abrir</strong>, y tocá <strong>Borrar</strong> en la fila del lote. Pide <strong>dos toques</strong>: el primero deja el botón en <strong>¿Seguro?</strong> y el segundo, dentro de 3 segundos, lo borra. Si tocás otra cosa o pasan los 3 segundos, se cancela solo.</div>
           <div class="aviso">El lote <strong>abierto no se puede borrar</strong>: cerralo primero. Y lo borrado <strong>no se recupera</strong> — hoy el borrado es <strong>solo local</strong>: todavía no se le avisa a OrbitX, así que el lote sigue estando en el panel, y por lo general no vuelve a bajar a esta pantalla; la excepción es si te queda vivo un espejo <strong>(OrbitX)</strong> con ese mismo nombre, ahí sí puede volver a bajar en el próximo sync.</div>
+          <h3>Tarea de trabajo</h3>
+          <p class="ruta"><b><img src="../img/cockpit/menu/JobActive.png" alt="">LOTE</b> <i>›</i> <b>Tarea</b></p>
+          <p>Deja registrado <strong>qué</strong> se hizo en el lote abierto: tipo de trabajo, cultivo, notas, cuándo empezó y terminó, cuántas hectáreas y con qué insumo. Necesita un lote abierto.</p>
+          <ol class="pasos">
+            <li>Elegí el <strong>tipo de trabajo</strong>: Siembra, Pulverización, Fertilización, Cosecha u Otro.</li>
+            <li>Revisá el <strong>cultivo</strong> (viene del insumo activo, si hay) y agregá <strong>notas</strong> si querés. Se escriben con el teclado de PilotX.</li>
+            <li>Tocá <strong>Iniciar tarea</strong>. El insumo y la dosis que se toman son los del <strong>insumo activo</strong> del catálogo de Insumos.</li>
+          </ol>
+          <p>Con la tarea en curso la pantalla muestra en grande el <strong>área de la tarea</strong> y el <strong>tiempo trabajando</strong>. Abajo:</p>
+          <ul>
+            <li><strong>Pausar</strong> — lo que se pinte en pausa <strong>no suma</strong> a la tarea (por ejemplo, repasar una cabecera). <strong>Reanudar</strong> (en verde) la vuelve a poner en curso.</li>
+            <li><strong>Cerrar tarea</strong> — pide confirmación ahí mismo (<strong>No</strong> / <strong>Sí, cerrar</strong>). Cerrada ya no suma hectáreas y queda en la lista de <strong>Tareas cerradas</strong>.</li>
+          </ul>
+          <div class="clave">El área de la tarea es <strong>solo lo pintado mientras estuvo en curso</strong>, no el total del lote: lo trabajado en otras jornadas no cuenta. Si borrás el pintado con la tarea en curso, lo que ya llevaba la tarea no se pierde.</div>
+          <div class="aviso">Hay <strong>una tarea abierta por lote</strong>: para empezar otra, cerrá la anterior. Si <strong>cerrás el lote</strong> con la tarea en curso, la tarea queda <strong>en pausa</strong>; al volver al lote, entrá a <strong>LOTE › Tarea</strong> y tocá <strong>Reanudar</strong>.</div>
+          <h3>Exportar una tarea</h3>
+          <p>En la lista de <strong>Tareas cerradas</strong>, tocá <strong>Exportar</strong> en la fila. Se abre el explorador de PilotX: elegí el <strong>pendrive</strong> (aparece arriba de todo) y el nombre, y confirmá. Quedan dos cosas en esa carpeta:</p>
+          <ul>
+            <li>un <strong>informe</strong> (.html) con lote, trabajo, cultivo, insumo, dosis, inicio, fin, tiempo y hectáreas — se abre en cualquier computadora y se puede imprimir o guardar como PDF desde el navegador;</li>
+            <li>el <strong>mapa de lo pintado</strong> como shapefile (<strong>_cobertura.shp</strong> con sus .shx, .dbf y .prj), para abrir en un programa de mapas.</li>
+          </ul>
+          <div class="aviso">Para exportar, el lote de la tarea tiene que estar <strong>abierto</strong>. El mapa que se exporta es <strong>lo pintado del lote en ese momento</strong>: si después de cerrar la tarea seguiste trabajando o borraste el pintado, el mapa lo refleja. Lo más seguro es exportar apenas cerrás la tarea.</div>
           <h3>Borrar todos los lotes</h3>
           <p>Al pie de la lista de <strong>Abrir</strong> hay un <strong>Borrar todos</strong> en rojo. Es para <strong>preparar una pantalla nueva</strong> o limpiar un equipo de demostración, no para el día a día.</p>
           <div class="aviso">Pide <strong>dos confirmaciones</strong> y te dice cuántos lotes va a borrar antes de hacerlo. El lote abierto no se toca. <strong>No se puede deshacer</strong>: si hay lotes del cliente, sacá una copia antes.</div>

@@ -129,6 +129,12 @@ namespace AgroParallel.WebHost
         /// del cloud). Null = /api/chat/* degrada a service-unavailable, igual
         /// que el resto de los módulos no inyectados.</summary>
         public AgroParallel.Soporte.ChatSoporteService Chat { get; set; }
+
+        /// <summary>Tareas de trabajo del lote abierto (opcional): lo setea el
+        /// Engine ANTES de Start(), que es cuando se registran los controllers.
+        /// Null = /api/tareas/* no existe (404), igual que los módulos no
+        /// inyectados.</summary>
+        public AgroParallel.Services.Tareas.TareasService Tareas { get; set; }
         private readonly int _port;
         private WebServer _server;
         private CancellationTokenSource _cts;
@@ -400,6 +406,9 @@ namespace AgroParallel.WebHost
                 if (_tramLine != null) m.WithController(() => new TramLineController(_tramLine));
                 if (_trackBuilder != null) m.WithController(() => new TrackBuilderController(_trackBuilder));
                 if (_recPath != null) m.WithController(() => new RecPathController(_recPath));
+                // Tareas de trabajo (cultivo, tipo, inicio/fin, área, export).
+                var tareas = Tareas;
+                if (tareas != null) m.WithController(() => new TareasController(tareas));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))
