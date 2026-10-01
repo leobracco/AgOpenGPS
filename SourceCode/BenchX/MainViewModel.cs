@@ -22,6 +22,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly BenchXConfig _config;
     private readonly SimuladorVehiculo _sim = new();
     private readonly PgnProcessor _pgn = new();
+    private readonly ActuadorDireccion _act = new();
+    private readonly Implemento _impl = new();
     private readonly UdpLink _link;
     private readonly NodosEmulados _nodos;
     private readonly DispatcherTimer _timer;
@@ -49,6 +51,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         EmularMaquina = _config.EmularMaquina; EmularImu = _config.EmularImu;
         LatInicial = _config.Latitud.ToString("N7", Inv);
         LonInicial = _config.Longitud.ToString("N7", Inv);
+
+        CargarFisica();
 
         _link = new UdpLink(_config.Subred1, _config.Subred2, _config.Subred3);
         _link.DatagramaRecibido += AlRecibir;
@@ -114,6 +118,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Math.Abs(lat) <= 90 && Math.Abs(lon) <= 180)
         {
             _sim.Latitude = lat; _sim.Longitude = lon;
+            _sim.Reanclar(); _impl.Reiniciar(); _hayLinea = false;
             _config.Latitud = lat; _config.Longitud = lon;
             _config.Guardar(_rutaConfig);
         }
@@ -209,6 +214,142 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string? ErrorRed => _link.ErrorBind;
     public bool RedOk => _link.Conectado;
 
+    // ------------------------- física realista -------------------------
+    // Todo detrás de un checkbox: apagado, BenchX es el de siempre.
+
+    private bool _fisicaRealista;
+    public bool FisicaRealista
+    {
+        get => _fisicaRealista;
+        set
+        {
+            if (_fisicaRealista == value) return;
+            _fisicaRealista = value;
+            if (value) { _sim.Reanclar(); _act.Reiniciar(AnguloDireccion); _impl.Reiniciar(); _hayLinea = false; }
+            Notificar();
+        }
+    }
+
+    public double DistanciaEntreEjesM { get => _sim.DistanciaEntreEjesM; set { _sim.DistanciaEntreEjesM = Math.Max(0.5, value); Notificar(); } }
+    public double AntenaAdelanteM { get => _sim.AntenaAdelanteM; set { _sim.AntenaAdelanteM = value; _sim.Reanclar(); Notificar(); } }
+    public double PwmMinimoReal { get => _act.PwmMinimoReal; set { _act.PwmMinimoReal = Math.Clamp(value, 0, 254); Notificar(); } }
+    public double VelocidadMotorGradosS { get => _act.VelocidadMaxGradosS; set { _act.VelocidadMaxGradosS = Math.Max(0, value); Notificar(); } }
+    public double RetardoMotorMs { get => _act.RetardoMs; set { _act.RetardoMs = Math.Clamp(value, 0, 2000); Notificar(); } }
+    public bool MotorInvertido { get => _act.MotorInvertido; set { _act.MotorInvertido = value; Notificar(); } }
+    public double PicoCorriente { get => _act.PicoCorriente; set { _act.PicoCorriente = Math.Clamp(value, 0, 255); Notificar(); } }
+    public bool AgarrarVolante { get => _act.AgarrarVolante; set { _act.AgarrarVolante = value; Notificar(); } }
+
+    public double WasCuentasPorGrado { get => _act.Was.CuentasPorGrado; set { _act.Was.CuentasPorGrado = Math.Max(1, value); Notificar(); } }
+    public double WasOffsetGrados { get => _act.Was.OffsetGrados; set { _act.Was.OffsetGrados = value; Notificar(); } }
+    public double WasGananciaPct { get => _act.Was.GananciaPct; set { _act.Was.GananciaPct = Math.Clamp(value, -90, 300); Notificar(); } }
+    public double WasAckermannPct { get => _act.Was.AckermannPct; set { _act.Was.AckermannPct = Math.Clamp(value, 10, 300); Notificar(); } }
+    public double WasRuidoGrados { get => _act.Was.RuidoGrados; set { _act.Was.RuidoGrados = Math.Max(0, value); Notificar(); } }
+    public bool WasInvertido { get => _act.Was.Invertido; set { _act.Was.Invertido = value; Notificar(); } }
+
+    // 0 = ninguno, 1 = arrastre, 2 = 3 puntos (orden del ComboBox)
+    public int ImplementoIndice
+    {
+        get => (int)_impl.Tipo;
+        set { _impl.Tipo = (TipoImplemento)Math.Clamp(value, 0, 2); _impl.Reiniciar(); Notificar(); }
+    }
+    public double EngancheM { get => _impl.EngancheM; set { _impl.EngancheM = value; Notificar(); } }
+    public double LargoBarraM { get => _impl.LargoBarraM; set { _impl.LargoBarraM = Math.Max(0.5, Math.Abs(value)); Notificar(); } }
+    public double DerivaLateralM { get => _impl.DerivaLateralM; set { _impl.DerivaLateralM = value; Notificar(); } }
+
+    public string AnguloRealTexto { get; private set; } = "—";
+    public string AnguloWasTexto { get; private set; } = "—";
+    public string PwmTexto { get; private set; } = "—";
+    public string CorrienteTexto { get; private set; } = "—";
+    public string CorteTexto { get; private set; } = "sin cortes";
+    public bool HayCorte { get; private set; }
+    public string DesvioTractorTexto { get; private set; } = "—";
+    public string DesvioImplementoTexto { get; private set; } = "—";
+
+    // Línea de referencia para medir el desvío: recta por el eje trasero con
+    // el rumbo actual (BenchX no conoce la guía de PilotX: se marca a mano
+    // al arrancar una pasada recta).
+    private bool _hayLinea;
+    private double _lineaE, _lineaN, _lineaRumbo;
+    public void FijarLinea()
+    {
+        if (!_sim.FisicaRealista) return;
+        _lineaE = _sim.PivotEste; _lineaN = _sim.PivotNorte; _lineaRumbo = _sim.HeadingRad;
+        _hayLinea = true;
+    }
+
+    private void RefrescarFisica(bool realista)
+    {
+        if (realista)
+        {
+            AnguloRealTexto = _act.AnguloFisico.ToString("N2", Inv) + "°";
+            AnguloWasTexto = _act.AnguloWas.ToString("N2", Inv) + "°";
+            PwmTexto = _act.PwmDrive.ToString(Inv)
+                + (_act.PwmDrive != 0 && Math.Abs(_act.PwmAplicado) <= _act.PwmMinimoReal ? " (no vence la fricción)" : "");
+            CorrienteTexto = _act.LecturaCorriente.ToString("N0", Inv) + " / corte " + _pgn.PulseCountMax.ToString(Inv)
+                + (_pgn.CurrentSensor != 0 ? "" : " (sensor de corriente apagado en PilotX)");
+            HayCorte = _act.UltimoCorte != null;
+            CorteTexto = HayCorte ? $"{_act.Cortes} · último: {_act.UltimoCorte}" : "sin cortes";
+            if (!_hayLinea)
+            {
+                DesvioTractorTexto = "tocá \"Fijar línea acá\"";
+                DesvioImplementoTexto = "—";
+            }
+            else
+            {
+                double dT = Implemento.DesvioLateral(_sim.PivotEste, _sim.PivotNorte, _lineaE, _lineaN, _lineaRumbo);
+                DesvioTractorTexto = Cm(dT);
+                if (_impl.Tipo == TipoImplemento.Ninguno) DesvioImplementoTexto = "sin implemento";
+                else
+                {
+                    double dI = Implemento.DesvioLateral(_impl.Este, _impl.Norte, _lineaE, _lineaN, _lineaRumbo);
+                    DesvioImplementoTexto = Cm(dI) + "  (respecto del tractor " + Cm(dI - dT) + ")";
+                }
+            }
+        }
+        else
+        {
+            AnguloRealTexto = AnguloWasTexto = PwmTexto = CorrienteTexto = "—";
+            DesvioTractorTexto = DesvioImplementoTexto = "—";
+            HayCorte = false;
+            CorteTexto = FisicaRealista ? "en pausa durante la demo" : "física realista apagada";
+        }
+        Notificar(nameof(AnguloRealTexto)); Notificar(nameof(AnguloWasTexto)); Notificar(nameof(PwmTexto));
+        Notificar(nameof(CorrienteTexto)); Notificar(nameof(CorteTexto)); Notificar(nameof(HayCorte));
+        Notificar(nameof(DesvioTractorTexto)); Notificar(nameof(DesvioImplementoTexto));
+    }
+
+    // + derecha / − izquierda, en cm
+    private static string Cm(double m) =>
+        (m * 100).ToString("+0;-0;0", Inv) + " cm" + (m > 0.005 ? " der." : m < -0.005 ? " izq." : "");
+
+    private void CargarFisica()
+    {
+        var c = _config;
+        _sim.DistanciaEntreEjesM = c.DistanciaEntreEjesM; _sim.AntenaAdelanteM = c.AntenaAdelanteM;
+        _act.PwmMinimoReal = c.PwmMinimoReal; _act.VelocidadMaxGradosS = c.VelocidadMotorGradosS;
+        _act.RetardoMs = c.RetardoMotorMs; _act.MotorInvertido = c.MotorInvertido; _act.PicoCorriente = c.PicoCorriente;
+        _act.Was.CuentasPorGrado = c.WasCuentasPorGrado; _act.Was.OffsetGrados = c.WasOffsetGrados;
+        _act.Was.GananciaPct = c.WasGananciaPct; _act.Was.AckermannPct = c.WasAckermannPct;
+        _act.Was.RuidoGrados = c.WasRuidoGrados; _act.Was.Invertido = c.WasInvertido;
+        _impl.Tipo = c.Implemento switch { "arrastre" => TipoImplemento.Arrastre, "tres_puntos" => TipoImplemento.TresPuntos, _ => TipoImplemento.Ninguno };
+        _impl.EngancheM = c.EngancheM; _impl.LargoBarraM = c.LargoBarraM; _impl.DerivaLateralM = c.DerivaLateralM;
+        FisicaRealista = c.FisicaRealista;
+    }
+
+    private void GuardarFisica()
+    {
+        var c = _config;
+        c.FisicaRealista = FisicaRealista;
+        c.DistanciaEntreEjesM = DistanciaEntreEjesM; c.AntenaAdelanteM = AntenaAdelanteM;
+        c.PwmMinimoReal = PwmMinimoReal; c.VelocidadMotorGradosS = VelocidadMotorGradosS;
+        c.RetardoMotorMs = RetardoMotorMs; c.MotorInvertido = MotorInvertido; c.PicoCorriente = PicoCorriente;
+        c.WasCuentasPorGrado = WasCuentasPorGrado; c.WasOffsetGrados = WasOffsetGrados;
+        c.WasGananciaPct = WasGananciaPct; c.WasAckermannPct = WasAckermannPct;
+        c.WasRuidoGrados = WasRuidoGrados; c.WasInvertido = WasInvertido;
+        c.Implemento = _impl.Tipo switch { TipoImplemento.Arrastre => "arrastre", TipoImplemento.TresPuntos => "tres_puntos", _ => "ninguno" };
+        c.EngancheM = EngancheM; c.LargoBarraM = LargoBarraM; c.DerivaLateralM = DerivaLateralM;
+    }
+
     // ------------------------- ciclo -------------------------
 
     private void Tick()
@@ -224,6 +365,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 // el tractor aparece en el inicio de la ruta mirando al norte.
                 _sim.Latitude = _demo.InicioLat; _sim.Longitude = _demo.InicioLon;
                 _sim.HeadingRad = _demo.InicioRumboDeg * Math.PI / 180.0;
+                _sim.Reanclar();
                 _demo.ReiniciarRuta();
             }
             // La demo maneja: velocidad y volante salen del conductor
@@ -232,16 +374,41 @@ public sealed class MainViewModel : INotifyPropertyChanged
             VelocidadKmh = _demo.SalidaVelocidadKmh;
             AnguloDireccion = _demo.SalidaAnguloDeg;
         }
+        else if (FisicaRealista)
+        {
+            // ECU AiO + motor Keya + WAS analógico. Con el piloto suelto (o
+            // con el motor real en el banco) la rueda la pone el slider, como
+            // un volante a mano; enganchado la mueve el lazo y el slider la sigue.
+            if (!ActuadorDireccion.Enganchado(_pgn) || !EmularMotor)
+                _act.PonerAnguloManual(AnguloDireccion);
+            _act.Avanzar(0.1, _pgn, EmularMotor);
+            AnguloDireccion = _act.AnguloFisico;
+        }
         else if (_pgn.GuidanceStatus != 0 && EmularMotor)
             AnguloDireccion = _pgn.SteerAngleSetPoint;
 
+        bool realista = FisicaRealista && !DemoActivo;   // la demo maneja con el giro de siempre
+        _sim.FisicaRealista = realista;
         _sim.SpeedKmh = VelocidadKmh;
         _sim.SteerAngleDeg = AnguloDireccion;
         _sim.RollDeg = Roll;
         _sim.Estado.TimeNow = DateTime.UtcNow.ToString("HHmmss.fff,", Inv);
         _sim.Avanzar();
         _sim.Estado.ImuValido = EmularImu; // IMU apagado → PANDA con campos neutros
-        _pgn.SteerAngleActual = _sim.SteerAngleDeg;
+        if (realista)
+        {
+            _pgn.SteerAngleActual = _act.AnguloWas;    // lo que lee el WAS, no la rueda
+            _pgn.PwmDisplay = _act.PwmDisplay;
+            _pgn.SensorReading = (byte)Math.Clamp(_act.LecturaCorriente, 0, 255);
+            _pgn.EnviarPgn250 = true;
+            _impl.Actualizar(_sim.PivotEste, _sim.PivotNorte, _sim.HeadingRad, _sim.PasoM);
+        }
+        else
+        {
+            _pgn.SteerAngleActual = _sim.SteerAngleDeg;
+            _pgn.PwmDisplay = 44;
+            _pgn.EnviarPgn250 = false;
+        }
 
         var g = _sim.Estado;
         if (EmularGps)
@@ -257,6 +424,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
 
         RefrescarLecturas();
+        RefrescarFisica(realista);
     }
 
     private void RefrescarLecturas()
@@ -363,6 +531,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _config.EmularMaquina = EmularMaquina; _config.EmularImu = EmularImu;
         _config.EmularQuantiX = EmularQuantiX; _config.EmularVistaX = EmularVistaX;
         _config.Demo = DemoActivo;
+        GuardarFisica();
         try { _config.Guardar(_rutaConfig); } catch { }
         _link.Dispose();
         try { _demo.Dispose(); } catch { }

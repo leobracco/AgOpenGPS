@@ -22,6 +22,15 @@ public sealed class PgnProcessor
     public bool EmularMaquina = true;  // hello/scan 123
     public bool EmularImu = true;      // hello/scan 121 (los campos IMU del PANDA los corta el ViewModel)
 
+    // Física realista: el 253 lleva el PWM que de verdad sale del lazo (sin
+    // ella, el 44 congelado de ModSim) y, con sensor de corriente/presión
+    // configurado en PilotX, cada 4 respuestas va un PGN 250 con la lectura
+    // del sensor, como el firmware AiO (Autosteer.ino ~667-686).
+    public int PwmDisplay = 44;
+    public bool EnviarPgn250;
+    public byte SensorReading;
+    private int _cuentaPgn250;
+
     // --- recibido de PilotX (PGN 254 / 239 / 229) ---
     public byte GuidanceStatus;
     public double SteerAngleSetPoint;
@@ -88,7 +97,15 @@ public sealed class PgnProcessor
                     Xte = data[10];
                     Relay = data[11];
                     RelayHi = data[12];
-                    if (EmularWas) res.Respuestas.Add(ArmarPgn253());
+                    if (EmularWas)
+                    {
+                        res.Respuestas.Add(ArmarPgn253());
+                        if (EnviarPgn250 && (PressureSensor != 0 || CurrentSensor != 0) && _cuentaPgn250++ > 2)
+                        {
+                            res.Respuestas.Add(ConCrc(new byte[] { 128, 129, 126, 250, 8, SensorReading, 0, 0, 0, 0, 0, 0, 0, 0 }));
+                            _cuentaPgn250 = 0;
+                        }
+                    }
                     break;
                 }
             case 252: // settings PID
@@ -197,7 +214,7 @@ public sealed class PgnProcessor
             unchecked((byte)sa), unchecked((byte)(sa >> 8)),
             unchecked((byte)9999), unchecked((byte)(9999 >> 8)),   // heading dummy histórico
             unchecked((byte)8888), unchecked((byte)(8888 >> 8)),   // roll dummy histórico
-            (byte)SwitchByte(), 44,                                // 44 = pwmDisplay congelado
+            (byte)SwitchByte(), unchecked((byte)PwmDisplay),       // 44 = pwmDisplay congelado de ModSim
             0 };
         return ConCrc(r);
     }

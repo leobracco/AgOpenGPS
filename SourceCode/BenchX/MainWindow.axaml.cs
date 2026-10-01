@@ -39,6 +39,7 @@ public partial class MainWindow : Window
     private void SliderRoll_DoubleTapped(object? s, TappedEventArgs e) => _vm.CeroRoll();
     private void GuardarPosicion_Click(object? s, RoutedEventArgs e) => _vm.GuardarPosicion();
     private void BotonDireccion_Click(object? s, RoutedEventArgs e) => _vm.BotonDireccionRemoto();
+    private void FijarLinea_Click(object? s, RoutedEventArgs e) => _vm.FijarLinea();
 
     // PGN 201: la config ya quedó guardada; relanzar el proceso con la subred nueva.
     private void Reiniciar(string mensaje)

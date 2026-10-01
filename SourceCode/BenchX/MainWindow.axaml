@@ -80,6 +80,148 @@
 
         <Border Classes="card">
           <StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="titulo" Text="FÍSICA REALISTA (CALIBRACIÓN E IMPLEMENTO)"/>
+              <CheckBox Grid.Column="1" Content="Física realista" IsChecked="{Binding FisicaRealista}"/>
+            </Grid>
+            <TextBlock Classes="dato" TextWrapping="Wrap"
+                       Text="Placa AiO con firmware Keya: la ECU cierra el lazo contra un WAS analógico y el motor Keya mueve la rueda con umbral, retardo y tope. El tractor gira como bicicleta y arrastra el implemento. Apagado, BenchX es el de siempre (motor perfecto)."/>
+
+            <StackPanel IsVisible="{Binding FisicaRealista}" Margin="0,10,0,0">
+              <StackPanel.Styles>
+                <Style Selector="NumericUpDown">
+                  <Setter Property="Width" Value="130"/>
+                  <Setter Property="Margin" Value="0,2,12,2"/>
+                </Style>
+                <Style Selector="CheckBox">
+                  <Setter Property="Margin" Value="0,0,14,0"/>
+                </Style>
+              </StackPanel.Styles>
+
+              <!-- Lecturas -->
+              <WrapPanel>
+                <StackPanel Margin="0,0,20,6">
+                  <TextBlock Classes="dato" Text="Rueda real"/>
+                  <TextBlock Classes="datoValor" Text="{Binding AnguloRealTexto}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,20,6">
+                  <TextBlock Classes="dato" Text="Lee el WAS (va a PilotX)"/>
+                  <TextBlock Classes="datoValor" Text="{Binding AnguloWasTexto}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,20,6">
+                  <TextBlock Classes="dato" Text="PWM de la ECU"/>
+                  <TextBlock Classes="datoValor" Text="{Binding PwmTexto}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,20,6">
+                  <TextBlock Classes="dato" Text="Corriente (lectura ECU)"/>
+                  <TextBlock Classes="datoValor" Text="{Binding CorrienteTexto}"/>
+                </StackPanel>
+              </WrapPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="dato" VerticalAlignment="Center" Text="Cortes de la ECU"/>
+                <Border Classes="badge" Classes.activo="{Binding HayCorte}">
+                  <TextBlock Text="{Binding CorteTexto}"/>
+                </Border>
+              </StackPanel>
+
+              <!-- Vehículo y motor -->
+              <TextBlock Classes="dato" FontWeight="SemiBold" Margin="0,12,0,2" Text="Tractor y motor"/>
+              <WrapPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Entre ejes (m)"/>
+                  <NumericUpDown Value="{Binding DistanciaEntreEjesM}" Minimum="0.5" Maximum="10" Increment="0.1" FormatString="0.00"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Antena adelante del eje (m)"/>
+                  <NumericUpDown Value="{Binding AntenaAdelanteM}" Minimum="-5" Maximum="5" Increment="0.1" FormatString="0.00"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="PWM mínimo real"/>
+                  <NumericUpDown Value="{Binding PwmMinimoReal}" Minimum="0" Maximum="254" Increment="1" FormatString="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Vel. máx. motor (°/s)"/>
+                  <NumericUpDown Value="{Binding VelocidadMotorGradosS}" Minimum="0" Maximum="200" Increment="5" FormatString="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Retardo motor (ms)"/>
+                  <NumericUpDown Value="{Binding RetardoMotorMs}" Minimum="0" Maximum="2000" Increment="10" FormatString="0"/>
+                </StackPanel>
+              </WrapPanel>
+              <WrapPanel Margin="0,4,0,0">
+                <CheckBox Content="Motor invertido" IsChecked="{Binding MotorInvertido}"/>
+                <ToggleButton Content="Operario agarra el volante" IsChecked="{Binding AgarrarVolante}" Margin="0,0,12,0"/>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Classes="dato" VerticalAlignment="Center" Text="Pico de corriente"/>
+                  <NumericUpDown Value="{Binding PicoCorriente}" Minimum="0" Maximum="255" Increment="10" FormatString="0"/>
+                </StackPanel>
+              </WrapPanel>
+
+              <!-- Errores del WAS -->
+              <TextBlock Classes="dato" FontWeight="SemiBold" Margin="0,12,0,2" Text="WAS real (errores para calibrar)"/>
+              <WrapPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Cuentas/grado del sensor"/>
+                  <NumericUpDown Value="{Binding WasCuentasPorGrado}" Minimum="1" Maximum="500" Increment="1" FormatString="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Offset (°)"/>
+                  <NumericUpDown Value="{Binding WasOffsetGrados}" Minimum="-20" Maximum="20" Increment="0.5" FormatString="0.0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Ganancia (± %)"/>
+                  <NumericUpDown Value="{Binding WasGananciaPct}" Minimum="-90" Maximum="300" Increment="5" FormatString="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Ackermann izq. (%)"/>
+                  <NumericUpDown Value="{Binding WasAckermannPct}" Minimum="10" Maximum="300" Increment="5" FormatString="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Ruido (°)"/>
+                  <NumericUpDown Value="{Binding WasRuidoGrados}" Minimum="0" Maximum="5" Increment="0.05" FormatString="0.00"/>
+                </StackPanel>
+              </WrapPanel>
+              <CheckBox Content="WAS invertido" IsChecked="{Binding WasInvertido}" Margin="0,4,0,0"/>
+
+              <!-- Implemento -->
+              <TextBlock Classes="dato" FontWeight="SemiBold" Margin="0,12,0,2" Text="Implemento"/>
+              <WrapPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Tipo"/>
+                  <ComboBox SelectedIndex="{Binding ImplementoIndice}" Width="150" Margin="0,2,12,2">
+                    <ComboBoxItem Content="Ninguno"/>
+                    <ComboBoxItem Content="De arrastre"/>
+                    <ComboBoxItem Content="De 3 puntos"/>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Enganche (m, − atrás)"/>
+                  <NumericUpDown Value="{Binding EngancheM}" Minimum="-10" Maximum="10" Increment="0.1" FormatString="0.00"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Barra de tiro (m)"/>
+                  <NumericUpDown Value="{Binding LargoBarraM}" Minimum="0.5" Maximum="30" Increment="0.5" FormatString="0.0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Deriva ladera (m, + der.)"/>
+                  <NumericUpDown Value="{Binding DerivaLateralM}" Minimum="-3" Maximum="3" Increment="0.05" FormatString="0.00"/>
+                </StackPanel>
+              </WrapPanel>
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" Margin="0,6,0,0">
+                <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Content="Fijar línea acá" Click="FijarLinea_Click" Margin="0,0,0,6"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Text="Desvío tractor"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Classes="datoValor" Margin="16,0,0,0" Text="{Binding DesvioTractorTexto}"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Desvío implemento"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding DesvioImplementoTexto}"/>
+              </Grid>
+              <TextBlock Classes="dato" TextWrapping="Wrap" Margin="0,6,0,0"
+                         Text="La línea es una recta por el eje trasero con el rumbo actual: fijala al empezar una pasada recta con el piloto puesto. Los parámetros de tractor, enganche y barra tienen que coincidir con los de PilotX."/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
             <TextBlock Classes="titulo" Text="GPS — SENTENCIAS NMEA"/>
             <WrapPanel>
               <WrapPanel.Styles>

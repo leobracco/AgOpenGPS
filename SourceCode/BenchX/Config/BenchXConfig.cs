@@ -69,6 +69,29 @@ public sealed class BenchXConfig
     public double DemoVelocidadKmh { get; set; } = 8;
     public double DemoVelocidadGiroKmh { get; set; } = 5;
 
+    // Física realista: placa AiO (Keya.hex) cerrando el lazo contra un WAS
+    // analógico, motor Keya con umbral/retardo, bicicleta e implemento.
+    // Apagada, BenchX se comporta como siempre (motor perfecto, giro ModSim).
+    // Los defaults de vehículo/implemento son los de PilotX de fábrica.
+    public bool FisicaRealista { get; set; } = false;
+    public double DistanciaEntreEjesM { get; set; } = 3.3;
+    public double AntenaAdelanteM { get; set; } = 0.1;
+    public double PwmMinimoReal { get; set; } = 22;
+    public double VelocidadMotorGradosS { get; set; } = 35;
+    public double RetardoMotorMs { get; set; } = 50;
+    public bool MotorInvertido { get; set; }
+    public double PicoCorriente { get; set; } = 150;
+    public double WasCuentasPorGrado { get; set; } = 110;
+    public double WasOffsetGrados { get; set; }
+    public double WasGananciaPct { get; set; }
+    public double WasAckermannPct { get; set; } = 100;
+    public double WasRuidoGrados { get; set; }
+    public bool WasInvertido { get; set; }
+    public string Implemento { get; set; } = "ninguno";   // ninguno | arrastre | tres_puntos
+    public double EngancheM { get; set; } = -1;
+    public double LargoBarraM { get; set; } = 6;
+    public double DerivaLateralM { get; set; }
+
     public static string RutaDefault => Path.Combine(AppContext.BaseDirectory, "benchx.json");
 
     private static readonly JsonSerializerOptions Opciones = new()
