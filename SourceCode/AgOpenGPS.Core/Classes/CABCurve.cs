@@ -62,6 +62,8 @@ namespace AgOpenGPS
 
         // Should we find the global nearest curve point (instead of local) on the next search.
         private bool findGlobalNearestCurvePoint = true;
+        // Lista sobre la que se calculó currentLocationIndex.
+        private List<vec3> listaDelIndice;
         private CancellationTokenSource cts;
         private Task<List<vec3>> build;
         private Task<List<List<vec3>>> buildList;
@@ -239,26 +241,56 @@ namespace AgOpenGPS
 
                 cts?.Cancel();
                 cts = new CancellationTokenSource();
+                // El token se captura acá: cts lo pisa la próxima llamada y la
+                // continuación de este await corre en otro hilo (en el Engine
+                // headless no hay SynchronizationContext).
+                CancellationToken token = cts.Token;
 
-                if (build != null) await build;
+                // Una construcción cancelada NO se publica: antes devolvía la
+                // curva a medias (o vacía) y quedaba como curva activa hasta la
+                // siguiente. Un Task cancelado antes de arrancar tira
+                // OperationCanceledException, que en un async void tumba el proceso.
+                try
+                {
+                    if (build != null) await build;
+                }
+                catch (OperationCanceledException) { }
 
-                build = Task.Run(() => BuildNewOffsetList(distAway, track, cts.Token), cts.Token);
-                curList = await build;
+                List<vec3> nuevaCurva;
+                try
+                {
+                    build = Task.Run(() => BuildNewOffsetList(distAway, track, token), token);
+                    nuevaCurva = await build;
+                }
+                catch (OperationCanceledException) { return; }
+
+                if (nuevaCurva == null || token.IsCancellationRequested) return;
+
+                // Se publica la lista entera de una vez; GetCurrentCurveLine
+                // trabaja sobre su propia copia de la referencia y detecta el
+                // cambio de lista (ver listaDelIndice).
+                curList = nuevaCurva;
                 findGlobalNearestCurvePoint = true;
 
-                if (mf.IsSideGuideLines && mf.CamSetDistance > mf.Tool.width * -400)
+                try
                 {
-                    if (buildList != null)
-                        await buildList;
-                    //build the list list of guide lines
-                    buildList = Task.Run(() => BuildCurveGuidelines(distAway, mf.ABLine.numGuideLines, track, cts.Token), cts.Token);
-                    guideArr = await buildList;
+                    if (mf.IsSideGuideLines && mf.CamSetDistance > mf.Tool.width * -400)
+                    {
+                        if (buildList != null)
+                            await buildList;
+                        //build the list list of guide lines
+                        buildList = Task.Run(() => BuildCurveGuidelines(distAway, mf.ABLine.numGuideLines, track, token), token);
+                        List<List<vec3>> nuevasGuias = await buildList;
+                        if (nuevasGuias != null && !token.IsCancellationRequested)
+                            guideArr = nuevasGuias;
+                    }
+                    else
+                    {
+                        if (buildList != null) await buildList;
+                        guideArr?.Clear();
+                    }
                 }
-                else
-                {
-                    if (buildList != null) await buildList;
-                    guideArr?.Clear();
-                }
+                catch (OperationCanceledException) { }
             }
         }
 
@@ -519,6 +551,9 @@ namespace AgOpenGPS
                 Log.EventWriter("Exception Build new offset curve" + e.ToString());
             }
 
+            // Cancelada a mitad de camino: la lista está incompleta. null = descartar.
+            if (ct.IsCancellationRequested) return null;
+
             // Resample to uniform spacing to prevent lookahead jumping
             if (newCurList.Count > 2)
             {
@@ -745,6 +780,8 @@ namespace AgOpenGPS
                 Log.EventWriter("Exception Build new offset curve" + e.ToString());
             }
 
+            if (ct.IsCancellationRequested) return null;
+
             return newGuideLL;
         }
 
@@ -759,7 +796,20 @@ namespace AgOpenGPS
             }
 
             double dist, dx, dz;
-            //int ptCount = curList.Count;
+
+            // Copia local de la referencia: BuildCurveCurrentList publica la
+            // lista nueva desde otro hilo y no puede cambiarnos la lista en el
+            // medio de la cuenta. Tapa al campo en todo el método a propósito.
+            List<vec3> curList = this.curList;
+
+            // currentLocationIndex es un índice de OTRA lista si la curva se
+            // reconstruyó: buscar de cero en vez de arrancar de un índice viejo
+            // (que puede ni existir en la lista nueva).
+            if (!ReferenceEquals(curList, listaDelIndice))
+            {
+                findGlobalNearestCurvePoint = true;
+                listaDelIndice = curList;
+            }
 
             if (curList.Count > 0)
             {
@@ -799,7 +849,7 @@ namespace AgOpenGPS
                         {
                             // When not already following some line, find the globally nearest point
 
-                            cc = findNearestGlobalCurvePoint(pivot, 10);
+                            cc = findNearestGlobalCurvePoint(curList, pivot, 10);
 
                             findGlobalNearestCurvePoint = false;
                         }
@@ -809,7 +859,7 @@ namespace AgOpenGPS
                             // based on the last one. This prevents jumping between lines close to each other (or crossing lines).
                             // As this is prone to find a "local minimum", this should only be used when already following some line.
 
-                            cc = findNearestLocalCurvePoint(pivot, currentLocationIndex, goalPointDistance, ReverseHeading);
+                            cc = findNearestLocalCurvePoint(curList, pivot, currentLocationIndex, goalPointDistance, ReverseHeading);
                         }
 
                         minDistA = double.MaxValue;
@@ -849,7 +899,7 @@ namespace AgOpenGPS
                         {
                             // When not already following some line, find the globally nearest point
 
-                            A = findNearestGlobalCurvePoint(pivot);
+                            A = findNearestGlobalCurvePoint(curList, pivot);
 
                             findGlobalNearestCurvePoint = false;
                         }
@@ -859,7 +909,7 @@ namespace AgOpenGPS
                             // based on the last one. This prevents jumping between lines close to each other (or crossing lines).
                             // As this is prone to find a "local minimum", this should only be used when already following some line.
 
-                            A = findNearestLocalCurvePoint(pivot, currentLocationIndex, goalPointDistance, ReverseHeading);
+                            A = findNearestLocalCurvePoint(curList, pivot, currentLocationIndex, goalPointDistance, ReverseHeading);
                         }
 
                         currentLocationIndex = A;
@@ -965,7 +1015,14 @@ namespace AgOpenGPS
                     vec3 start = new vec3(rEastCu, rNorthCu, 0);
                     double distSoFar = 0;
 
-                    for (int i = ReverseHeading ? B : A; i < curList.Count && i >= 0;)
+                    // Solo las curvas cerradas (borde, pivote) dan la vuelta. En
+                    // una abierta, dar la vuelta interpolaba entre la última punta
+                    // y la PRIMERA y el objetivo caía atrás del tractor: si la
+                    // mira no entra en lo que queda, el objetivo es la punta.
+                    bool esCurvaCerrada = mf.Tracks[mf.TrackIdx].mode > TrackMode.Curve;
+                    int pasos = 0;
+
+                    for (int i = ReverseHeading ? B : A; i < curList.Count && i >= 0 && pasos++ <= curList.Count;)
                     {
                         // used for calculating the length squared of next segment.
                         double tempDist = glm.Distance(start, curList[i]);
@@ -982,8 +1039,16 @@ namespace AgOpenGPS
                         else distSoFar += tempDist;
                         start = curList[i];
                         i += count;
-                        if (i < 0) i = curList.Count - 1;
-                        if (i > curList.Count - 1) i = 0;
+                        if (i < 0 || i > curList.Count - 1)
+                        {
+                            if (!esCurvaCerrada)
+                            {
+                                goalPointCu.easting = start.easting;
+                                goalPointCu.northing = start.northing;
+                                break;
+                            }
+                            i = i < 0 ? curList.Count - 1 : 0;
+                        }
                     }
 
                     if (mf.Tracks[mf.TrackIdx].mode <= TrackMode.Curve)
@@ -1014,6 +1079,10 @@ namespace AgOpenGPS
 
                     //calc "D" the distance from pivot axle to lookahead point
                     double goalPointDistanceSquared = glm.DistanceSquared(goalPointCu.northing, goalPointCu.easting, pivot.northing, pivot.easting);
+
+                    // Pivote encima del objetivo (la punta de la curva): la cuenta
+                    // de pure pursuit divide por cero y el ángulo sale NaN.
+                    if (goalPointDistanceSquared < 1e-6) return;
 
                     //calculate the the delta x in local coordinates and steering angle degrees based on wheelbase
                     //double localHeading = glm.twoPI - mf.FixHeading;
@@ -1455,7 +1524,7 @@ namespace AgOpenGPS
         // Searches for the nearest "global" curve point to the refPoint by checking all points of the curve.
         // Parameter "increment" added here to give possibility to make a "sparser" search (to speed it up?)
         // Return: index to the nearest point
-        private int findNearestGlobalCurvePoint(vec3 refPoint, int increment = 1)
+        private static int findNearestGlobalCurvePoint(List<vec3> curList, vec3 refPoint, int increment = 1)
         {
             double minDist = double.MaxValue;
             int minDistIndex = 0;
@@ -1475,8 +1544,12 @@ namespace AgOpenGPS
         // Searches for the nearest "local" curve point to the refPoint by traversing forward and backward on the curve
         // startIndex means the starting point (index to curList) of the search.
         // Return: index to the nearest (local) point
-        private int findNearestLocalCurvePoint(vec3 refPoint, int startIndex, double minSearchDistance, bool reverseSearchDirection)
+        private static int findNearestLocalCurvePoint(List<vec3> curList, vec3 refPoint, int startIndex, double minSearchDistance, bool reverseSearchDirection)
         {
+            // Defensa: un índice fuera de la lista arranca desde una punta en vez de reventar.
+            if (startIndex < 0 || startIndex >= curList.Count)
+                startIndex = startIndex < 0 ? 0 : curList.Count - 1;
+
             double minDist = glm.DistanceSquared(refPoint, curList[(startIndex + curList.Count) % curList.Count]);
             int minDistIndex = startIndex;
 
