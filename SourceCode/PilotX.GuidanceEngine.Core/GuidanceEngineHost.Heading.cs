@@ -58,7 +58,12 @@ namespace AgOpenGPS
         }
 
         void IAutoSteerHost.TimedMessageBox(int timeout, string title, string message)
-            => Log.EventWriter($"GuidanceEngine [{title}] {message}");
+        {
+            // Los desenganches (velocidad, fin de guía) los ve el operario: van
+            // al cartel de la cabina (AvisarPiloto ya loguea). El resto, al log.
+            if (title == global::AgOpenGPS.AvisoPiloto.TituloDesenganche) AvisarPiloto(message);
+            else Log.EventWriter($"GuidanceEngine [{title}] {message}");
+        }
 
         // ---- IHeadingHost ----
         string IHeadingHost.HeadingFromSource { get => headingFromSource; set => headingFromSource = value; }

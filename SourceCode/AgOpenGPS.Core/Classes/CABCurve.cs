@@ -1060,7 +1060,7 @@ namespace AgOpenGPS
                                 if (glm.Distance(goalPointCu, curList[(curList.Count - 1)]) < 0.5)
                                 {
                                     mf.PerformAutoSteerClick();
-                                    mf.TimedMessageBox(2000, gStr.gsGuidanceStopped, gStr.gsPastEndOfCurve);
+                                    mf.TimedMessageBox(2000, AvisoPiloto.TituloDesenganche, "Piloto desenganchado: se terminó la guía.");
                                     Log.EventWriter("Autosteer Stop, Past End of Curve");
 
                                 }
@@ -1070,7 +1070,7 @@ namespace AgOpenGPS
                                 if (glm.Distance(goalPointCu, curList[0]) < 0.5)
                                 {
                                     mf.PerformAutoSteerClick();
-                                    mf.TimedMessageBox(2000, gStr.gsGuidanceStopped, gStr.gsPastEndOfCurve);
+                                    mf.TimedMessageBox(2000, AvisoPiloto.TituloDesenganche, "Piloto desenganchado: se terminó la guía.");
                                     Log.EventWriter("Autosteer Stop, Past End of Curve");
                                 }
                             }

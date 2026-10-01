@@ -169,6 +169,11 @@ namespace AgOpenGPS
                     if (mf.IsBtnAutoSteerOn && mf.AvgSpeed > mf.Vehicle.maxSteerSpeed)
                     {
                         mf.PerformAutoSteerClick();
+                        // Antes se soltaba en silencio: la cabina dice por qué.
+                        mf.TimedMessageBox(3000, AvisoPiloto.TituloDesenganche,
+                            "Piloto desenganchado: pasaste la velocidad máxima de " +
+                            mf.Vehicle.maxSteerSpeed.ToString("N0") + " km/h.");
+                        Log.EventWriter("Steer Off, Above Max Steering Speed");
                     }
 
                     if (mf.IsBtnAutoSteerOn && mf.AvgSpeed < mf.Vehicle.minSteerSpeed)
@@ -178,9 +183,9 @@ namespace AgOpenGPS
                         {
                             mf.PerformAutoSteerClick();
                             if (mf.IsMetric)
-                                mf.TimedMessageBox(3000, "AutoSteer Disabled", "Below Minimum Safe Steering Speed: " + mf.Vehicle.minSteerSpeed.ToString("N0") + " Kmh");
+                                mf.TimedMessageBox(3000, AvisoPiloto.TituloDesenganche, "Piloto desenganchado: por debajo de la velocidad mínima de " + mf.Vehicle.minSteerSpeed.ToString("N1") + " km/h.");
                             else
-                                mf.TimedMessageBox(3000, "AutoSteer Disabled", "Below Minimum Safe Steering Speed: " + Speed.KmhToMph(mf.Vehicle.minSteerSpeed).ToString("N1") + " MPH");
+                                mf.TimedMessageBox(3000, AvisoPiloto.TituloDesenganche, "Piloto desenganchado: por debajo de la velocidad mínima de " + Speed.KmhToMph(mf.Vehicle.minSteerSpeed).ToString("N1") + " mph.");
 
                             Log.EventWriter("Steer Off, Below Min Steering Speed");
                         }
