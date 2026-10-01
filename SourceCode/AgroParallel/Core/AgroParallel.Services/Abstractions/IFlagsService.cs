@@ -29,6 +29,13 @@ namespace AgroParallel.Services.Abstractions
         /// </summary>
         FlagsStateDto Add(double lat, double lon, int color, bool useCurrent);
 
+        /// <summary>
+        /// Igual que Add, con TIPO de punto de interés (arbol, molino, agua,
+        /// tanque, casa, piedra; ver AgroParallel.Cabina.TiposBandera). kind
+        /// vacío/"otro"/desconocido = bandera común, exactamente como Add.
+        /// </summary>
+        FlagsStateDto Add(double lat, double lon, int color, bool useCurrent, string kind);
+
         /// <summary>Cierre del widget: deselecciona y persiste (ex btnExit).</summary>
         FlagsStateDto CloseSession();
 

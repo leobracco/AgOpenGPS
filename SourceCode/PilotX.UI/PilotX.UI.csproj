@@ -86,6 +86,10 @@
          System puro. -->
     <Compile Include="..\AgroParallel\Core\AgroParallel.Services\Cabina\AvisosCabina.cs"
              Link="Servicios\AvisosCabina.cs" />
+    <!-- Tipos de bandera (punto de interes): los MISMOS codigos, nombres y
+         colores en el motor, el panel de Banderas y el mapa. System puro. -->
+    <Compile Include="..\AgroParallel\Core\AgroParallel.Services\Cabina\TiposBandera.cs"
+             Link="Servicios\TiposBandera.cs" />
   </ItemGroup>
 
 </Project>

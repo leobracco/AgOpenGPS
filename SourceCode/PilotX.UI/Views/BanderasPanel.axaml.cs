@@ -20,6 +20,10 @@
 //   · Nueva              → vista de alta; los tres colores CREAN la bandera
 //     (POST /add). Si el operario NO tocó lat/lon manda {color,use_current:true};
 //     si las tocó y son números finitos, {lat,lon,color,use_current:false}.
+//   · NUEVO (no estaba en la página): "¿Qué es?" — seis botones de TIPO
+//     (árbol, molino, laguna, tanque, casa, piedra; TiposBandera). Un toque
+//     crea la bandera igual que un color, con "kind" en el /add. Los tres
+//     colores quedan como "Otro" (bandera común, sin kind).
 //   · Cierre del panel   → POST /close (deselecciona + guarda), que es lo que
 //     la página mandaba por sendBeacon en el pagehide.
 //   · Mismos textos, mismos estados vacío/aviso, mismo orden de botones, mismos
@@ -50,13 +54,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
+using AgroParallel.Cabina;
 using PilotX.Desktop.Services;
 using Traductor = PilotX.Cockpit.Bars.Traductor;
 
@@ -151,6 +156,8 @@ public partial class BanderasPanel : UserControl
         _btnExportar = this.FindControl<Button>("BtnExportar")!;
         _inpLat      = this.FindControl<TextBox>("InpLat")!;
         _inpLon      = this.FindControl<TextBox>("InpLon")!;
+
+        ArmarBotonesTipo(this.FindControl<UniformGrid>("GrillaTipos")!);
 
         // ---- Notas: teclado nativo + POST al salir del campo ----
         _inpNotas.GotFocus += (_, _) =>
@@ -338,11 +345,88 @@ public partial class BanderasPanel : UserControl
     private void OnAgregarAmarillaClick(object? sender, RoutedEventArgs e) => _ = AgregarAsync(2);
 
     /// <summary>
+    /// Botones "¿Qué es?": uno por tipo de TiposBandera (menos Otro, que son
+    /// los tres colores de abajo). Un toque crea la bandera con ese tipo, igual
+    /// que tocar un color. Se arman acá y no en el XAML para que el catálogo
+    /// sea la única fuente de códigos, nombres y colores.
+    /// </summary>
+    private void ArmarBotonesTipo(UniformGrid grilla)
+    {
+        foreach (var tipo in TiposBandera.Todos)
+        {
+            if (tipo.Codigo == TiposBandera.Otro) continue;
+            string codigo = tipo.Codigo;
+
+            var chip = CrearChip(tipo, 22);
+            // Nombre en castellano: Traductor.Aplicar (en Abrir) lo traduce y
+            // lo recuerda como original, igual que el resto de la card.
+            var nombre = new TextBlock
+            {
+                Text = tipo.Nombre,
+                FontSize = 12,
+                Foreground = Pincel(TokenTexto),
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(6, 0, 0, 0),
+            };
+            var celda = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+            Grid.SetColumn(chip, 0);
+            Grid.SetColumn(nombre, 1);
+            celda.Children.Add(chip);
+            celda.Children.Add(nombre);
+
+            var btn = new Button
+            {
+                Content = celda,
+                Height = 56,
+                Margin = new Thickness(3),
+                Padding = new Thickness(6, 4, 6, 4),
+                CornerRadius = new CornerRadius(8),
+                BorderThickness = new Thickness(1),
+                Background = Pincel(TokenFondo),
+                BorderBrush = Pincel(TokenBorde),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                VerticalContentAlignment = VerticalAlignment.Center,
+            };
+            ToolTip.SetTip(btn, tipo.Nombre);
+            btn.Click += (_, _) => _ = AgregarAsync(TiposBandera.De(codigo).ColorLegado, codigo);
+            grilla.Children.Add(btn);
+        }
+    }
+
+    /// <summary>
+    /// Chip redondo con el color del tipo y su letra (A árbol, M molino...).
+    /// Es lo mismo que distingue el mapa por forma + color: el mapa GL no
+    /// dibuja texto, la lista sí. Bandera común: el punto de color de siempre.
+    /// </summary>
+    private static Border CrearChip(TipoBandera tipo, double lado)
+    {
+        return new Border
+        {
+            Width = lado, Height = lado,
+            CornerRadius = new CornerRadius(lado / 2),
+            Background = PincelDeTipo(tipo),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = tipo.Letra,
+                FontSize = lado * 0.55,
+                FontWeight = FontWeight.Bold,
+                Foreground = Brushes.White,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            },
+        };
+    }
+
+    /// <summary>
     /// Alta de bandera. Misma decisión que addFlag() del JS: si el operario tocó
     /// lat/lon y los dos son números finitos, va por lat/lon; si no, por la
-    /// posición actual del tractor.
+    /// posición actual del tractor. <paramref name="tipo"/> null = bandera
+    /// común (el cuerpo del POST queda igual que siempre).
     /// </summary>
-    private async Task AgregarAsync(int color)
+    private async Task AgregarAsync(int color, string? tipo = null)
     {
         var cli = _cli;
         var ct = _cts?.Token ?? CancellationToken.None;
@@ -356,8 +440,8 @@ public partial class BanderasPanel : UserControl
         try
         {
             s = porLatLon
-                ? await cli.AgregarEnLatLonAsync(lat, lon, color, ct).ConfigureAwait(true)
-                : await cli.AgregarEnPosicionActualAsync(color, ct).ConfigureAwait(true);
+                ? await cli.AgregarEnLatLonAsync(lat, lon, color, ct, tipo).ConfigureAwait(true)
+                : await cli.AgregarEnPosicionActualAsync(color, ct, tipo).ConfigureAwait(true);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
         catch { s = null; }
@@ -474,10 +558,24 @@ public partial class BanderasPanel : UserControl
             bool sel = f.Number == picked;
 
             fila.Number = f.Number;
-            fila.Punto.Fill = PincelDeColor(f.Color);
-            fila.Nombre.Text = string.IsNullOrEmpty(f.Notes)
-                ? "#" + f.Id.ToString(Inv)
-                : f.Notes!;
+            string id = "#" + f.Id.ToString(Inv);
+            if (TiposBandera.EsComun(f.Kind ?? ""))
+            {
+                // Bandera común (o vieja, sin tipo): punto de color, como siempre.
+                fila.Punto.Background = PincelDeColor(f.Color);
+                fila.Letra.Text = "";
+                fila.Nombre.Text = string.IsNullOrEmpty(f.Notes) ? id : f.Notes!;
+            }
+            else
+            {
+                // Con tipo: chip con el color y la letra del tipo, y el nombre
+                // del tipo adelante ("Árbol / monte — el grande").
+                var tipo = TiposBandera.De(f.Kind ?? "");
+                fila.Punto.Background = PincelDeTipo(tipo);
+                fila.Letra.Text = tipo.Letra;
+                fila.Nombre.Text = Traductor.T(tipo.Nombre) + " — "
+                                   + (string.IsNullOrEmpty(f.Notes) ? id : f.Notes!);
+            }
             fila.Dist.Text = FmtDist(f.DistanceM);
             fila.Raiz.Background = Pincel(sel ? TokenFondoSel : TokenFondo);
             fila.Raiz.BorderBrush = Pincel(sel ? TokenBordeSel : TokenBorde);
@@ -495,12 +593,23 @@ public partial class BanderasPanel : UserControl
     {
         var fila = new Fila();
 
-        fila.Punto = new Ellipse
+        // Chip de 18 px: punto de color en la bandera común, color + letra en
+        // las que tienen tipo (antes era un Ellipse de 12 sin letra).
+        fila.Letra = new TextBlock
         {
-            Width = 12, Height = 12,
-            Stroke = Pincel(TokenBorde), StrokeThickness = 1,
+            FontSize = 10, FontWeight = FontWeight.Bold,
+            Foreground = Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        fila.Punto = new Border
+        {
+            Width = 18, Height = 18,
+            CornerRadius = new CornerRadius(9),
+            BorderBrush = Pincel(TokenBorde), BorderThickness = new Thickness(1),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
+            Child = fila.Letra,
         };
         fila.Nombre = new TextBlock
         {
@@ -602,6 +711,20 @@ public partial class BanderasPanel : UserControl
         _ => Pincel("BanderaRoja"),
     };
 
+    /// <summary>Pincel del color de un tipo de bandera (dato del catálogo, como
+    /// los tres colores de siempre). Cacheado: la lista se repinta cada 500 ms.</summary>
+    private static readonly Dictionary<string, IBrush> _pincelesTipo = new();
+
+    private static IBrush PincelDeTipo(TipoBandera tipo)
+    {
+        if (!_pincelesTipo.TryGetValue(tipo.Codigo, out var b))
+        {
+            b = new SolidColorBrush(Color.Parse(tipo.ColorHex));
+            _pincelesTipo[tipo.Codigo] = b;
+        }
+        return b;
+    }
+
     /// <summary>fmtDist() del JS, con los mismos cortes y decimales.</summary>
     private static string FmtDist(double m)
     {
@@ -663,7 +786,8 @@ public partial class BanderasPanel : UserControl
     private sealed class Fila
     {
         public Border Raiz = null!;
-        public Ellipse Punto = null!;
+        public Border Punto = null!;
+        public TextBlock Letra = null!;
         public TextBlock Nombre = null!;
         public TextBlock Dist = null!;
 

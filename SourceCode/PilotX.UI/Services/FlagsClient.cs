@@ -29,6 +29,10 @@ public sealed class FlagPoint
     /// <summary>0 = rojo, 1 = verde, 2 = amarillo (mismo código que banderas.html).</summary>
     public int Color { get; set; }
     public string? Notes { get; set; }
+
+    /// <summary>Tipo de punto de interés ("arbol", "molino"...; vacío = bandera
+    /// común). Ver AgroParallel.Cabina.TiposBandera.</summary>
+    public string? Kind { get; set; }
     public double Easting { get; set; }
     public double Northing { get; set; }
 }

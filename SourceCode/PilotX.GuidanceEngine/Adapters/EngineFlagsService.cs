@@ -17,6 +17,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using AgroParallel.Cabina;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 using AgOpenGPS.Core.Models;
@@ -61,6 +62,7 @@ namespace PilotX.GuidanceEngine.Adapters
                     Id = f.ID,
                     Color = f.color,
                     Notes = f.notes,
+                    Kind = f.kind ?? "",
                     Lat = f.latitude,
                     Lon = f.longitude,
                     DistanceM = Math.Sqrt(dx * dx + dy * dy),
@@ -100,8 +102,17 @@ namespace PilotX.GuidanceEngine.Adapters
         }
 
         public FlagsStateDto Add(double lat, double lon, int color, bool useCurrent)
+            => Add(lat, lon, color, useCurrent, null);
+
+        public FlagsStateDto Add(double lat, double lon, int color, bool useCurrent, string kind)
         {
             if (!_host.IsJobStarted) return Armar("sin-lote");
+
+            // Tipo: se guarda solo si es uno del catálogo ("otro"/desconocido =
+            // bandera común, vacío). Con tipo, el color que se guarda es el
+            // "legado" del tipo: lo que ve un lector que no conoce tipos.
+            string tipo = TiposBandera.Normalizar(kind);
+            if (tipo.Length > 0) color = TiposBandera.De(tipo).ColorLegado;
 
             double la = useCurrent ? _host.AppModelField.CurrentLatLon.Latitude : lat;
             double lo = useCurrent ? _host.AppModelField.CurrentLatLon.Longitude : lon;
@@ -132,7 +143,7 @@ namespace PilotX.GuidanceEngine.Adapters
             // historial del lote.
             int id = _host.FlagPts.Count == 0 ? 1 : _host.FlagPts.Max(f => f.ID) + 1;
 
-            _host.FlagPts.Add(new CFlag(la, lo, este, norte, _host.fixHeading, color, id, ""));
+            _host.FlagPts.Add(new CFlag(la, lo, este, norte, _host.fixHeading, color, id, "") { kind = tipo });
             _host.FlagPicked = _host.FlagPts.Count;
             _host.GuardarBanderas();
             return Armar();

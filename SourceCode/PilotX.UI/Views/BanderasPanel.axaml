@@ -16,8 +16,10 @@
         Dos vistas en el mismo lugar, igual que el HTML (paneList / paneAdd):
           · LISTA: banderas + notas de la seleccionada + Borrar/Nueva +
             Importar/Exportar.
-          · ALTA:  lat/lon (WGS84) + "Usar posición actual" + los tres colores;
-            tocar un color CREA la bandera. "Volver" vuelve a la lista.
+          · ALTA:  lat/lon (WGS84) + "Usar posición actual" + "¿Qué es?" (seis
+            tipos: árbol, molino, laguna, tanque, casa, piedra) + "Otro" con
+            los tres colores; tocar un tipo o un color CREA la bandera.
+            "Volver" vuelve a la lista.
         El comando `bandera` abre en LISTA; `bandera_latlon` abre directo en
         ALTA — es el equivalente del ?add=1 de la página.
 
@@ -249,7 +251,7 @@
                     </Grid>
 
                     <!-- ========== Vista ALTA ========== -->
-                    <Grid Name="PaneAlta" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto"
+                    <Grid Name="PaneAlta" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto"
                           IsVisible="False">
 
                         <TextBlock Grid.Row="0"
@@ -305,13 +307,26 @@
                                 VerticalContentAlignment="Center"
                                 Margin="0,8,0,0"/>
 
+                        <!-- ¿Qué es? — un toque y queda marcado (idea del
+                             T-Wave). Los botones los arma el code-behind desde
+                             TiposBandera: mismos códigos, nombres y colores que
+                             el motor y el mapa. -->
                         <TextBlock Grid.Row="3"
-                                   Text="Color — tocá para crear"
+                                   Text="¿Qué es? — tocá para marcar"
                                    Foreground="{StaticResource PilotXPanelTextDim}"
                                    FontSize="12"
                                    Margin="0,10,0,0"/>
 
-                        <Grid Grid.Row="4" ColumnDefinitions="*,*,*" Margin="0,6,0,0">
+                        <UniformGrid Grid.Row="4" Name="GrillaTipos"
+                                     Columns="3" Margin="0,6,0,0"/>
+
+                        <TextBlock Grid.Row="5"
+                                   Text="Otro — bandera común, elegí el color"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"
+                                   Margin="0,10,0,0"/>
+
+                        <Grid Grid.Row="6" ColumnDefinitions="*,*,*" Margin="0,6,0,0">
                             <Button Grid.Column="0" Name="BtnRoja"
                                     Click="OnAgregarRojaClick"
                                     Background="{StaticResource PilotXPanelSurface}"
@@ -380,9 +395,9 @@
                             </Button>
                         </Grid>
 
-                        <!-- Fila 5 vacía: empuja "Volver" al pie, como el
+                        <!-- Fila 7 vacía: empuja "Volver" al pie, como el
                              margin-top:auto del HTML. -->
-                        <Button Grid.Row="6" Name="BtnVolver"
+                        <Button Grid.Row="8" Name="BtnVolver"
                                 Content="Volver"
                                 Click="OnVolverClick"
                                 Background="{StaticResource PilotXPanelSurface}"

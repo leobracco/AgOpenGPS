@@ -34,6 +34,7 @@ using System.Collections.Generic;
 using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
 using Avalonia.Threading;
+using AgroParallel.Cabina;
 using PilotX.Desktop.Services;
 using Silk.NET.OpenGL;
 
@@ -3366,7 +3367,8 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// píxeles (no se achica con el zoom, si no a cierta distancia son un
     /// punto invisible) + gallardete triangular en la punta, coloreado según
     /// <c>FlagPoint.Color</c> (0 rojo, 1 verde, 2 amarillo — mismo código que
-    /// banderas.html).
+    /// banderas.html). Las banderas con TIPO (<c>FlagPoint.Kind</c>) llevan
+    /// en lugar del gallardete el ícono del tipo (ver DrawIconoTipo).
     /// </summary>
     private void DrawFlags(double scale)
     {
@@ -3388,6 +3390,15 @@ public sealed class MapGlSurface : OpenGlControlBase
             _scratch[2] = (float)baseE; _scratch[3] = (float)topN;
             UploadAndDraw(PrimitiveType.Lines, 2, ColBanderaAsta);
 
+            // Con TIPO (árbol, molino...): en vez del gallardete, un ícono con
+            // forma y color propios arriba del asta. El GL no dibuja texto, así
+            // que la forma es lo que se lee de reojo.
+            if (!TiposBandera.EsComun(f.Kind ?? ""))
+            {
+                DrawIconoTipo(TiposBandera.De(f.Kind ?? ""), baseE, topN, banderaWorld * 0.7);
+                continue;
+            }
+
             // Gallardete: triángulo colgando a la derecha de la punta del asta.
             float[] col = f.Color switch
             {
@@ -3402,6 +3413,88 @@ public sealed class MapGlSurface : OpenGlControlBase
             UploadAndDraw(PrimitiveType.Triangles, 3, col);
             UploadAndDraw(PrimitiveType.LineLoop, 3, ColBanderaAsta);
         }
+    }
+
+    /// <summary>Color GL (cacheado) de cada tipo de bandera, desde TiposBandera.</summary>
+    private static readonly Dictionary<string, float[]> _colTipoBandera = new();
+
+    private static float[] ColorDeTipo(TipoBandera tipo)
+    {
+        if (_colTipoBandera.TryGetValue(tipo.Codigo, out var c)) return c;
+        var col = Avalonia.Media.Color.Parse(tipo.ColorHex);
+        c = new[] { col.R / 255f, col.G / 255f, col.B / 255f, 1f };
+        _colTipoBandera[tipo.Codigo] = c;
+        return c;
+    }
+
+    /// <summary>
+    /// Ícono de un punto de interés con tipo, centrado en (cx, cy), radio r en
+    /// coordenadas de mundo. Una forma por tipo, para distinguirlos sin texto:
+    ///   árbol = círculo (copa) · laguna = rombo · tanque = cuadrado ·
+    ///   casa = casita (techo a dos aguas) · piedra = triángulo ·
+    ///   molino = aspas en cruz.
+    /// Relleno con el color del tipo y borde oscuro (#101612) para que se lea
+    /// sobre el pintado verde y sobre el fondo claro.
+    /// </summary>
+    private void DrawIconoTipo(TipoBandera tipo, double cx, double cy, double r)
+    {
+        float[] col = ColorDeTipo(tipo);
+        switch (tipo.Codigo)
+        {
+            case TiposBandera.Arbol:
+            {
+                const int n = 16;
+                EnsureScratch(n * 2);
+                for (int i = 0; i < n; i++)
+                {
+                    double a = i * 2 * Math.PI / n;
+                    _scratch[i * 2]     = (float)(cx + Math.Cos(a) * r);
+                    _scratch[i * 2 + 1] = (float)(cy + Math.Sin(a) * r);
+                }
+                UploadAndDraw(PrimitiveType.TriangleFan, n, col);
+                UploadAndDraw(PrimitiveType.LineLoop, n, ColBanderaAsta);
+                break;
+            }
+            case TiposBandera.Agua:
+                DrawPoligono(col, cx, cy + r, cx + r, cy, cx, cy - r, cx - r, cy);
+                break;
+            case TiposBandera.Tanque:
+            {
+                double l = r * 0.8;
+                DrawPoligono(col, cx - l, cy - l, cx + l, cy - l, cx + l, cy + l, cx - l, cy + l);
+                break;
+            }
+            case TiposBandera.Casa:
+            {
+                double l = r * 0.75;
+                DrawPoligono(col, cx - l, cy - l, cx + l, cy - l, cx + l, cy + l * 0.2,
+                             cx, cy + r * 1.1, cx - l, cy + l * 0.2);
+                break;
+            }
+            case TiposBandera.Piedra:
+                DrawPoligono(col, cx - r, cy - r * 0.8, cx + r, cy - r * 0.8, cx, cy + r);
+                break;
+            case TiposBandera.Molino:
+            {
+                // Cuatro aspas: triángulos con la punta en el centro.
+                double a = r, b = r * 0.45;
+                DrawPoligono(col, cx, cy, cx + b, cy + a, cx - b, cy + a);
+                DrawPoligono(col, cx, cy, cx + a, cy - b, cx + a, cy + b);
+                DrawPoligono(col, cx, cy, cx - b, cy - a, cx + b, cy - a);
+                DrawPoligono(col, cx, cy, cx - a, cy + b, cx - a, cy - b);
+                break;
+            }
+        }
+    }
+
+    /// <summary>Polígono convexo relleno + borde, vértices como pares (x, y).</summary>
+    private void DrawPoligono(float[] col, params double[] xy)
+    {
+        int n = xy.Length / 2;
+        EnsureScratch(xy.Length);
+        for (int i = 0; i < xy.Length; i++) _scratch[i] = (float)xy[i];
+        UploadAndDraw(PrimitiveType.TriangleFan, n, col);
+        UploadAndDraw(PrimitiveType.LineLoop, n, ColBanderaAsta);
     }
 
     private void EnsureScratch(int neededFloats)

@@ -20,6 +20,12 @@ namespace AgroParallel.Models
         public int Color { get; set; }
 
         public string Notes { get; set; }
+
+        /// <summary>Tipo de punto de interés (arbol, molino, agua, tanque, casa,
+        /// piedra). Vacío = bandera común. Catálogo: AgroParallel.Cabina.TiposBandera.
+        /// Campo NUEVO y opcional: un cliente viejo lo ignora.</summary>
+        public string Kind { get; set; }
+
         public double Lat { get; set; }
         public double Lon { get; set; }
 

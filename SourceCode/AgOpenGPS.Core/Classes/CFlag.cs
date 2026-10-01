@@ -19,6 +19,12 @@ namespace AgOpenGPS
 
         public string notes = "";
 
+        // Tipo de punto de interes (arbol, molino, agua, tanque, casa, piedra).
+        // Vacio = bandera comun, la de siempre. El catalogo vive en
+        // AgroParallel.Cabina.TiposBandera; aca es solo el dato que se guarda
+        // (9no campo opcional del Flags.txt, ver FlagsFiles).
+        public string kind = "";
+
         //constructor
         public CFlag(double _lati, double _longi, double _easting, double _northing, double _heading, int _color, int _ID, string _notes = "Notes")
         {

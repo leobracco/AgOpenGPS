@@ -4,7 +4,8 @@
 //   POST /api/flags/pick    {number}   → selecciona bandera (1-based)
 //   POST /api/flags/delete             → borra la seleccionada
 //   POST /api/flags/notes   {notes}    → notas de la seleccionada
-//   POST /api/flags/add     {lat,lon,color,use_current} → crea bandera
+//   POST /api/flags/add     {lat,lon,color,use_current[,kind]} → crea bandera
+//                            (kind opcional: tipo de punto de interés)
 //   POST /api/flags/close              → cierre del widget (deselecciona+guarda)
 //   POST /api/flags/import             → import CSV (diálogo nativo)
 //   POST /api/flags/export             → export CSV (diálogo nativo)
@@ -65,7 +66,10 @@ namespace AgroParallel.WebHost.Controllers
                 await WriteJsonAsync(new { ok = false, error = "body-invalido" });
                 return;
             }
-            await WriteJsonAsync(_svc.Add(body.Lat, body.Lon, body.Color, body.UseCurrent));
+            // Sin "kind" (clientes viejos, banderas.html) = bandera común, igual que antes.
+            await WriteJsonAsync(string.IsNullOrEmpty(body.Kind)
+                ? _svc.Add(body.Lat, body.Lon, body.Color, body.UseCurrent)
+                : _svc.Add(body.Lat, body.Lon, body.Color, body.UseCurrent, body.Kind));
         }
 
         [Route(HttpVerbs.Post, "/flags/close")]
@@ -111,6 +115,10 @@ namespace AgroParallel.WebHost.Controllers
 
             [System.Text.Json.Serialization.JsonPropertyName("use_current")]
             public bool UseCurrent { get; set; }
+
+            /// <summary>Tipo de punto de interés (opcional). Ver TiposBandera.</summary>
+            [System.Text.Json.Serialization.JsonPropertyName("kind")]
+            public string Kind { get; set; }
         }
     }
 }

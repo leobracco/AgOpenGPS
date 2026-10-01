@@ -782,6 +782,38 @@
     "en": "Yellow",
     "pt": "Amarela"
   },
+  "¿Qué es? — tocá para marcar": {
+    "en": "What is it? — tap to mark",
+    "pt": "O que é? — toque para marcar"
+  },
+  "Otro — bandera común, elegí el color": {
+    "en": "Other — plain flag, pick the color",
+    "pt": "Outro — bandeira comum, escolha a cor"
+  },
+  "Árbol / monte": {
+    "en": "Tree / woods",
+    "pt": "Árvore / mata"
+  },
+  "Molino / estructura": {
+    "en": "Windmill / structure",
+    "pt": "Moinho / estrutura"
+  },
+  "Laguna / bañado / canal": {
+    "en": "Pond / wetland / ditch",
+    "pt": "Lagoa / banhado / canal"
+  },
+  "Tanque de agua": {
+    "en": "Water tank",
+    "pt": "Tanque de água"
+  },
+  "Casa / galpón": {
+    "en": "House / shed",
+    "pt": "Casa / galpão"
+  },
+  "Piedra / obstáculo": {
+    "en": "Rock / obstacle",
+    "pt": "Pedra / obstáculo"
+  },
   "Naranja": {
     "en": "Orange",
     "pt": "Laranja"

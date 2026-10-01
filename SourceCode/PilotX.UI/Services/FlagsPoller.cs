@@ -59,6 +59,9 @@ public sealed class FlagsPoller
             {
                 h = h * 31 + f.Id;
                 h = h * 31 + f.Color;
+                // Tipo: cambiarlo cambia el ícono en el mapa. GetHashCode de
+                // string es estable dentro del proceso, que es lo que importa.
+                h = h * 31 + (f.Kind ?? "").GetHashCode();
                 h = h * 31 + (int)Math.Round(f.Easting * 100);
                 h = h * 31 + (int)Math.Round(f.Northing * 100);
             }

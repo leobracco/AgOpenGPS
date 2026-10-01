@@ -7,7 +7,8 @@
 //   POST /api/flags/pick    {number}   → selecciona bandera (1-based)
 //   POST /api/flags/delete             → borra la seleccionada
 //   POST /api/flags/notes   {notes}    → notas de la seleccionada
-//   POST /api/flags/add     {lat,lon,color,use_current} → crea bandera
+//   POST /api/flags/add     {lat,lon,color,use_current[,kind]} → crea bandera
+//                            (kind = tipo de punto de interés, solo si hay)
 //   POST /api/flags/close              → cierre del widget (deselecciona+guarda)
 //   POST /api/flags/import             → import CSV (diálogo nativo)
 //   POST /api/flags/export             → export CSV (diálogo nativo)
@@ -54,6 +55,8 @@ public sealed class BanderaItemDto
     [JsonPropertyName("color")]      public int Color { get; set; }
 
     [JsonPropertyName("notes")]      public string? Notes { get; set; }
+    /// <summary>Tipo de punto de interés (vacío = bandera común). Ver TiposBandera.</summary>
+    [JsonPropertyName("kind")]       public string? Kind { get; set; }
     [JsonPropertyName("lat")]        public double Lat { get; set; }
     [JsonPropertyName("lon")]        public double Lon { get; set; }
 
@@ -130,17 +133,24 @@ public sealed class BanderasClient
 
     /// <summary>Alta con lat/lon tipeadas por el operario (use_current:false).</summary>
     public Task<BanderasEstadoDto?> AgregarEnLatLonAsync(double lat, double lon, int color,
-                                                         CancellationToken ct = default)
+                                                         CancellationToken ct = default,
+                                                         string? tipo = null)
         => PedirAsync(HttpMethod.Post, "api/flags/add",
                       "{\"lat\":" + Num(lat) + ",\"lon\":" + Num(lon)
                       + ",\"color\":" + color.ToString(CultureInfo.InvariantCulture)
-                      + ",\"use_current\":false}", ct);
+                      + ",\"use_current\":false" + Tipo(tipo) + "}", ct);
 
     /// <summary>Alta en la posición del tractor. Sin claves lat/lon, igual que el JS.</summary>
-    public Task<BanderasEstadoDto?> AgregarEnPosicionActualAsync(int color, CancellationToken ct = default)
+    public Task<BanderasEstadoDto?> AgregarEnPosicionActualAsync(int color, CancellationToken ct = default,
+                                                                 string? tipo = null)
         => PedirAsync(HttpMethod.Post, "api/flags/add",
                       "{\"color\":" + color.ToString(CultureInfo.InvariantCulture)
-                      + ",\"use_current\":true}", ct);
+                      + ",\"use_current\":true" + Tipo(tipo) + "}", ct);
+
+    /// <summary>Clave "kind" del /add, SOLO si hay tipo: una bandera común
+    /// manda exactamente el mismo cuerpo que antes.</summary>
+    private static string Tipo(string? tipo)
+        => string.IsNullOrEmpty(tipo) ? "" : ",\"kind\":" + JsonSerializer.Serialize(tipo);
 
     /// <summary>Cierre del widget: deselecciona + guarda (ex btnExit de FormFlags).</summary>
     public Task<BanderasEstadoDto?> CerrarSesionAsync(CancellationToken ct = default)
