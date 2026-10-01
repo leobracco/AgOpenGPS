@@ -120,7 +120,9 @@ namespace AgOpenGPS
             // (reporte de banco 2026-08-12, BenchX + firmware AiO).
             Mc.ToggleSectionMasterManual = SectionMasterManual;
             Mc.ToggleSectionMasterAuto = SectionMasterAuto;
-            Mc.ToggleAutoSteer = () => ((IAutoSteerHost)this).PerformAutoSteerClick();
+            // El botón físico del módulo pasa por las MISMAS condiciones de
+            // acople que el de la pantalla.
+            Mc.ToggleAutoSteer = () => AlternarPilotoConCondiciones();
             Yt = new CYouTurn(this);
             Ct = new CContour(this);
             RecPath = new CRecordedPath(this);

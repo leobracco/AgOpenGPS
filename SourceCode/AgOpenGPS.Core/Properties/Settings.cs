@@ -253,6 +253,11 @@ namespace AgOpenGPS.Properties
         public double setAS_functionSpeedLimit = 12;
         public double setAS_maxSteerSpeed = 15;
         public double setAS_minSteerSpeed = 0;
+        // Condiciones de acople (ver CondicionesAcople): no enganchar el piloto
+        // lejos de la guía ni cruzado a ella. 0 = sin límite: APAGADAS de fábrica
+        // hasta validarlas en lote (restringen cuándo acopla el piloto).
+        public double setAS_acopleMaxDistanciaM = 0;
+        public double setAS_acopleMaxAnguloDeg = 0;
         public HarvesterBrand setBrand_HBrand = HarvesterBrand.AgOpenGPS;
         public ArticulatedBrand setBrand_WDBrand = ArticulatedBrand.AgOpenGPS;
         public double setIMU_fusionWeight2 = 0.06;

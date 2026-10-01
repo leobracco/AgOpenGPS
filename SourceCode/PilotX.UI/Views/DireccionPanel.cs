@@ -495,6 +495,14 @@ public sealed class DireccionPanel : Border
         // del que configura la máquina, no algo que pase solo.
         _scPantalla.Children.Add(FilaAjusteD("Límite de funciones de guiado", "guidance_speed_limit", 1, 1, 40, 0, "km/h",
             "Techo general de las funciones de guiado — incluye el manejo libre de la pestaña Probar. Subilo solo si la máquina trabaja a esa velocidad."));
+        // Condiciones de acople (CondicionesAcople en el motor). En 0 vienen
+        // apagadas: restringen cuándo engancha el piloto, se prenden después
+        // de probarlas en lote.
+        _scPantalla.Children.Add(SubTituloSep("Para acoplar el piloto"));
+        _scPantalla.Children.Add(FilaAjusteD("Distancia máxima a la guía", "acople_max_distancia_m", 0.5, 0, 10, 1, "m",
+            "Más lejos que esto de la guía, el piloto no engancha y la pantalla dice cuánto falta. Evita el volantazo de acoplar lejos. 0 = sin límite."));
+        _scPantalla.Children.Add(FilaAjusteD("Ángulo máximo con la guía", "acople_max_angulo_deg", 5, 0, 85, 0, "°",
+            "Más cruzado que esto a la guía, el piloto no engancha. 0 = sin límite."));
         _scPantalla.Children.Add(SubTituloSep("Barra de guiado"));
         _scPantalla.Children.Add(FilaAjuste("Grosor de línea", "line_width", 1, 8, 1, 0, "px",
             "Grosor de la línea de guiado dibujada en el mapa."));

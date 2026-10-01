@@ -125,6 +125,8 @@ namespace AgroParallel.Adapters
                 GuidanceSpeedLimit = S.setAS_functionSpeedLimit,
                 MinSteerSpeed = S.setAS_minSteerSpeed,
                 MaxSteerSpeed = S.setAS_maxSteerSpeed,
+                AcopleMaxDistanciaM = S.setAS_acopleMaxDistanciaM,
+                AcopleMaxAnguloDeg = S.setAS_acopleMaxAnguloDeg,
 
                 LineWidth = S.setDisplay_lineWidth,
                 SnapDistance = S.setAS_snapDistance,
@@ -174,6 +176,9 @@ namespace AgroParallel.Adapters
             S.setAS_functionSpeedLimit = c.GuidanceSpeedLimit;
             S.setAS_minSteerSpeed = c.MinSteerSpeed;
             S.setAS_maxSteerSpeed = c.MaxSteerSpeed;
+            // null = el cliente no conoce el campo: no tocar (ver SteerConfigDto).
+            if (c.AcopleMaxDistanciaM.HasValue) S.setAS_acopleMaxDistanciaM = Math.Max(0, c.AcopleMaxDistanciaM.Value);
+            if (c.AcopleMaxAnguloDeg.HasValue) S.setAS_acopleMaxAnguloDeg = Math.Max(0, Math.Min(89, c.AcopleMaxAnguloDeg.Value));
 
             // ---- Pantalla / sobre la línea ----
             S.setDisplay_lineWidth = c.LineWidth;

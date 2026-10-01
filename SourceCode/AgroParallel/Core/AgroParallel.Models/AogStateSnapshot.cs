@@ -362,6 +362,11 @@ namespace AgroParallel.Models
         /// con el U-turn activo). Con esto en true el giro NO se va a armar.</summary>
         public bool IsOutOfBounds { get; set; }
 
+        /// <summary>Por qué el piloto NO acoplaría ahora (lejos o cruzado a la
+        /// guía, ver CondicionesAcople). null = puede acoplar. Lo decide el
+        /// motor; la cabina solo lo muestra al tocar el piloto.</summary>
+        public string PilotoNoAcopla { get; set; }
+
         /// <summary>Desvío respecto de la guía, en metros. Por encima de ~1 km
         /// el updater descarta el giro en curso y vuelve a empezar.</summary>
         public double CrossTrackErrorM { get; set; }

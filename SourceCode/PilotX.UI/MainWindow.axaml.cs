@@ -6496,6 +6496,16 @@ public partial class MainWindow : Window
             string motivo = AgroParallel.Cabina.AvisosCabina.PorQueNoSePuedeActivarPiloto(est);
             if (motivo != null) { MostrarToast(motivo); return true; }
 
+            // Lejos o cruzado a la guía: el motor se niega a ACOPLAR (desacoplar
+            // siempre se puede). Se dice acá para que el toque no quede mudo.
+            var snapPiloto = _ultimoEstado;
+            if (snapPiloto != null && !snapPiloto.IsAutoSteerOn &&
+                !string.IsNullOrEmpty(snapPiloto.PilotoNoAcopla))
+            {
+                MostrarToast(snapPiloto.PilotoNoAcopla);
+                return true;
+            }
+
             // Fuera del lindero AVISA pero NO bloquea: puede estar entrando al
             // lote o haciendo una pasada a proposito. Lo que no puede es
             // sembrar creyendo que pinta.

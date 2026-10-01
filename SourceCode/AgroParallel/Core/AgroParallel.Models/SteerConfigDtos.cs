@@ -1,4 +1,4 @@
-// SteerConfigDtos.cs — configuración del autoguiado (port del FormSteer nativo)
+﻿// SteerConfigDtos.cs — configuración del autoguiado (port del FormSteer nativo)
 // para la pantalla direccion.html del Hub.
 //
 // Cada campo mapea 1:1 contra un valor de AgOpenGPS.Properties.Settings
@@ -123,6 +123,15 @@ namespace AgroParallel.Models
 
         /// <summary>setAS_maxSteerSpeed (km/h).</summary>
         [JsonPropertyName("max_steer_speed")] public double MaxSteerSpeed { get; set; }
+
+        // ---- Condiciones de acople (0 = sin límite) ----
+        // Nullable a propósito: un cliente que no los conoce (página vieja del
+        // Hub) manda null y NO se pisa el límite que puso el operario.
+        /// <summary>setAS_acopleMaxDistanciaM (m) — no acoplar más lejos de la guía.</summary>
+        [JsonPropertyName("acople_max_distancia_m")] public double? AcopleMaxDistanciaM { get; set; }
+
+        /// <summary>setAS_acopleMaxAnguloDeg (°) — no acoplar más cruzado a la guía.</summary>
+        [JsonPropertyName("acople_max_angulo_deg")] public double? AcopleMaxAnguloDeg { get; set; }
 
         // ---- Pantalla / sobre la línea ----
         /// <summary>setDisplay_lineWidth (px).</summary>

@@ -63,6 +63,9 @@ public sealed class HudSnapshot
     /// pantalla lo usa para avisar al activar el piloto que no va a pintar ni a
     /// sembrar hasta que entre.</summary>
     public bool IsOutOfBounds { get; set; }
+    /// <summary>Por qué el motor no dejaría acoplar el piloto ahora (lejos o
+    /// cruzado a la guía). null = puede. Lo decide el motor; acá solo se dice.</summary>
+    public string? PilotoNoAcopla { get; set; }
     /// <summary>Ancho del salto del giro en guías (1 = contigua). El menú
     /// muestra guías SALTEADAS = ancho − 1.</summary>
     public int YouTurnSkipWidth { get; set; }

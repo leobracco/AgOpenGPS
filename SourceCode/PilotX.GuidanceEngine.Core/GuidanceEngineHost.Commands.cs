@@ -182,7 +182,10 @@ namespace AgOpenGPS
             switch (cmd)
             {
                 case "autosteer":
-                    ((IAutoSteerHost)this).PerformAutoSteerClick();
+                    // Puede negarse a ACOPLAR (lejos o cruzado a la guía). Se
+                    // devuelve true igual: el comando existe; el motivo lo
+                    // muestra la cabina leyendo MotivoNoAcopla del state.
+                    AlternarPilotoConCondiciones();
                     return true;
                 case "uturn":
                     ToggleYouTurn();

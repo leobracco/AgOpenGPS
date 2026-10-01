@@ -158,6 +158,7 @@ namespace PilotX.GuidanceEngine.Adapters
                 // Diagnostico del giro: sin esto, "no gira" se ve igual esté el
                 // tractor fuera del lote, desviado, o con el lote roto.
                 if (_host.Mc != null) snap.IsOutOfBounds = _host.Mc.isOutOfBounds;
+                snap.PilotoNoAcopla = _host.MotivoNoAcopla();
                 // crossTrackError viene en MILIMETROS en el host (int).
                 snap.CrossTrackErrorM = _host.crossTrackError / 1000.0;
                 // Las luces de banderillero se prenden con el modo (Menú izquierdo
