@@ -143,10 +143,23 @@ namespace AgOpenGPS.Core.Tests
         {
             return new SteerCalConfig
             {
-                Kp = 50, MinPwm = 22, HighPwm = 180, WasOffset = 0, CountsPerDegree = 100, Ackerman = 100,
-                InvertWas = false, InvertSteer = false, CurrentSensor = true, SensorLimit = 120,
-                MaxSteerAngle = 35, WheelbaseM = 3.0, StanleyUsed = false,
-                HoldLookAhead = 30, LookAheadMult = 14, AcquireFactor = 90, IntegralPp = 0,
+                Kp = 50,
+                MinPwm = 22,
+                HighPwm = 180,
+                WasOffset = 0,
+                CountsPerDegree = 100,
+                Ackerman = 100,
+                InvertWas = false,
+                InvertSteer = false,
+                CurrentSensor = true,
+                SensorLimit = 120,
+                MaxSteerAngle = 35,
+                WheelbaseM = 3.0,
+                StanleyUsed = false,
+                HoldLookAhead = 30,
+                LookAheadMult = 14,
+                AcquireFactor = 90,
+                IntegralPp = 0,
             };
         }
 

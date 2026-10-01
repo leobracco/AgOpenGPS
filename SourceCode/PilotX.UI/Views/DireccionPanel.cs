@@ -128,6 +128,11 @@ public sealed class DireccionPanel : Border
     private bool _descartarArmado;
     private readonly TextBlock _estado;
 
+    // asistente de calibración (reemplaza pestañas + pie mientras está abierto)
+    private readonly Button _btnAsistente;
+    private readonly StackPanel _normal;
+    private readonly AsistenteDireccionView _asistente;
+
     public DireccionPanel()
     {
         Background = BgPanel;
@@ -161,10 +166,21 @@ public sealed class DireccionPanel : Border
         var btnCerrar = BotonChico("✕");
         btnCerrar.Width = 44;
         btnCerrar.Click += (_, _) => Cerrar();
-        Grid.SetColumn(btnCerrar, 2);
+        Grid.SetColumn(btnCerrar, 3);
 
+        // Asistente de calibración guiada (paso a paso). Reemplaza las
+        // pestañas mientras está abierto; sin tocarlo, nada cambia.
+        _btnAsistente = BotonChico("Asistente");
+        _btnAsistente.Margin = new Thickness(0, 0, 6, 0);
+        _btnAsistente.Foreground = Texto;
+        _btnAsistente.BorderBrush = Verde;
+        _btnAsistente.Click += async (_, _) => await AbrirAsistente();
+        Grid.SetColumn(_btnAsistente, 2);
+
+        header.ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto");
         header.Children.Add(titulo);
         header.Children.Add(live);
+        header.Children.Add(_btnAsistente);
         header.Children.Add(btnCerrar);
 
         // ---------- tabs (2 filas de 3 — TODO el FormSteer vive acá) ----------
@@ -618,12 +634,19 @@ public sealed class DireccionPanel : Border
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
 
+        _normal = new StackPanel();
+        _normal.Children.Add(tabs);
+        _normal.Children.Add(_tip);
+        _normal.Children.Add(stageScroll);
+        _normal.Children.Add(pie);
+
+        _asistente = new AsistenteDireccionView();
+        _asistente.Salir += AlSalirAsistente;
+
         var root = new StackPanel();
         root.Children.Add(header);
-        root.Children.Add(tabs);
-        root.Children.Add(_tip);
-        root.Children.Add(stageScroll);
-        root.Children.Add(pie);
+        root.Children.Add(_normal);
+        root.Children.Add(_asistente);
         Child = root;
 
         MostrarTab("probar");
@@ -635,11 +658,13 @@ public sealed class DireccionPanel : Border
     {
         _http = http;
         _base = (baseUrl ?? "").TrimEnd('/');
+        _asistente.Attach(http, baseUrl);
     }
 
     public async void Abrir()
     {
         IsVisible = true;
+        if (!_asistente.IsVisible) _normal.IsVisible = true;
         MostrarTab("probar");
         _estado.Text = "";
         await CargarConfig();
@@ -652,8 +677,40 @@ public sealed class DireccionPanel : Border
         _timer.Start();
     }
 
+    // ---- asistente de calibración ----------------------------------------------
+
+    private async Task AbrirAsistente()
+    {
+        if (_asistente.IsVisible) return;
+        // El asistente arranca de la config GUARDADA: ediciones a medias
+        // mezclarían dos calibraciones. Que el operario decida antes.
+        if (_sucio)
+        {
+            _estado.Text = "Guardá o descartá los cambios antes de abrir el asistente.";
+            _estado.Foreground = Rojo;
+            return;
+        }
+        // El asistente maneja el motor él solo: el manejo libre se apaga.
+        if (_fdOn) await FdPost("/api/steer/freedrive", "{\"on\":false}");
+        _tip.IsVisible = false;
+        _normal.IsVisible = false;
+        _btnAsistente.IsEnabled = false;
+        await _asistente.Abrir();
+    }
+
+    private void AlSalirAsistente()
+    {
+        _normal.IsVisible = true;
+        _btnAsistente.IsEnabled = true;
+        // El asistente pudo haber aplicado (o deshecho) cambios: releer.
+        if (IsVisible) _ = CargarConfig();
+    }
+
     public void Cerrar()
     {
+        // Asistente abierto: se CANCELA (la placa vuelve a la config previa).
+        if (_asistente.IsVisible) _asistente.Cerrar();
+
         // Nunca dejar el volante bajo control manual sin nadie mirándolo.
         if (_fdOn) _ = FdPost("/api/steer/freedrive", "{\"on\":false}");
 
