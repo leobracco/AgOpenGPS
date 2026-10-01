@@ -19,6 +19,8 @@
 //   · "Silenciar 10 min" suspende los beeps pero NO oculta el banner.
 //   · La X descarta lo actual; reaparece solo si entra una alarma nueva.
 //   · Sin alarmas, se oculta.
+//   · Debajo de la lista, "Qué hacer: ..." (catálogo QueHacerAlarma): una
+//     frase por tipo de alarma, dos como mucho. Sin entrada, no se muestra.
 //
 // NO oculta el mapa ni interfiere con otros overlays — se acopla arriba
 // con ZIndex alto + VerticalAlignment=Top.
@@ -33,6 +35,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using AgroParallel.Cabina;
 using PilotX.Desktop.Services;
 
 namespace PilotX.Desktop.Views;
@@ -42,6 +45,11 @@ public partial class CabinaAlarmasOverlay : UserControl
     private Border?    _alertRoot;
     private TextBlock? _tituloText;
     private TextBlock? _listaText;
+    private TextBlock? _queHacerText;
+
+    /// <summary>Cuántas soluciones distintas se muestran como mucho. El banner
+    /// es un chip arriba del mapa: dos frases se leen, cinco no.</summary>
+    private const int MaxQueHacer = 2;
 
     private NodosClient? _client;
     private CancellationTokenSource? _pollCts;
@@ -61,6 +69,7 @@ public partial class CabinaAlarmasOverlay : UserControl
         _alertRoot  = this.FindControl<Border>("AlertRoot");
         _tituloText = this.FindControl<TextBlock>("TituloText");
         _listaText  = this.FindControl<TextBlock>("ListaText");
+        _queHacerText = this.FindControl<TextBlock>("QueHacerText");
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -137,7 +146,7 @@ public partial class CabinaAlarmasOverlay : UserControl
         // Solo con monitoreo activo: parado, cada surco daría "tapado" y el
         // banner sería puro ruido. Clave = surco+estado, así un surco que pasa
         // de "bajo" a "tapado" cuenta como alarma NUEVA (y beepea).
-        var fallas = new List<(string clave, string texto)>();
+        var fallas = new List<(string clave, string texto, string estado)>();
         if (vx != null && vx.MonitoreoActivo && vx.Trenes != null)
         {
             foreach (var tren in vx.Trenes)
@@ -150,7 +159,7 @@ public partial class CabinaAlarmasOverlay : UserControl
                     if (txt == null) continue;
                     fallas.Add(($"vx:{s.Bajada}:{s.Estado}",
                         PilotX.Cockpit.Bars.Traductor.T("Surco") + " " + s.Bajada + " " +
-                        PilotX.Cockpit.Bars.Traductor.T(txt)));
+                        PilotX.Cockpit.Bars.Traductor.T(txt), s.Estado ?? ""));
                 }
             }
         }
@@ -205,6 +214,38 @@ public partial class CabinaAlarmasOverlay : UserControl
             sb.Append("• ").Append(f.texto);
         }
         _listaText.Text = sb.ToString();
+
+        // ---- qué hacer -------------------------------------------------------
+        // Una solución por TIPO de alarma, no por surco: cuatro surcos tapados
+        // son un solo "revisá el tubo de bajada". Primero los nodos (sin nodo
+        // no hay dato de nada), después los surcos en el orden en que llegan.
+        var soluciones = new List<string>();
+        void Sumar(string? qh)
+        {
+            if (!string.IsNullOrEmpty(qh) && !soluciones.Contains(qh!)) soluciones.Add(qh!);
+        }
+        if (offlines.Count > 0) Sumar(QueHacerAlarma.Para(QueHacerAlarma.NodoOffline));
+        foreach (var f in fallas) Sumar(QueHacerAlarma.ParaSurco(f.estado));
+
+        if (_queHacerText != null)
+        {
+            if (soluciones.Count == 0)
+            {
+                _queHacerText.IsVisible = false;
+                _queHacerText.Text = "";
+            }
+            else
+            {
+                var qh = new StringBuilder(t("Qué hacer")).Append(": ");
+                for (int i = 0; i < soluciones.Count && i < MaxQueHacer; i++)
+                {
+                    if (i > 0) qh.Append(' ');
+                    qh.Append(t(soluciones[i]));
+                }
+                _queHacerText.Text = qh.ToString();
+                _queHacerText.IsVisible = true;
+            }
+        }
 
         _alertRoot.IsVisible = true;
 

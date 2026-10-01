@@ -90,6 +90,10 @@
          colores en el motor, el panel de Banderas y el mapa. System puro. -->
     <Compile Include="..\AgroParallel\Core\AgroParallel.Services\Cabina\TiposBandera.cs"
              Link="Servicios\TiposBandera.cs" />
+    <!-- "Que hacer" de cada alarma conocida (banner de cabina, eventos,
+         aviso del piloto): un solo texto, fijado con tests. System puro. -->
+    <Compile Include="..\AgroParallel\Core\AgroParallel.Services\Cabina\QueHacerAlarma.cs"
+             Link="Servicios\QueHacerAlarma.cs" />
   </ItemGroup>
 
 </Project>

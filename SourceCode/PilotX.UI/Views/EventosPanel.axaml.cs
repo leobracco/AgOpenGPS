@@ -14,6 +14,8 @@
 //     "(sin eventos en esta sesión)"), unido con lineas en blanco
 //   · scroll al final: lo ultimo es lo que importa
 //   · si la request falla, el pie dice el error y el visor NO se toca
+//   · NUEVO (no estaba en la página): debajo de cada alarma conocida va
+//     "→ Qué hacer: ..." (QueHacerAlarma.AnotarLog). Sin entrada, nada.
 //
 // API: Attach(EventosClient) carga; Detach() cancela lo que este en vuelo.
 // MainWindow llama Attach() al abrir y Detach() al cerrar.
@@ -27,6 +29,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using AgroParallel.Cabina;
 using PilotX.Desktop.Services;
 
 namespace PilotX.Desktop.Views;
@@ -150,8 +153,10 @@ public partial class EventosPanel : UserControl, IPanelEmbebible
             return;
         }
 
-        var history = Normalize(d.History);
-        var session = Normalize(d.Session);
+        // Debajo de cada alarma conocida (código AGP-* o piloto que se soltó)
+        // va un renglón "→ Qué hacer: ...". Las demás líneas quedan igual.
+        var history = QueHacerAlarma.AnotarLog(Normalize(d.History), T);
+        var session = QueHacerAlarma.AnotarLog(Normalize(d.Session), T);
 
         var partes = new List<string>();
         if (history.Length > 0) partes.Add(history);

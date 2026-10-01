@@ -814,6 +814,46 @@
     "en": "Rock / obstacle",
     "pt": "Pedra / obstáculo"
   },
+  "Qué hacer": {
+    "en": "What to do",
+    "pt": "O que fazer"
+  },
+  "Revisá la corriente y el cable del nodo. Cuando vuelve, la alarma se va sola.": {
+    "en": "Check the node's power and cable. When it comes back, the alarm clears by itself.",
+    "pt": "Verifique a energia e o cabo do nó. Quando voltar, o alarme some sozinho."
+  },
+  "Pará y revisá el tubo de bajada de ese surco.": {
+    "en": "Stop and check that row's seed tube.",
+    "pt": "Pare e verifique o tubo condutor dessa linha."
+  },
+  "Revisá que haya semilla y que el dosificador de ese surco gire bien.": {
+    "en": "Check there is seed and that row's meter turns properly.",
+    "pt": "Verifique se há semente e se o dosador dessa linha gira bem."
+  },
+  "Revisá el cable y la ficha del sensor de ese surco.": {
+    "en": "Check that row's sensor cable and plug.",
+    "pt": "Verifique o cabo e o conector do sensor dessa linha."
+  },
+  "Cargá semilla en la tolva.": {
+    "en": "Fill the hopper with seed.",
+    "pt": "Abasteça o depósito com semente."
+  },
+  "Revisá la dosis cargada y la calibración del dosificador.": {
+    "en": "Check the set rate and the meter calibration.",
+    "pt": "Verifique a dose configurada e a calibração do dosador."
+  },
+  "Revisá el cable de la antena. Tocá Piloto de nuevo cuando vuelva la señal.": {
+    "en": "Check the antenna cable. Tap Autosteer again when the signal is back.",
+    "pt": "Verifique o cabo da antena. Toque em Piloto de novo quando o sinal voltar."
+  },
+  "Llevá el tractor a mano cerca de la guía y tocá Piloto de nuevo.": {
+    "en": "Drive the tractor by hand close to the line and tap Autosteer again.",
+    "pt": "Leve o trator manualmente perto da linha e toque em Piloto de novo."
+  },
+  "Esperá a que el GPS vuelva a verde (RTK) y tocá Piloto de nuevo.": {
+    "en": "Wait for the GPS to turn green (RTK) and tap Autosteer again.",
+    "pt": "Espere o GPS voltar ao verde (RTK) e toque em Piloto de novo."
+  },
   "Naranja": {
     "en": "Orange",
     "pt": "Laranja"

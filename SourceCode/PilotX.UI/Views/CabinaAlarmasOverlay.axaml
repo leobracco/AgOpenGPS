@@ -53,6 +53,17 @@
                            Foreground="White"
                            Opacity="0.92"
                            TextWrapping="Wrap"/>
+                <!-- "Qué hacer": la solución corta de la alarma (catálogo
+                     QueHacerAlarma). Oculto si ninguna alarma tiene entrada:
+                     no se inventa un consejo. -->
+                <TextBlock Name="QueHacerText"
+                           Text=""
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White"
+                           TextWrapping="Wrap"
+                           Margin="0,3,0,0"
+                           IsVisible="False"/>
             </StackPanel>
 
             <!-- Silenciar beep (compacto, ícono campana) -->

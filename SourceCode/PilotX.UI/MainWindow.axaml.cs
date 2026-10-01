@@ -7479,7 +7479,11 @@ public partial class MainWindow : Window
     // un aviso nuevo pisa al anterior y reinicia el reloj.
     private DispatcherTimer? _toastTimer;
 
-    private void MostrarToast(string mensaje)
+    private void MostrarToast(string mensaje) => MostrarToast(mensaje, 4);
+
+    /// <summary>Toast con duración propia (ej. aviso del piloto + qué hacer,
+    /// que son dos renglones y necesitan más tiempo para leerse).</summary>
+    private void MostrarToast(string mensaje, double segundos)
     {
         var borde = this.FindControl<Border>("ToastAviso");
         var texto = this.FindControl<TextBlock>("ToastAvisoText");
@@ -7487,7 +7491,7 @@ public partial class MainWindow : Window
         texto.Text = mensaje;
         borde.IsVisible = true;
         _toastTimer?.Stop();
-        _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+        _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(segundos) };
         _toastTimer.Tick += (_, __) =>
         {
             _toastTimer?.Stop();
@@ -8471,7 +8475,17 @@ public partial class MainWindow : Window
         else if (s.PilotoAvisoSeq != _avisoPilotoVisto)
         {
             _avisoPilotoVisto = s.PilotoAvisoSeq;
-            if (!string.IsNullOrEmpty(s.PilotoAviso)) MostrarToast(s.PilotoAviso);
+            if (!string.IsNullOrEmpty(s.PilotoAviso))
+            {
+                // Motivo + qué hacer (catálogo QueHacerAlarma): "se cortó el
+                // GPS" solo no alcanza, hay que decir cómo seguir.
+                string? qh = AgroParallel.Cabina.QueHacerAlarma.Para(
+                    AgroParallel.Cabina.QueHacerAlarma.CodigoDePiloto(s.PilotoAviso));
+                var tr = PilotX.Cockpit.Bars.Traductor.T;
+                // Con la solución son dos renglones: 7 s para leerlo manejando.
+                if (qh == null) MostrarToast(s.PilotoAviso);
+                else MostrarToast(s.PilotoAviso + "\n" + tr("Qué hacer") + ": " + tr(qh), 7);
+            }
         }
 
         // Cartel con el MOTIVO por el que el mapa no puede mostrar la maquina.
