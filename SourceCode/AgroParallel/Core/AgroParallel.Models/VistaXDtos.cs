@@ -294,6 +294,63 @@ namespace AgroParallel.Models
         /// </summary>
         public string Estado { get; set; } = "no-data";
         public string LastSeenIso { get; set; } = "";
+
+        // ----- Espaciamiento entre semillas (ISO 7256-1) — firmware v3.1+ ----
+        // Ventana móvil de los últimos ~300 espacios del surco (VxEspaciamiento).
+        // Todo en 0 / n_espacios=0 si el nodo es < v3.1 (no manda `dt`), si el
+        // surco no es semilla 1 cable = 1 surco, o si todavía no hay espacios.
+
+        /// <summary>Singulación % = 100 − dobles − fallas (ventana).</summary>
+        [JsonPropertyName("singulacion")]
+        public double Singulacion { get; set; }
+
+        /// <summary>% de espacios ≤ 0,5·Xref (dos semillas juntas).</summary>
+        [JsonPropertyName("dobles_pct")]
+        public double DoblesPct { get; set; }
+
+        /// <summary>% de espacios &gt; 1,5·Xref (semilla que faltó).</summary>
+        [JsonPropertyName("fallas_pct")]
+        public double FallasPct { get; set; }
+
+        /// <summary>CV de precisión %: desvío de los espacios simples / Xref.</summary>
+        [JsonPropertyName("cv_pct")]
+        public double CvPct { get; set; }
+
+        /// <summary>Espacios en la ventana. 0 = sin dato (no mostrar índices).</summary>
+        [JsonPropertyName("n_espacios")]
+        public int NEspacios { get; set; }
+
+        /// <summary>true = aviso AMARILLO: singulación por debajo del objetivo
+        /// del insumo − margen, sostenida 20 s sembrando.</summary>
+        [JsonPropertyName("singulacion_baja")]
+        public bool SingulacionBaja { get; set; }
+
+        /// <summary>Acumulado de la pasada actual (desde que arrancó la siembra). null = sin datos.</summary>
+        [JsonPropertyName("espaciamiento_pasada")]
+        public VistaXEspaciamientoDto EspaciamientoPasada { get; set; }
+
+        /// <summary>Acumulado del lote abierto. null = sin datos.</summary>
+        [JsonPropertyName("espaciamiento_lote")]
+        public VistaXEspaciamientoDto EspaciamientoLote { get; set; }
+    }
+
+    /// <summary>Índices ISO 7256-1 acumulados (pasada o lote) de un surco.</summary>
+    public sealed class VistaXEspaciamientoDto
+    {
+        [JsonPropertyName("singulacion")]
+        public double Singulacion { get; set; }
+
+        [JsonPropertyName("dobles_pct")]
+        public double DoblesPct { get; set; }
+
+        [JsonPropertyName("fallas_pct")]
+        public double FallasPct { get; set; }
+
+        [JsonPropertyName("cv_pct")]
+        public double CvPct { get; set; }
+
+        [JsonPropertyName("n_espacios")]
+        public int NEspacios { get; set; }
     }
 
     public sealed class VistaXTrenLiveDto
@@ -366,5 +423,27 @@ namespace AgroParallel.Models
         public int UmbralSensores { get; set; }          // de la config
         public double VelMinima { get; set; }            // umbral según metodo
         public string MotivoDetenido { get; set; } = ""; // human-readable
+
+        // ----- Espaciamiento (ISO 7256-1) — promedio general -----------------
+        /// <summary>Singulación objetivo del insumo activo (default 97).</summary>
+        [JsonPropertyName("singulacion_objetivo_pct")]
+        public double SingulacionObjetivoPct { get; set; }
+
+        /// <summary>Promedio de los surcos con índice (n_espacios ≥ 30). 0 = sin dato.</summary>
+        [JsonPropertyName("singulacion_promedio")]
+        public double SingulacionPromedio { get; set; }
+
+        [JsonPropertyName("dobles_pct_promedio")]
+        public double DoblesPctPromedio { get; set; }
+
+        [JsonPropertyName("fallas_pct_promedio")]
+        public double FallasPctPromedio { get; set; }
+
+        [JsonPropertyName("cv_pct_promedio")]
+        public double CvPctPromedio { get; set; }
+
+        /// <summary>Surcos con aviso amarillo de singulación baja.</summary>
+        [JsonPropertyName("surcos_singulacion_baja")]
+        public int SurcosSingulacionBaja { get; set; }
     }
 }

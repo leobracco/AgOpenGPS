@@ -156,13 +156,30 @@ public partial class CabinaAlarmasOverlay : UserControl
                 {
                     if (s == null || s.Muted) continue;
                     var txt = TextoFalla(s.Estado);
-                    if (txt == null) continue;
+                    if (txt == null)
+                    {
+                        // Aviso AMARILLO (nodo VistaX v3.1+): muchos dobles o
+                        // fallas sostenido 20 s. Solo si el surco no tiene ya
+                        // una falla roja — tapado manda.
+                        if (s.SingulacionBaja)
+                            fallas.Add(($"vx:{s.Bajada}:{QueHacerAlarma.SurcoSingulacion}",
+                                PilotX.Cockpit.Bars.Traductor.T("Surco") + " " + s.Bajada + " " +
+                                PilotX.Cockpit.Bars.Traductor.T("singulación baja") + " (" +
+                                s.Singulacion.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " %)",
+                                QueHacerAlarma.SurcoSingulacion));
+                        continue;
+                    }
                     fallas.Add(($"vx:{s.Bajada}:{s.Estado}",
                         PilotX.Cockpit.Bars.Traductor.T("Surco") + " " + s.Bajada + " " +
                         PilotX.Cockpit.Bars.Traductor.T(txt), s.Estado ?? ""));
                 }
             }
         }
+        // Solo avisos de singulación (sin nodos caídos ni fallas rojas): el
+        // banner va en ÁMBAR. Es calidad de siembra, no un surco sin semilla.
+        bool soloAmarillo = offlines.Count == 0 && fallas.Count > 0 &&
+                            fallas.All(f => f.estado == QueHacerAlarma.SurcoSingulacion);
+        PintarSeveridad(soloAmarillo);
 
         if (offlines.Count == 0 && fallas.Count == 0)
         {
@@ -196,6 +213,8 @@ public partial class CabinaAlarmasOverlay : UserControl
             var slug = string.IsNullOrEmpty(data!.ImplementoSlug) ? "" : " — " + data.ImplementoSlug;
             _tituloText.Text = t("Implemento offline") + slug;
         }
+        else if (soloAmarillo)
+            _tituloText.Text = t("Singulación baja") + " — VistaX";
         else
             _tituloText.Text = t("Fallas de siembra") + " — VistaX";
 
@@ -257,6 +276,36 @@ public partial class CabinaAlarmasOverlay : UserControl
 
         if (hayNuevas && DateTime.UtcNow >= _silencedUntilUtc)
             PlayBeep();
+    }
+
+    // Rojo (XAML) = nodo caído / surco tapado / dosis. Ámbar = solo avisos de
+    // singulación. Los tonos oscuros mantienen el texto blanco legible al sol.
+    private static readonly Avalonia.Media.IBrush _bgAmbar = new Avalonia.Media.LinearGradientBrush
+    {
+        StartPoint = new Avalonia.RelativePoint(0, 0, Avalonia.RelativeUnit.Relative),
+        EndPoint   = new Avalonia.RelativePoint(0, 1, Avalonia.RelativeUnit.Relative),
+        GradientStops =
+        {
+            new Avalonia.Media.GradientStop(Avalonia.Media.Color.Parse("#A86F00"), 0),
+            new Avalonia.Media.GradientStop(Avalonia.Media.Color.Parse("#7A5000"), 1),
+        },
+    };
+    private static readonly Avalonia.Media.IBrush _bordeAmbar =
+        new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#4F3400"));
+    private Avalonia.Media.IBrush? _bgRojo, _bordeRojo;
+    private bool? _amarilloPintado;
+
+    private void PintarSeveridad(bool amarillo)
+    {
+        if (_alertRoot == null || _amarilloPintado == amarillo) return;
+        if (_bgRojo == null)
+        {
+            _bgRojo = _alertRoot.Background;
+            _bordeRojo = _alertRoot.BorderBrush;
+        }
+        _alertRoot.Background  = amarillo ? _bgAmbar : _bgRojo;
+        _alertRoot.BorderBrush = amarillo ? _bordeAmbar : _bordeRojo;
+        _amarilloPintado = amarillo;
     }
 
     private void OnSilenciarClick(object? sender, RoutedEventArgs e)

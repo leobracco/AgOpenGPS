@@ -85,6 +85,7 @@ namespace AgroParallel.Services.Tests
         [TestCase("no-data")]
         [TestCase("alerta")]
         [TestCase("exceso")]
+        [TestCase("singulacion")]      // aviso amarillo de dobles/fallas (ISO 7256-1)
         public void EstadosDeSurcoDelBanner_TienenQueHacer(string estado)
         {
             Assert.That(QueHacerAlarma.ParaSurco(estado), Is.Not.Null.And.Not.Empty);

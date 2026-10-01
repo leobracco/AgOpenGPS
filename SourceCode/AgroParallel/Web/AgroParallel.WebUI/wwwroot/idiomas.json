@@ -830,6 +830,18 @@
     "en": "Check there is seed and that row's meter turns properly.",
     "pt": "Verifique se há semente e se o dosador dessa linha gira bem."
   },
+  "Bajá un poco la velocidad. Si sigue, revisá la placa y el dosificador de ese surco.": {
+    "en": "Slow down a little. If it continues, check that row's plate and meter.",
+    "pt": "Reduza um pouco a velocidade. Se continuar, verifique o disco e o dosador dessa linha."
+  },
+  "singulación baja": {
+    "en": "low singulation",
+    "pt": "singulação baixa"
+  },
+  "Singulación baja": {
+    "en": "Low singulation",
+    "pt": "Singulação baixa"
+  },
   "Revisá el cable y la ficha del sensor de ese surco.": {
     "en": "Check that row's sensor cable and plug.",
     "pt": "Verifique o cabo e o conector do sensor dessa linha."

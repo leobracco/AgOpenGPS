@@ -51,6 +51,11 @@ namespace AgroParallel.Cabina
         /// <summary>Prefijo de los estados de surco VistaX del banner.</summary>
         public const string PrefijoSurco = "vistax-";
 
+        /// <summary>Estado de surco del aviso AMARILLO de singulación baja
+        /// (dobles/fallas, firmware VistaX v3.1+). No es un estado del
+        /// evaluador: lo arma el banner con el flag singulacion_baja.</summary>
+        public const string SurcoSingulacion = "singulacion";
+
         /// <summary>Desenganches automaticos del piloto (VigiaDesacople y RTK).</summary>
         public const string PilotoSinGps = "piloto-sin-gps";
         public const string PilotoLejosDeLaGuia = "piloto-lejos-guia";
@@ -75,6 +80,11 @@ namespace AgroParallel.Cabina
               "Cargá semilla en la tolva." },
             { PrefijoSurco + "exceso",
               "Revisá la dosis cargada y la calibración del dosificador." },
+            // Aviso amarillo: muchos dobles o fallas (singulación baja). La
+            // causa más común es ir rápido para la placa; después, la placa
+            // o el dosificador de ese surco.
+            { PrefijoSurco + SurcoSingulacion,
+              "Bajá un poco la velocidad. Si sigue, revisá la placa y el dosificador de ese surco." },
 
             // ── Piloto que se solto solo ────────────────────────────────────
             { PilotoSinGps,

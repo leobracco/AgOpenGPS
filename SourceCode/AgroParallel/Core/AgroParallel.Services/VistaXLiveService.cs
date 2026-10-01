@@ -107,7 +107,39 @@ namespace AgroParallel.Services
             public bool HasAcum;
             // true si el sensor reporta modo "state" (on/off): SPM no aplica.
             public bool IsState;
+
+            // ── Espaciamiento (firmware v3.1+, campo "dt") ─────────────────
+            // Los intervalos llegan por MQTT y se ENCOLAN con la velocidad del
+            // momento; se clasifican en GetSnapshot, que es donde se conoce el
+            // contexto (sección cortada, sembrando, objetivo del surco).
+            public readonly List<LoteDt> PendDt = new List<LoteDt>();
+            public int PendCount;
+            /// <summary>Intervalos que el nodo avisó perdidos (dt_lost) o que
+            /// se tiraron por cola llena. Diagnóstico, no entran al índice.</summary>
+            public long DtPerdidos;
+            public AgroParallel.Services.VistaX.VxEspaciamiento Esp;
+            public readonly AgroParallel.Services.VistaX.VxAlarmaSingulacion AlarmaSing =
+                new AgroParallel.Services.VistaX.VxAlarmaSingulacion();
+            /// <summary>Desde cuándo la sección de este surco está ON (para
+            /// los 2 s de asentamiento tras bajar la herramienta).</summary>
+            public DateTime SeccionOnDesde;
         }
+
+        /// <summary>Un mensaje de telemetría: sus intervalos + la velocidad y
+        /// la hora a la que llegó.</summary>
+        public struct LoteDt
+        {
+            public int[] Dt;
+            public double VelKmh;
+            public DateTime Ts;
+        }
+
+        // Tope de intervalos encolados por cable entre dos snapshots. La UI
+        // pide 2/s; si nadie pide por un rato, lo más viejo se tira (soja a
+        // 44 sem/s llena 4000 en ~90 s).
+        private const int MaxPendDt = 4000;
+        // Asentamiento tras arrancar la siembra o bajar la sección (s).
+        private const double AsentamientoEspS = 2.0;
 
         // Nodos VistaX vistos en MQTT (uid → última telemetría)
         // Extra respecto a _readings (que usa clave compuesta uid#cable).
@@ -599,8 +631,16 @@ namespace AgroParallel.Services
             }
 
             if (!root.TryGetProperty("sensores", out var arr) || arr.ValueKind != JsonValueKind.Array) return;
+            // Velocidad para pasar los intervalos `dt` (firmware v3.1+) a
+            // distancia. Se lee UNA vez por mensaje y con cache corto: el
+            // snapshot del motor no es gratis y llegan ~4 mensajes/s por nodo.
+            double velMsg = double.NaN;
             foreach (var s in arr.EnumerateArray())
             {
+                // "dt": intervalos entre semillas (0,1 ms). null = firmware viejo.
+                int[] dts = AgroParallel.Services.VistaX.VxEspaciamiento.LeerDt(s, out int dtLost);
+                if (dts != null && dts.Length > 0 && double.IsNaN(velMsg))
+                    velMsg = VelocidadCacheada(now);
                 int cable = s.TryGetProperty("cable", out var jc) && jc.ValueKind == JsonValueKind.Number
                     ? jc.GetInt32() : 0;
                 double valor = s.TryGetProperty("valor", out var jv) && jv.ValueKind == JsonValueKind.Number
@@ -625,6 +665,22 @@ namespace AgroParallel.Services
                     r.LastValor = valor;
                     r.LastTs = now;
                     r.IsState = isState;
+
+                    if (!isState)
+                    {
+                        if (dtLost > 0) r.DtPerdidos += dtLost;
+                        if (dts != null && dts.Length > 0)
+                        {
+                            r.PendDt.Add(new LoteDt { Dt = dts, VelKmh = velMsg, Ts = now });
+                            r.PendCount += dts.Length;
+                            while (r.PendCount > MaxPendDt && r.PendDt.Count > 1)
+                            {
+                                r.PendCount -= r.PendDt[0].Dt.Length;
+                                r.DtPerdidos += r.PendDt[0].Dt.Length;
+                                r.PendDt.RemoveAt(0);
+                            }
+                        }
+                    }
 
                     if (isState)
                     {
@@ -803,6 +859,10 @@ namespace AgroParallel.Services
                 // (ver abajo): el primero que la tiene gana, el resto no pisa.
                 var trenesConObjetivoDinamico = new System.Collections.Generic.HashSet<int>();
 
+                // Surcos candidatos al cálculo de espaciamiento: se procesan
+                // DESPUÉS de saber si estamos sembrando (EvaluarSembrando).
+                var espCtx = new List<EspCtx>();
+
                 if (_imp?.MapeoSensores != null)
                 {
                     foreach (var sc in _imp.MapeoSensores)
@@ -968,6 +1028,29 @@ namespace AgroParallel.Services
                             surco.Alerta = ev.Alerta;
                         }
                         tl.Surcos.Add(surco);
+
+                        // Espaciamiento (ISO 7256-1): solo sensores de SEMILLA
+                        // que cubren UN surco — con un cable para varios
+                        // surcos los intervalos se mezclan y no son espacios.
+                        bool unoAUno = sc.SurcoHasta <= 0 || sc.SurcoHasta <= sc.SurcoDesde;
+                        double objTrenFijo = _imp?.Setup?.DensidadObjetivo ?? 0;
+                        if (_imp?.Setup?.ObjetivosTren != null &&
+                            _imp.Setup.ObjetivosTren.TryGetValue(trenId.ToString(), out var objTv))
+                            objTrenFijo = objTv;
+                        espCtx.Add(new EspCtx
+                        {
+                            R = r,
+                            Dto = surco,
+                            Elegible = r != null && !r.IsState && !stale && unoAUno &&
+                                string.Equals(sc.Tipo ?? VistaXSensorTypes.Semilla, VistaXSensorTypes.Semilla,
+                                    StringComparison.OrdinalIgnoreCase),
+                            SeccionOff = seccionOff,
+                            Muted = sc.Muted,
+                            // Xref: override del sensor > dosis viva QuantiX >
+                            // objetivo del tren > densidad del insumo; 0 = mediana.
+                            SemMObjetivo = sc.Objetivo > 0 ? sc.Objetivo
+                                : (objSemMDin > 0 ? objSemMDin : objTrenFijo),
+                        });
                     }
                 }
 
@@ -1089,6 +1172,9 @@ namespace AgroParallel.Services
                 snap.MonitoreoActivo = EvaluarSembrando(snap, now);
                 snap.Velocidad = _state != null ? LeerVelocidadSegura() : 0;
 
+                // ---- Dobles / fallas / CV por surco (firmware v3.1+) ----
+                ProcesarEspaciamiento(snap, espCtx, now);
+
                 // ---- Regla de tres kg/ha (dosis por cinemática de la máquina) ----
                 // La sembradora mecánica dosifica los kg/ha para los que fue
                 // calibrada (dosis_kgha del insumo activo). El flujo promedio de
@@ -1100,6 +1186,157 @@ namespace AgroParallel.Services
 
                 return snap;
             }
+        }
+
+        // ---- Espaciamiento entre semillas (ISO 7256-1) ----------------------
+        private struct EspCtx
+        {
+            public Reading R;
+            public VistaXSurcoStateDto Dto;
+            public bool Elegible;
+            public bool SeccionOff;
+            public bool Muted;
+            public double SemMObjetivo;
+        }
+
+        private const double SingulacionObjetivoDefault = 97.0;
+        private bool _espActivoPrev;
+        private DateTime _espActivoDesde = DateTime.MinValue;
+        private string _espLote;
+        private string _espInsumoId;
+
+        /// <summary>
+        /// Clasifica los intervalos encolados de cada surco y vuelca los
+        /// índices al snapshot. Corre adentro de _lock, con MonitoreoActivo ya
+        /// resuelto. Exclusiones de contexto: sin sembrar, sección cortada,
+        /// los primeros 2 s tras arrancar o tras bajar la sección, sensores
+        /// que no son semilla 1 cable = 1 surco, sensor sin datos.
+        /// </summary>
+        private void ProcesarEspaciamiento(VistaXLiveSnapshotDto snap, List<EspCtx> ctxs, DateTime now)
+        {
+            bool activo = snap.MonitoreoActivo;
+
+            InsumoDto insumo = null;
+            try { insumo = _insumos?.GetActivo(); } catch { }
+            double objPct = insumo != null && insumo.SingulacionObjetivoPct > 0
+                ? insumo.SingulacionObjetivoPct : SingulacionObjetivoDefault;
+            snap.SingulacionObjetivoPct = objPct;
+            double semMInsumo = insumo?.DensidadObjetivoSemM ?? 0;
+
+            // Arranque de siembra = pasada nueva.
+            if (activo && !_espActivoPrev)
+            {
+                _espActivoDesde = now;
+                foreach (var r in _readings.Values)
+                {
+                    r.Esp?.ResetPasada();
+                    r.AlarmaSing.Reset();
+                }
+            }
+            if (!activo) _espActivoDesde = DateTime.MinValue;
+            _espActivoPrev = activo;
+
+            // Cambio de lote → acumulado de lote de cero.
+            string lote = "";
+            try { lote = _state?.GetSnapshot()?.CurrentFieldDirectory ?? ""; } catch { }
+            if (_espLote == null) _espLote = lote;
+            else if (!string.Equals(lote, _espLote, StringComparison.OrdinalIgnoreCase))
+            {
+                _espLote = lote;
+                foreach (var r in _readings.Values) { r.Esp?.ResetLote(); r.Esp?.ResetPasada(); }
+            }
+
+            // Cambio de insumo → otro objetivo: la ventana vieja no compara.
+            string insumoId = insumo?.Id ?? "";
+            if (_espInsumoId == null) _espInsumoId = insumoId;
+            else if (insumoId != _espInsumoId)
+            {
+                _espInsumoId = insumoId;
+                foreach (var r in _readings.Values) r.Esp?.ResetVentana();
+            }
+
+            double sumS = 0, sumD = 0, sumF = 0, sumCv = 0;
+            int nProm = 0, nBaja = 0;
+            foreach (var c in ctxs)
+            {
+                var r = c.R;
+                if (r == null) continue;
+
+                if (c.SeccionOff) r.SeccionOnDesde = DateTime.MinValue;
+                else if (r.SeccionOnDesde == DateTime.MinValue) r.SeccionOnDesde = now;
+
+                if (r.PendDt.Count > 0)
+                {
+                    if (c.Elegible && activo && !c.SeccionOff)
+                    {
+                        DateTime desde = (_espActivoDesde > r.SeccionOnDesde ? _espActivoDesde : r.SeccionOnDesde)
+                            .AddSeconds(AsentamientoEspS);
+                        double semM = c.SemMObjetivo > 0 ? c.SemMObjetivo : semMInsumo;
+                        double xref = semM > 0 ? 1.0 / semM : 0;   // 0 → mediana
+                        if (r.Esp == null) r.Esp = new AgroParallel.Services.VistaX.VxEspaciamiento();
+                        foreach (var lt in r.PendDt)
+                        {
+                            if (lt.Ts < desde) continue;
+                            foreach (var dt in lt.Dt) r.Esp.Agregar(dt, lt.VelKmh, xref);
+                        }
+                    }
+                    r.PendDt.Clear();
+                    r.PendCount = 0;
+                }
+
+                if (!c.Elegible || r.Esp == null) continue;
+
+                var v = r.Esp.Ventana();
+                var d = c.Dto;
+                d.NEspacios = v.NEspacios;
+                if (v.NEspacios > 0)
+                {
+                    d.Singulacion = Math.Round(v.SingulacionPct, 1);
+                    d.DoblesPct = Math.Round(v.DoblesPct, 1);
+                    d.FallasPct = Math.Round(v.FallasPct, 1);
+                    d.CvPct = Math.Round(v.CvPct, 1);
+                }
+                d.EspaciamientoPasada = AEspDto(r.Esp.Pasada());
+                d.EspaciamientoLote = AEspDto(r.Esp.Lote());
+                d.SingulacionBaja = r.AlarmaSing.Evaluar(v.SingulacionPct, v.NEspacios, objPct,
+                    activo && !c.SeccionOff && !c.Muted, now);
+                if (d.SingulacionBaja) nBaja++;
+
+                if (v.NEspacios >= AgroParallel.Services.VistaX.VxEspaciamiento.MinMuestrasMediana)
+                {
+                    sumS += v.SingulacionPct; sumD += v.DoblesPct; sumF += v.FallasPct; sumCv += v.CvPct;
+                    nProm++;
+                }
+            }
+
+            // Lecturas que no son de ningún surco elegible (sin mapear, state):
+            // su cola no se usa — vaciarla para que no crezca.
+            foreach (var r in _readings.Values)
+            {
+                if (r.PendCount > 0) { r.PendDt.Clear(); r.PendCount = 0; }
+            }
+
+            if (nProm > 0)
+            {
+                snap.SingulacionPromedio = Math.Round(sumS / nProm, 1);
+                snap.DoblesPctPromedio = Math.Round(sumD / nProm, 1);
+                snap.FallasPctPromedio = Math.Round(sumF / nProm, 1);
+                snap.CvPctPromedio = Math.Round(sumCv / nProm, 1);
+            }
+            snap.SurcosSingulacionBaja = nBaja;
+        }
+
+        private static VistaXEspaciamientoDto AEspDto(AgroParallel.Services.VistaX.VxIndicesEspaciamiento ix)
+        {
+            if (ix == null || ix.NEspacios <= 0) return null;
+            return new VistaXEspaciamientoDto
+            {
+                Singulacion = Math.Round(ix.SingulacionPct, 1),
+                DoblesPct = Math.Round(ix.DoblesPct, 1),
+                FallasPct = Math.Round(ix.FallasPct, 1),
+                CvPct = Math.Round(ix.CvPct, 1),
+                NEspacios = ix.NEspacios,
+            };
         }
 
         // ---- Captura del flujo de referencia (regla de tres kg/ha) ----------
@@ -1188,6 +1425,28 @@ namespace AgroParallel.Services
                 return v;
             }
             catch { return 0; }
+        }
+
+        // Cache de velocidad para el parser de `dt` (hilo MQTT). 250 ms: el
+        // mismo período de la telemetría del nodo.
+        private readonly object _velLock = new object();
+        private double _velCacheKmh;
+        private DateTime _velCacheTs;
+
+        private double VelocidadCacheada(DateTime now)
+        {
+            lock (_velLock)
+            {
+                if (_velCacheTs != default(DateTime) && (now - _velCacheTs).TotalMilliseconds < 250)
+                    return _velCacheKmh;
+            }
+            double v = LeerVelocidadSegura();
+            lock (_velLock)
+            {
+                _velCacheKmh = v;
+                _velCacheTs = now;
+            }
+            return v;
         }
 
         /// <summary>

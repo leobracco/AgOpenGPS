@@ -142,6 +142,52 @@
                         </Grid>
                     </Border>
 
+                    <!-- ============ Calidad de siembra (ISO 7256-1) ============
+                         Promedio general de dobles / fallas / CV de los surcos
+                         que tienen índice (nodo VistaX v3.1+). Oculto si ningún
+                         surco tiene datos: no se muestran ceros que parecen
+                         siembra perfecta. -->
+                    <Border Name="EspStrip"
+                            IsVisible="False"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="16,10,16,10">
+                        <Grid ColumnDefinitions="*,*,*,*">
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock Text="SINGULACIÓN %" Foreground="{StaticResource PilotXPanelTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                                <TextBlock Name="KpiSing" Text="--"
+                                           Foreground="{StaticResource PilotXPanelText}"
+                                           FontSize="22" FontWeight="Bold"
+                                           FontFamily="Consolas, Courier New, monospace"/>
+                                <TextBlock Name="KpiSingObj" Text=""
+                                           Foreground="{StaticResource PilotXPanelTextDim}" FontSize="10"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Text="DOBLES %" Foreground="{StaticResource PilotXPanelTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                                <TextBlock Name="KpiDobles" Text="--"
+                                           Foreground="{StaticResource PilotXPanelText}"
+                                           FontSize="22" FontWeight="Bold"
+                                           FontFamily="Consolas, Courier New, monospace"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="2">
+                                <TextBlock Text="FALLAS %" Foreground="{StaticResource PilotXPanelTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                                <TextBlock Name="KpiFallasEsp" Text="--"
+                                           Foreground="{StaticResource PilotXPanelText}"
+                                           FontSize="22" FontWeight="Bold"
+                                           FontFamily="Consolas, Courier New, monospace"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" Spacing="2">
+                                <TextBlock Text="CV %" Foreground="{StaticResource PilotXPanelTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                                <TextBlock Name="KpiCv" Text="--"
+                                           Foreground="{StaticResource PilotXPanelText}"
+                                           FontSize="22" FontWeight="Bold"
+                                           FontFamily="Consolas, Courier New, monospace"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
                     <!-- ============ Badges (conteo por estado) ============ -->
                     <WrapPanel Name="BadgesHost"/>
 

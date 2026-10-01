@@ -83,6 +83,99 @@ namespace AgroParallel.Services.Tests
             Assert.That(FindTren99(_svc), Is.Null, "el heartbeat no deberia generar ninguna lectura");
         }
 
+        // ── Espaciamiento (firmware v3.1, campo "dt") ─────────────────────
+
+        // Solo la velocidad: el resto del provider no lo usa VistaXLive.
+        private sealed class FakeState : IAogStateProvider
+        {
+            public double Vel = 8;
+            public AogStateSnapshot GetSnapshot() => new AogStateSnapshot { AvgSpeed = Vel };
+            public AllSettingsSnapshot GetAllSettings() => null;
+            public EventLogSnapshot GetEventLog() => null;
+            public XteGraphSample GetXteGraphSample() => null;
+            public HeadingGraphSample GetHeadingGraphSample() => null;
+            public SteerGraphSample GetSteerGraphSample() => null;
+            public CorrectionGraphSample GetCorrectionGraphSample() => null;
+            public ShiftPosSnapshot GetShiftPos() => null;
+            public SimCoordsSnapshot GetSimCoords() => null;
+            public SectionColorsSnapshot GetSectionColors() => null;
+            public DisplayColorsSnapshot GetDisplayColors() => null;
+            public double GetShapeFieldDose(string fieldName) => 0;
+            public ShapeSnapshot GetShape() => null;
+            public ShapeFieldsSnapshot GetShapeFields() => null;
+        }
+
+        private static VistaXLiveService ServicioSembrando(FakeNodoRegistry fake, FakeVistaXConfig cfg)
+        {
+            cfg.Cfg.MetodoInicio = "manual";
+            cfg.Imp.Setup.DensidadObjetivo = 5;            // maíz: Xref = 20 cm
+            cfg.Imp.MapeoSensores.Add(new VistaXSensorConfigDto
+            {
+                Uid = "VX-1", Cable = 1, Bajada = 1, SurcoDesde = 1, Tipo = "semilla", Tren = 1,
+            });
+            var svc = new VistaXLiveService(fake, cfg, state: new FakeState());
+            svc.Start();
+            svc.ForzarMonitoreoManual(true);
+            return svc;
+        }
+
+        private static VistaXSurcoStateDto Surco1(VistaXLiveService svc)
+        {
+            foreach (var t in svc.GetSnapshot().Trenes)
+                foreach (var s in t.Surcos)
+                    if (s.Uid == "VX-1" && s.Cable == 1) return s;
+            return null;
+        }
+
+        private static string Tel(string dts) =>
+            "{\"schema\":\"agp.vistax.telemetry/2\",\"uid\":\"VX-1\",\"sensores\":[" +
+            "{\"cable\":1,\"valor\":11.1,\"raw\":3,\"acum\":100,\"dt\":[" + dts + "]}]}";
+
+        [Test]
+        public void Telemetria_v2_calcula_singulacion_y_respeta_el_asentamiento()
+        {
+            var fake = new FakeNodoRegistry();
+            using (var svc = ServicioSembrando(fake, new FakeVistaXConfig()))
+            {
+                // 8 km/h y 20 cm → 90 ms = 900 unidades de 0,1 ms.
+                var limpio = string.Join(",", System.Linq.Enumerable.Repeat("900", 15));
+
+                fake.Emit("vistax/VX-1/telemetria", Tel(limpio));
+                var s0 = Surco1(svc);                       // arranca la siembra acá
+                Assert.That(s0.NEspacios, Is.EqualTo(0), "los primeros 2 s no cuentan");
+
+                System.Threading.Thread.Sleep(2200);
+                for (int i = 0; i < 10; i++)
+                    fake.Emit("vistax/VX-1/telemetria", Tel(limpio));
+                // Un hueco (parada) y un doble.
+                fake.Emit("vistax/VX-1/telemetria", Tel("65535,300"));
+
+                var s = Surco1(svc);
+                Assert.That(s.NEspacios, Is.EqualTo(151));
+                Assert.That(s.DoblesPct, Is.EqualTo(0.7).Within(0.05));
+                Assert.That(s.FallasPct, Is.EqualTo(0));
+                Assert.That(s.Singulacion, Is.EqualTo(99.3).Within(0.05));
+                Assert.That(s.EspaciamientoLote.NEspacios, Is.EqualTo(151));
+                Assert.That(s.SingulacionBaja, Is.False);
+                Assert.That(s.Valor, Is.EqualTo(11.1), "los campos viejos siguen iguales");
+            }
+        }
+
+        [Test]
+        public void Telemetria_vieja_sin_dt_deja_los_indices_en_cero()
+        {
+            var fake = new FakeNodoRegistry();
+            using (var svc = ServicioSembrando(fake, new FakeVistaXConfig()))
+            {
+                fake.Emit("vistax/VX-1/telemetria",
+                    "{\"uid\":\"VX-1\",\"sensores\":[{\"cable\":1,\"valor\":11.1,\"raw\":3,\"acum\":100}]}");
+                var s = Surco1(svc);
+                Assert.That(s.NEspacios, Is.EqualTo(0));
+                Assert.That(s.Singulacion, Is.EqualTo(0));
+                Assert.That(s.EspaciamientoLote, Is.Null);
+            }
+        }
+
         private static VistaXTrenLiveDto FindTren99(VistaXLiveService svc)
         {
             var snap = svc.GetSnapshot();

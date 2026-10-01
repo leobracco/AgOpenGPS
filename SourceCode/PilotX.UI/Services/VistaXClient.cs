@@ -76,6 +76,29 @@ public sealed class VistaXSurcoLive
     [JsonPropertyName("seccion_cortada")] public bool  SeccionCortada { get; set; }
     /// <summary>Timestamp ISO de la ultima telemetria del sensor (para "hace Ns").</summary>
     [JsonPropertyName("last_seen_iso")]   public string? LastSeenIso  { get; set; }
+
+    // ---- Espaciamiento entre semillas (ISO 7256-1, nodo VistaX v3.1+) ----
+    // Ventana de los ultimos ~300 espacios del surco. n_espacios = 0 → sin
+    // dato (nodo viejo, sensor que no es 1 cable = 1 surco, o recien arranca):
+    // la pantalla NO muestra indices en ese caso.
+    [JsonPropertyName("singulacion")]      public double Singulacion     { get; set; }
+    [JsonPropertyName("dobles_pct")]       public double DoblesPct       { get; set; }
+    [JsonPropertyName("fallas_pct")]       public double FallasPct       { get; set; }
+    [JsonPropertyName("cv_pct")]           public double CvPct           { get; set; }
+    [JsonPropertyName("n_espacios")]       public int    NEspacios       { get; set; }
+    /// <summary>Aviso AMARILLO: singulacion bajo objetivo − margen, 20 s sostenidos.</summary>
+    [JsonPropertyName("singulacion_baja")] public bool   SingulacionBaja { get; set; }
+    [JsonPropertyName("espaciamiento_lote")] public VistaXEspaciamientoLive? EspaciamientoLote { get; set; }
+}
+
+/// <summary>Indices acumulados (pasada o lote) de un surco.</summary>
+public sealed class VistaXEspaciamientoLive
+{
+    [JsonPropertyName("singulacion")] public double Singulacion { get; set; }
+    [JsonPropertyName("dobles_pct")]  public double DoblesPct   { get; set; }
+    [JsonPropertyName("fallas_pct")]  public double FallasPct   { get; set; }
+    [JsonPropertyName("cv_pct")]      public double CvPct       { get; set; }
+    [JsonPropertyName("n_espacios")]  public int    NEspacios   { get; set; }
 }
 
 public sealed class VistaXTrenLive
@@ -116,6 +139,14 @@ public sealed class VistaXLiveSnapshot
     /// sem/ha = sem/m · 10000 / distancia.</summary>
     [JsonPropertyName("distancia_entre_surcos")] public double DistanciaEntreSurcos   { get; set; }
     [JsonPropertyName("nodos")]            public List<VistaXNodoLive>? Nodos        { get; set; }
+
+    // ---- Espaciamiento (promedio general de los surcos con indice) ----
+    [JsonPropertyName("singulacion_objetivo_pct")] public double SingulacionObjetivoPct { get; set; }
+    [JsonPropertyName("singulacion_promedio")]     public double SingulacionPromedio    { get; set; }
+    [JsonPropertyName("dobles_pct_promedio")]      public double DoblesPctPromedio      { get; set; }
+    [JsonPropertyName("fallas_pct_promedio")]      public double FallasPctPromedio      { get; set; }
+    [JsonPropertyName("cv_pct_promedio")]          public double CvPctPromedio          { get; set; }
+    [JsonPropertyName("surcos_singulacion_baja")]  public int    SurcosSingulacionBaja  { get; set; }
 }
 
 // ---------------------------------------------------------------------------

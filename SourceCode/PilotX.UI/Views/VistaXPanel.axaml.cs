@@ -169,6 +169,8 @@ public partial class VistaXPanel : UserControl
         if (kpiFallas  != null) kpiFallas.Text  = (live?.FallasActivas ?? 0).ToString(CultureInfo.InvariantCulture);
         if (kpiImp     != null) kpiImp.Text     = impName;
 
+        RenderEspaciamiento(live);
+
         // Alarm chip
         if (alarmDot != null && alarmText != null)
         {
@@ -264,6 +266,55 @@ public partial class VistaXPanel : UserControl
         }
     }
 
+    // ---------- calidad de siembra (ISO 7256-1, nodo VistaX v3.1+) ----------
+    //
+    // Singulación = 100 − dobles − fallas, sobre los últimos ~300 espacios del
+    // surco. Color: verde si llega al objetivo del insumo, neutro hasta 3
+    // puntos abajo, ámbar más abajo o con el aviso de cabina activo. El rojo
+    // queda para lo que corta la siembra (tapado / dosis), no para calidad.
+    private const double MargenSingulacion = 3.0;
+
+    private static IBrush BrushSingulacion(double sing, bool baja, double objPct)
+    {
+        double obj = objPct > 0 ? objPct : 97;
+        if (baja || sing < obj - MargenSingulacion) return _brushWarn;
+        if (sing >= obj) return _brushOk;
+        return _textMid;
+    }
+
+    private static string Pct(double v) => v.ToString("0.0", CultureInfo.InvariantCulture);
+
+    private void RenderEspaciamiento(VistaXLiveSnapshot? live)
+    {
+        var strip = this.FindControl<Border>("EspStrip");
+        if (strip == null) return;
+        // Sin surcos con índice (nodos viejos, parado recién arrancado): la
+        // franja no aparece — ceros acá parecerían siembra perfecta.
+        bool hay = live != null && live.MonitoreoActivo && live.SingulacionPromedio > 0;
+        strip.IsVisible = hay;
+        if (!hay) return;
+
+        var kSing = this.FindControl<TextBlock>("KpiSing");
+        var kObj  = this.FindControl<TextBlock>("KpiSingObj");
+        var kD    = this.FindControl<TextBlock>("KpiDobles");
+        var kF    = this.FindControl<TextBlock>("KpiFallasEsp");
+        var kCv   = this.FindControl<TextBlock>("KpiCv");
+        double obj = live!.SingulacionObjetivoPct > 0 ? live.SingulacionObjetivoPct : 97;
+        if (kSing != null)
+        {
+            kSing.Text = Pct(live.SingulacionPromedio);
+            kSing.Foreground = BrushSingulacion(live.SingulacionPromedio, false, obj);
+        }
+        if (kObj != null)
+            kObj.Text = "objetivo " + obj.ToString("0", CultureInfo.InvariantCulture) + " %" +
+                (live.SurcosSingulacionBaja > 0
+                    ? " · " + live.SurcosSingulacionBaja.ToString(CultureInfo.InvariantCulture) + " surco(s) bajo"
+                    : "");
+        if (kD  != null) kD.Text  = Pct(live.DoblesPctPromedio);
+        if (kF  != null) kF.Text  = Pct(live.FallasPctPromedio);
+        if (kCv != null) kCv.Text = Pct(live.CvPctPromedio);
+    }
+
     // ---------- builders ----------------------------------------------------
 
     private static Control BuildBadge(string text, IBrush dotBrush)
@@ -337,7 +388,8 @@ public partial class VistaXPanel : UserControl
             foreach (var s in tubitos)
             {
                 var sensorClosure = s;
-                var cell = BuildSensorCell(sensorClosure, tr.Objetivo, monActivo, velKmh);
+                var cell = BuildSensorCell(sensorClosure, tr.Objetivo, monActivo, velKmh,
+                    _live?.SingulacionObjetivoPct ?? 0);
                 cell.Cursor = new Cursor(StandardCursorType.Hand);
                 // Tapped es el evento "click/touch" de alto nivel de Avalonia:
                 // se dispara tras Pointer{Press,Release} en el mismo control
@@ -386,7 +438,8 @@ public partial class VistaXPanel : UserControl
         };
     }
 
-    private static Control BuildSensorCell(VistaXSurcoLive s, double objTren, bool monActivo, double velKmh)
+    private static Control BuildSensorCell(VistaXSurcoLive s, double objTren, bool monActivo, double velKmh,
+        double singObjPct)
     {
         var st = NormalizeEstado(s.Estado);
         // Densidad, no caudal: el número grande de la celda es SEM/M. Mostraba
@@ -521,6 +574,28 @@ public partial class VistaXPanel : UserControl
             FontWeight = FontWeight.SemiBold,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
+
+        // Singulación del surco (nodo v3.1+). Solo sembrando y con espacios:
+        // parado el monitor entero está en gris y no se agrega ruido.
+        if (monActivo && s.NEspacios > 0)
+        {
+            var bSing = BrushSingulacion(s.Singulacion, s.SingulacionBaja, singObjPct);
+            sp1.Children.Add(new Border
+            {
+                BorderBrush = bSing,
+                BorderThickness = new global::Avalonia.Thickness(1),
+                CornerRadius = new global::Avalonia.CornerRadius(999),
+                Padding = new global::Avalonia.Thickness(6, 1, 6, 1),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = "sing " + s.Singulacion.ToString("0", CultureInfo.InvariantCulture) + "%",
+                    Foreground = bSing,
+                    FontSize = 10,
+                    FontWeight = FontWeight.Bold,
+                },
+            });
+        }
 
         return new Border
         {
@@ -889,6 +964,36 @@ public partial class VistaXPanel : UserControl
         }
         // Barra ratio
         body.Children.Add(BuildBar(monActivo ? Math.Min(1.0, ratio) : 0, estadoBrush));
+
+        // Calidad de siembra del surco: dobles / fallas / CV (ISO 7256-1).
+        // Solo semilla. Sin espacios = nodo VistaX anterior a v3.1, sensor que
+        // cubre más de un surco, o recién arrancó: se dice, no se inventa.
+        if (tipoLow == "semilla")
+        {
+            if (s.NEspacios > 0)
+            {
+                double singObj = _live?.SingulacionObjetivoPct ?? 0;
+                body.Children.Add(BuildDetailRow("Singulación",
+                    Pct(s.Singulacion) + " %",
+                    BrushSingulacion(s.Singulacion, s.SingulacionBaja, singObj), big: true));
+                body.Children.Add(BuildDetailRow("Dobles", Pct(s.DoblesPct) + " %", _textHi));
+                body.Children.Add(BuildDetailRow("Fallas", Pct(s.FallasPct) + " %", _textHi));
+                body.Children.Add(BuildDetailRow("CV espaciamiento", Pct(s.CvPct) + " %", _textHi));
+                var lote = s.EspaciamientoLote;
+                if (lote != null && lote.NEspacios > 0)
+                    body.Children.Add(BuildDetailRow("En el lote",
+                        "sing " + Pct(lote.Singulacion) + " · D " + Pct(lote.DoblesPct) +
+                        " · F " + Pct(lote.FallasPct) + " · CV " + Pct(lote.CvPct),
+                        _textMid));
+                body.Children.Add(BuildDetailRow("Espacios medidos",
+                    s.NEspacios.ToString(CultureInfo.InvariantCulture) + " (últimos)", _textDim));
+            }
+            else
+            {
+                body.Children.Add(BuildDetailRow("Singulación",
+                    "sin dato (nodo v3.1 y un sensor por surco)", _textDim));
+            }
+        }
 
         // Metadata
         body.Children.Add(BuildDetailRow("Tipo",   tipoStr, _textMid));
