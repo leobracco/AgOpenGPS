@@ -74,7 +74,7 @@ public partial class MainWindow : Window
     private MenuIzquierdaViewModel? _vmIzq;
     private const double MenuIzqCollapsed = 40;
     private const double MenuIzqNarrow = 140;
-    private const double MenuIzqExpanded = 316;
+    private const double MenuIzqExpanded = 360;   // 316 hasta 2026-10-01: letra más grande en el menú
 
     // WebView lazy: se instancia on-demand y se dispone al cerrar la pantalla.
     private Panel?   _webViewSlot;

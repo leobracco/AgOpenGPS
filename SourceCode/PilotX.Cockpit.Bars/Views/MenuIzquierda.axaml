@@ -23,7 +23,7 @@
       <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="CornerRadius" Value="8"/>
       <Setter Property="Padding" Value="2"/>
-      <Setter Property="MinHeight" Value="52"/>
+      <Setter Property="MinHeight" Value="58"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
@@ -42,17 +42,17 @@
          btnJobMenu de AOG) pero SIN verde permanente — solo se resalta
          cuando su submenú está abierto, igual que los demás (.active). -->
     <Style Selector="Button.mbtn.lote">
-      <Setter Property="MinHeight" Value="78"/>
+      <Setter Property="MinHeight" Value="84"/>
     </Style>
     <Style Selector="Button.mbtn.lote Image.mico">
-      <Setter Property="Width" Value="36"/>
-      <Setter Property="Height" Value="36"/>
+      <Setter Property="Width" Value="40"/>
+      <Setter Property="Height" Value="40"/>
     </Style>
     <!-- LOTE puede ir más grande: es la palabra más corta del menú y entra
          holgada aunque no se corte nada. -->
     <Style Selector="Button.mbtn.lote TextBlock.mlbl">
       <Setter Property="Foreground" Value="#08120A"/>
-      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontSize" Value="16"/>
       <Setter Property="FontWeight" Value="Bold"/>
     </Style>
 
@@ -61,7 +61,7 @@
       <Setter Property="BorderBrush" Value="#D9E0D9"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="9"/>
-      <Setter Property="MinHeight" Value="48"/>
+      <Setter Property="MinHeight" Value="54"/>
       <Setter Property="Padding" Value="2"/>
       <Setter Property="Margin" Value="1"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -80,25 +80,26 @@
     </Style>
 
     <Style Selector="Image.mico">
-      <Setter Property="Width" Value="28"/>
-      <Setter Property="Height" Value="28"/>
+      <Setter Property="Width" Value="32"/>
+      <Setter Property="Height" Value="32"/>
       <Setter Property="Stretch" Value="Uniform"/>
     </Style>
     <!-- Ícono real del submenú (PNG verdadero del 6.8.5) -->
     <Style Selector="Image.sico">
-      <Setter Property="Width" Value="24"/>
-      <Setter Property="Height" Value="24"/>
+      <Setter Property="Width" Value="26"/>
+      <Setter Property="Height" Value="26"/>
       <Setter Property="Stretch" Value="Uniform"/>
     </Style>
     <!-- Ícono arriba + etiqueta abajo: el ícono es el que se reconoce de lejos
          (son los mismos PNG del 6.8.5, lo que el operario ya venía usando) y la
-         palabra confirma. La etiqueta NO se toca al agregarlos: sigue en
-         NoWrap 10 px porque las palabras no se tienen que cortar — la columna
-         deja ~80 px útiles y la más larga ("Configuración") mide 93 px a 13,
-         86 a 12 y 72 a 10 — medido, no estimado. Vertical: 28 de ícono + 2 de
-         aire + ~14 de línea = 44 dentro de los 52 de MinHeight. -->
+         palabra confirma. NoWrap porque las palabras no se tienen que cortar.
+         Letra más grande (pedido 2026-10-01): a 13 px "Configuración" mide 94 px
+         (Inter SemiBold, medido); la columna pasó de 92 a 108 para dejar ~96
+         útiles, y el menú entero de 316 a 360 (MainWindow.MenuIzqExpanded) para
+         que el submenú no pierda ancho. Vertical: 32 de ícono + 2 de aire +
+         ~17 de línea = 51 dentro de los 58 de MinHeight. -->
     <Style Selector="TextBlock.mlbl">
-      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="FontSize" Value="13"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="#101612"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -108,7 +109,7 @@
       <Setter Property="Margin" Value="0,2,0,0"/>
     </Style>
     <Style Selector="TextBlock.slbl">
-      <Setter Property="FontSize" Value="9"/>
+      <Setter Property="FontSize" Value="11.5"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="#101612"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -117,7 +118,7 @@
       <Setter Property="Margin" Value="0,2,0,0"/>
     </Style>
     <Style Selector="TextBlock.subtitle">
-      <Setter Property="FontSize" Value="10.5"/>
+      <Setter Property="FontSize" Value="12"/>
       <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="Foreground" Value="#6F786F"/>
       <Setter Property="Margin" Value="2,0,0,6"/>
@@ -157,7 +158,7 @@
        la barra de la pasada. Ahora es un panel flotante a la altura del
        chevrón (que ya vivía centrado) y abajo queda mapa libre. -->
   <Border Background="Transparent" Padding="6" VerticalAlignment="Center">
-    <Grid ColumnDefinitions="Auto,92,*">
+    <Grid ColumnDefinitions="Auto,108,*">
 
       <!-- Fondo de la barra propiamente dicha (handle + botones). -->
       <Border Grid.Column="0" Grid.ColumnSpan="2"

@@ -958,7 +958,7 @@
                 <bars:MenuIzquierda x:Name="MenuIzq"
                                     Grid.Row="1"
                                     HorizontalAlignment="Left" VerticalAlignment="Stretch"
-                                    Width="316"/>
+                                    Width="360"/>
                 <!-- Zoom + barra derecha en la MISMA columna, los dos colgando
                      de abajo. Van en un solo StackPanel a propósito: la barra
                      cambia de alto según cuántos botones apliquen en el momento,

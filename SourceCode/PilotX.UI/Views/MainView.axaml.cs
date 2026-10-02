@@ -63,8 +63,8 @@ namespace PilotX.Desktop.Views
         private double _lastXteMeters = double.NaN;
 
         private const double MenuIzqCollapsed = 40;
-        private const double MenuIzqNarrow = 140;
-        private const double MenuIzqExpanded = 316;
+        private const double MenuIzqNarrow = 156;     // +16: columna del menú 92→108 (letra más grande, 2026-10-01)
+        private const double MenuIzqExpanded = 360;
 
         private readonly List<Action> _cleanup = new List<Action>();
         private bool _started;

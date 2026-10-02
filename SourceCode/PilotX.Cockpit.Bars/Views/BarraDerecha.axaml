@@ -12,13 +12,19 @@
     <!-- Botón con título: el ícono solo no alcanzaba para saber qué hacía
          cada uno (pedido usuario 2026-08-04). -->
     <!-- 9 px con #535E54 sobre fondo claro era lo MENOS legible de la cabina
-         (pedido del usuario 2026-09-14). El contraste sube igual que en el dock
-         (#2A3329, ~11:1), pero el tamaño va a 11 y no a 12: esta barra mide 56
-         px de ancho y "Hidráulico" a 12 px no entra. Para igualarlos hay que
-         ensanchar la barra, que le come ancho al mapa — decisión aparte.
-         TextWrapping por si alguna etiqueta futura no entra: antes se cortaba. -->
+         (pedido del usuario 2026-09-14): contraste #2A3329 (~11:1).
+         Letra más grande (pedido 2026-10-01): a 56 px de ancho y 11 px las
+         palabras largas YA se cortaban a mitad ("Hidrául/ico", "ISOBU/S",
+         "Endere/zar" — render headless). A 13 px la palabra más larga
+         ("Hidráulico") mide 69 px (Inter SemiBold): la barra pasa a 78 px y
+         los botones a padding 3 → 70 útiles. Wrap queda para etiquetas de
+         dos palabras ("Cab. secc."), que cortan entre palabras. -->
+    <Style Selector="Button">
+      <Setter Property="Padding" Value="3,3"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
     <Style Selector="TextBlock.cap">
-      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontSize" Value="13"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="#2A3329"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -125,7 +131,7 @@
          queda dentada), pero el ancho tiene que DESAPARECER al plegarse. Poner
          el ancho en el UserControl hacía una cosa o la otra, nunca las dos. -->
     <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="3"
-                Width="56" IsVisible="{Binding !IsCollapsed}">
+                Width="78" IsVisible="{Binding !IsCollapsed}">
       <TextBlock Text="{Binding NumCuText}" IsVisible="{Binding NumCuVisible}"
                  FontSize="14" FontWeight="Bold" Foreground="#101612"
                  HorizontalAlignment="Center" Margin="0,1"/>
