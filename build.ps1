@@ -345,7 +345,11 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem | Out-Null
 #    (los .json legÃƒÂ­timos del release estÃƒÂ¡n en subdirs: wwwroot, runtimes...)
 $skipDirs = @('Updates','Backups','WebView2Data','firmware-cache',
               'data','implementos','Fields','Vehicles','Logs','Profiles',
-              'PilotXDesktop','BenchX','Linux')
+              'PilotXDesktop','BenchX','Linux',
+              # Datos de runtime / desarrollo que se colaban (vistos en el ZIP
+              # 1.0.87): registros PID de QuantiX de ESTA maquina (con UIDs de
+              # nodos) y capturas de pantalla de la config.
+              'pid-quantix','config-captures')
 $skipExt  = @('.pdb','.bak','.log','.on')
 # Exes que NO viajan a una pantalla: BenchX vÃƒÂ­a $skipDirs (simulador de banco;
 # con el CoreX embebido del engine arma un lazo de eco UDP que infla el proceso
