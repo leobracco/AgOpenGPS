@@ -12,6 +12,58 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.87] — 2026-10-01
+
+Tanda de funciones tomadas de la competencia (Sensor T-Wave, Ag Leader,
+Abelardo Cuffia). **Todo lo que cambia cómo guía o engancha el piloto viene
+APAGADO** y se prende a mano; con los ajustes de fábrica la máquina guía igual
+que en la 1.0.86.
+
+### Added
+
+- **Condiciones para acoplar el piloto** (Dirección › Pantalla › Para acoplar
+  el piloto): distancia y ángulo máximos con la guía. Si no se cumplen, el
+  piloto no engancha y la pantalla dice cuánto falta. En 0 = sin límite.
+- **Corte automático del piloto** (Dirección › Pantalla › Corte automático del
+  piloto): se suelta solo si se corta el GPS más de N segundos —antes, al
+  volver la señal, el piloto volvía a agarrar solo— o si el tractor se aleja de
+  la guía. En 0 = no corta.
+- **El piloto dice por qué se soltó**: GPS, distancia, RTK perdido, velocidad
+  máxima o mínima, fin de la guía. Antes se soltaba en silencio. Las alarmas
+  conocidas traen además una línea **«Qué hacer»**.
+- **Guía por última pasada** (Barra de la pasada › Guías): cada pasada se
+  vuelve la guía de la siguiente, sin tirar A/B.
+- **Punto de referencia contra la deriva** (Herr. › Corregir posición): marcar
+  sobre una bandera física y, al volver, corregir el mapa a esa bandera.
+- **Tareas de trabajo** (LOTE › Tarea): cultivo, tipo de trabajo y notas, con
+  pausa, cierre y exportación a pendrive (SHP de cobertura + informe).
+- **Banderas con tipo**: árbol, molino, laguna, tanque, casa, piedra; cada una
+  con su forma en el mapa.
+- **Guiado del implemento en curvas** (Dirección › Guiado › Implemento,
+  apagado): el tractor se abre para que el implemento pise la línea. Salida de
+  emergencia `--sin-guiado-implemento`.
+- **Asistente de calibración de la dirección** (Dirección › Asistente): paso a
+  paso, con hombre muerto; propone y el operario acepta. Se puede bloquear con
+  `--sin-asistente-direccion`.
+- **VistaX: dobles, fallas y CV por surco** (ISO 7256-1) con nodos v3.1, con
+  alarma amarilla de singulación. Con nodos anteriores no cambia nada.
+
+### Changed
+
+- **Letra más grande en el menú izquierdo y la barra derecha.** En la barra
+  derecha las palabras largas se cortaban a la mitad («Hidrául/ico»); ahora
+  entran enteras.
+
+### Fixed
+
+- **Guía A-B en curva**: una curva recalculada a medias podía quedar como guía
+  activa; el seguidor podía romperse al cambiar de pasada; y al llegar a la
+  punta de la curva el punto objetivo saltaba atrás del tractor.
+- **«Corregir posición» no movía nada**: ahora el corrimiento se aplica de
+  verdad. En 0 todo queda como antes.
+
+---
+
 ## [1.0.86] — 2026-09-26
 
 ### Changed
