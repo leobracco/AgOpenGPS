@@ -256,7 +256,26 @@ namespace AgroParallel.Services.Tareas
                         if (cob != null) poligonos = TareaCoberturaShp.Exportar(cob, _aLatLon, shp, t.Id);
                     }
 
-                    string informe = TareaInforme.ArmarHtml(t, _reloj(), poligonos > 0 ? Path.GetFileName(shp) : null);
+                    // Calidad de siembra por surco (registro VistaX del lote,
+                    // solo los tramos sembrados con la tarea en curso).
+                    AgroParallel.Services.VistaX.VxResumenLote vx = null;
+                    string csvVx = null;
+                    try
+                    {
+                        vx = AgroParallel.Services.VistaX.VxRegistroArchivo.ResumenDeCarpeta(
+                            AgroParallel.Services.VistaX.VxRegistroArchivo.DirDeLote(dir), t.Lote,
+                            fin => TareaReglas.EnCurso(t, fin, _reloj()));
+                        if (vx != null)
+                        {
+                            csvVx = baseNombre + "_vistax_surcos.csv";
+                            // BOM: la planilla reconoce el UTF-8 y los acentos.
+                            File.WriteAllText(csvVx, vx.ToCsv(), new UTF8Encoding(true));
+                        }
+                    }
+                    catch (Exception ex) { AgpLog.Warn("Tareas", "resumen VistaX", ex); vx = null; csvVx = null; }
+
+                    string informe = TareaInforme.ArmarHtml(t, _reloj(), poligonos > 0 ? Path.GetFileName(shp) : null,
+                        vx, csvVx != null ? Path.GetFileName(csvVx) : null);
                     File.WriteAllText(html, informe, new UTF8Encoding(false));
 
                     r.Ok = true;
@@ -269,6 +288,7 @@ namespace AgroParallel.Services.Tareas
                             string f = Path.ChangeExtension(shp, ext);
                             if (File.Exists(f)) r.Archivos.Add(Path.GetFileName(f));
                         }
+                    if (csvVx != null) r.Archivos.Add(Path.GetFileName(csvVx));
                     AgpLog.Info("Tareas", "Tarea " + t.Id + " exportada a " + carpeta + " (" + poligonos + " polígonos)");
                     return r;
                 }

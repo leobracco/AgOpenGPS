@@ -151,6 +151,24 @@ namespace AgroParallel.Services.Tareas
             return total;
         }
 
+        /// <summary>
+        /// true si <paramref name="instanteUtc"/> cae en un tramo en curso de
+        /// la tarea (no en una pausa). Las horas de la tarea son locales (las
+        /// del reloj de la pantalla); el instante viene en UTC (registro VistaX).
+        /// </summary>
+        public static bool EnCurso(Tarea t, DateTime instanteUtc, DateTime ahora)
+        {
+            if (t?.Tramos == null) return false;
+            DateTime x = instanteUtc.Kind == DateTimeKind.Utc ? instanteUtc : instanteUtc.ToUniversalTime();
+            foreach (var tr in t.Tramos)
+            {
+                DateTime ini = tr.Inicio.ToUniversalTime();
+                DateTime fin = (tr.Fin ?? ahora).ToUniversalTime();
+                if (x >= ini && x <= fin) return true;
+            }
+            return false;
+        }
+
         /// <summary>La tarea no cerrada del lote (activa o en pausa), o null.
         /// Hay a lo sumo una: Crear la exige cerrada.</summary>
         public static Tarea Abierta(IList<Tarea> tareas)

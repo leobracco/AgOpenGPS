@@ -278,5 +278,26 @@ namespace AgroParallel.Services.Tests
                 Assert.That(lost, Is.EqualTo(0));
             }
         }
+
+        [Test]
+        public void TomarTramo_devuelve_lo_del_tramo_y_lo_vacia_sin_tocar_lote_ni_ventana()
+        {
+            var e = new VxEspaciamiento();
+            // 8 km/h, Xref 20 cm → 900 = simple, 300 = doble.
+            for (int i = 0; i < 9; i++) e.Agregar(900, 8, 0.2);
+            e.Agregar(300, 8, 0.2);
+            var t = e.TomarTramo();
+            Assert.That(t.NEspacios, Is.EqualTo(10));
+            Assert.That(t.DoblesPct, Is.EqualTo(10).Within(1e-9));
+            Assert.That(e.Tramo().NEspacios, Is.EqualTo(0));
+
+            e.Agregar(900, 8, 0.2);
+            Assert.That(e.TomarTramo().NEspacios, Is.EqualTo(1));
+            Assert.That(e.Lote().NEspacios, Is.EqualTo(11));
+            Assert.That(e.Ventana().NEspacios, Is.EqualTo(11));
+            e.Agregar(900, 8, 0.2);
+            e.ResetTramo();
+            Assert.That(e.Tramo().NEspacios, Is.EqualTo(0));
+        }
     }
 }

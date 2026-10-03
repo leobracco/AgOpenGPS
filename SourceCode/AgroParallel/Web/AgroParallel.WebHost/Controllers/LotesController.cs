@@ -234,12 +234,19 @@ namespace AgroParallel.WebHost.Controllers
             using (var zip = new ZipArchive(HttpContext.Response.OutputStream,
                                             ZipArchiveMode.Create, true))
             {
-                foreach (var path in Directory.GetFiles(vistaxDir, "*", SearchOption.TopDirectoryOnly))
+                // AllDirectories: incluye Surcos/ (registro por surco de
+                // VistaXRegistroLote: partes NDJSON, resumen.json y el SHP).
+                string raiz = vistaxDir.TrimEnd(System.IO.Path.DirectorySeparatorChar) + System.IO.Path.DirectorySeparatorChar;
+                foreach (var path in Directory.GetFiles(vistaxDir, "*", SearchOption.AllDirectories))
                 {
-                    string entryName = System.IO.Path.GetFileName(path);
+                    if (path.EndsWith(".tmp", System.StringComparison.OrdinalIgnoreCase)) continue;
+                    string entryName = path.StartsWith(raiz, System.StringComparison.OrdinalIgnoreCase)
+                        ? path.Substring(raiz.Length).Replace(System.IO.Path.DirectorySeparatorChar, '/')
+                        : System.IO.Path.GetFileName(path);
                     var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
                     using (var es = entry.Open())
-                    using (var fs = File.OpenRead(path))
+                    // ReadWrite: el registro puede estar agregando un tramo.
+                    using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                     {
                         await fs.CopyToAsync(es).ConfigureAwait(false);
                     }

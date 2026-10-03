@@ -87,6 +87,9 @@ namespace AgroParallel.Services.VistaX
 
         private readonly Acum _pasada = new Acum();
         private readonly Acum _lote = new Acum();
+        // Tramo del registro por lote (VistaXRegistroLote): lo vacía quien lo
+        // toma con TomarTramo(), cada ~10 m sembrados.
+        private readonly Acum _tramo = new Acum();
 
         public VxEspaciamiento(int ventana = VentanaDefault)
         {
@@ -146,6 +149,7 @@ namespace AgroParallel.Services.VistaX
 
             _pasada.Sumar(clase, r);
             _lote.Sumar(clase, r);
+            _tramo.Sumar(clase, r);
             return true;
         }
 
@@ -162,6 +166,20 @@ namespace AgroParallel.Services.VistaX
 
         public void ResetPasada() { _pasada.Reset(); }
         public void ResetLote() { _lote.Reset(); }
+
+        /// <summary>Índices desde el último TomarTramo (sin vaciar).</summary>
+        public VxIndicesEspaciamiento Tramo() { return _tramo.Indices(); }
+
+        /// <summary>Índices del tramo en curso y lo vacía: el registro por
+        /// lote lo llama al cerrar cada tramo de ~10 m.</summary>
+        public VxIndicesEspaciamiento TomarTramo()
+        {
+            var ix = _tramo.Indices();
+            _tramo.Reset();
+            return ix;
+        }
+
+        public void ResetTramo() { _tramo.Reset(); }
 
         /// <summary>Vacía la ventana (ej. cambio de insumo): los espacios viejos
         /// se midieron contra otro objetivo.</summary>

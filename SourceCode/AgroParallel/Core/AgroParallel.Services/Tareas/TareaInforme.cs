@@ -23,6 +23,15 @@ namespace AgroParallel.Services.Tareas
         /// (null si no hubo cobertura que exportar).</param>
         public static string ArmarHtml(Tarea t, DateTime generado, string archivoShp)
         {
+            return ArmarHtml(t, generado, archivoShp, null, null);
+        }
+
+        /// <param name="vistax">Calidad de siembra por surco que registró
+        /// VistaX durante la tarea (null = no hubo registro: no sale la sección).</param>
+        /// <param name="archivoCsvVistax">Nombre del CSV exportado al lado (o null).</param>
+        public static string ArmarHtml(Tarea t, DateTime generado, string archivoShp,
+            AgroParallel.Services.VistaX.VxResumenLote vistax, string archivoCsvVistax)
+        {
             if (t == null) throw new ArgumentNullException(nameof(t));
 
             double areaM2 = TareaReglas.AreaTrabajadaM2(t, 0);
@@ -53,6 +62,9 @@ namespace AgroParallel.Services.Tareas
               .Append("th,td{padding:8px 6px;border-bottom:1px solid var(--borde);vertical-align:top}\n")
               .Append(".notas{white-space:pre-wrap}\n")
               .Append(".pie{margin-top:18px;color:var(--dim);font-size:12px}\n")
+              .Append("h2{font-size:18px;margin:24px 0 6px}\n")
+              .Append("table.surcos th,table.surcos td{width:auto;text-align:right;padding:6px}\n")
+              .Append("table.surcos th:first-child,table.surcos td:first-child{text-align:left}\n")
               .Append("@media print{body{background:#fff}.hoja{margin:0;border:0;border-radius:0;padding:0;max-width:none}@page{size:A4;margin:16mm}}\n")
               .Append("</style>\n</head>\n<body>\n<div class=\"hoja\">\n");
 
@@ -83,10 +95,57 @@ namespace AgroParallel.Services.Tareas
             sb.Append("<tr><th>Notas</th><td class=\"notas\">").Append(E(Vacio(t.Notas))).Append("</td></tr>\n");
             sb.Append("</table>\n");
 
+            if (vistax != null && vistax.Tramos > 0) SeccionVistaX(sb, vistax, archivoCsvVistax);
+
             sb.Append("<div class=\"pie\">Generado por PilotX el ").Append(E(TareaFormato.Fecha(generado)))
               .Append(". El área es la superficie pintada mientras la tarea estuvo en curso; las pausas no suman.</div>\n");
             sb.Append("</div>\n</body>\n</html>\n");
             return sb.ToString();
+        }
+
+        // Calidad de siembra por surco (VistaX): promedios + tabla. Solo surcos
+        // de semilla; dobles/fallas/CV solo con nodos v3.1+ (si no, "—").
+        private static void SeccionVistaX(StringBuilder sb, AgroParallel.Services.VistaX.VxResumenLote vx, string csv)
+        {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            sb.Append("<h2>Calidad de siembra por surco (VistaX)</h2>\n");
+            sb.Append("<div class=\"sub\">").Append(E(TareaFormato.Numero(vx.DistM, "#,##0") + " m sembrados con registro mientras la tarea estuvo en curso ("
+                + vx.Tramos.ToString(inv) + " tramos de ~10 m)."));
+            if (!string.IsNullOrEmpty(csv)) sb.Append(" Tabla para planilla: ").Append(E(csv)).Append('.');
+            sb.Append("</div>\n");
+
+            sb.Append("<div class=\"kpis\" style=\"margin-top:12px\">");
+            Kpi(sb, Vx(vx.PromedioSemM(), "0.00"), "sem/m promedio");
+            if (vx.HayEspaciamiento)
+            {
+                Kpi(sb, Vx(vx.PromedioSingulacion(), "0.0") + " %", "Singulación");
+                Kpi(sb, Vx(vx.PromedioDobles(), "0.0") + " %", "Dobles");
+                Kpi(sb, Vx(vx.PromedioFallas(), "0.0") + " %", "Fallas");
+                Kpi(sb, Vx(vx.PromedioCv(), "0.0") + " %", "CV");
+            }
+            sb.Append("</div>\n");
+
+            sb.Append("<table class=\"surcos\">\n<tr><th>Surco</th><th>sem/m</th><th>Singulación %</th><th>Dobles %</th><th>Fallas %</th><th>CV %</th></tr>\n");
+            foreach (var s in vx.Surcos)
+            {
+                bool hay = s.NEspacios > 0;
+                string surco = s.Bajada.ToString(inv);
+                if (s.Tren > 1) surco += " (tren " + s.Tren.ToString(inv) + ")";
+                sb.Append("<tr><td>").Append(E(surco)).Append("</td><td>")
+                  .Append(E(s.SemM >= 0 ? TareaFormato.Numero(s.SemM, "0.00") : "—")).Append("</td><td>")
+                  .Append(E(hay ? TareaFormato.Numero(s.SingulacionPct, "0.0") : "—")).Append("</td><td>")
+                  .Append(E(hay ? TareaFormato.Numero(s.DoblesPct, "0.0") : "—")).Append("</td><td>")
+                  .Append(E(hay ? TareaFormato.Numero(s.FallasPct, "0.0") : "—")).Append("</td><td>")
+                  .Append(E(hay ? TareaFormato.Numero(s.CvPct, "0.0") : "—")).Append("</td></tr>\n");
+            }
+            sb.Append("</table>\n");
+            if (!vx.HayEspaciamiento)
+                sb.Append("<div class=\"pie\">Dobles, fallas y CV requieren nodos VistaX v3.1 o más nuevos con un sensor por surco.</div>\n");
+        }
+
+        private static string Vx(double v, string formato)
+        {
+            return double.IsNaN(v) ? "—" : TareaFormato.Numero(v, formato);
         }
 
         private static void Kpi(StringBuilder sb, string valor, string etiqueta)

@@ -176,6 +176,34 @@ namespace AgroParallel.Services.Tests
             }
         }
 
+        // Registro por lote: el tramo de espaciamiento se entrega por surco y
+        // se vacía al tomarlo (la ventana y el acumulado del lote no).
+        [Test]
+        public void TomarTramoEspaciamiento_entrega_por_surco_y_vacia()
+        {
+            var fake = new FakeNodoRegistry();
+            using (var svc = ServicioSembrando(fake, new FakeVistaXConfig()))
+            {
+                var limpio = string.Join(",", System.Linq.Enumerable.Repeat("900", 15));
+                fake.Emit("vistax/VX-1/telemetria", Tel(limpio));
+                svc.GetSnapshot();                          // arranca la siembra
+                System.Threading.Thread.Sleep(2200);
+                fake.Emit("vistax/VX-1/telemetria", Tel(limpio + ",300"));
+                svc.GetSnapshot();                          // clasifica
+
+                var t = svc.TomarTramoEspaciamiento();
+                Assert.That(t.Count, Is.EqualTo(1));
+                Assert.That(t[0].Tren, Is.EqualTo(1));
+                Assert.That(t[0].Bajada, Is.EqualTo(1));
+                Assert.That(t[0].Indices.NEspacios, Is.EqualTo(16));
+                Assert.That(t[0].Indices.DoblesPct, Is.EqualTo(100.0 / 16).Within(1e-9));
+
+                var otra = svc.TomarTramoEspaciamiento();
+                Assert.That(otra[0].Indices.NEspacios, Is.EqualTo(0), "tomarlo lo vacía");
+                Assert.That(Surco1(svc).EspaciamientoLote.NEspacios, Is.EqualTo(16), "el lote sigue entero");
+            }
+        }
+
         private static VistaXTrenLiveDto FindTren99(VistaXLiveService svc)
         {
             var snap = svc.GetSnapshot();

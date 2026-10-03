@@ -630,6 +630,59 @@ namespace AgroParallel.Services.Tests
                         .All(f => f.StartsWith("Tareas.json", StringComparison.Ordinal)), Is.True);
         }
 
+        // Registro VistaX del lote: el informe suma SOLO los tramos sembrados
+        // con la tarea en curso, y deja la tabla por surco en un CSV al lado.
+        [Test]
+        public void Exportar_ConRegistroVistaX_AgregaCalidadPorSurcoYCsv()
+        {
+            var r = _svc.Crear(Pedido());                       // 08:00 local
+            var arch = new AgroParallel.Services.VistaX.VxRegistroArchivo(
+                AgroParallel.Services.VistaX.VxRegistroArchivo.DirDeLote(_lote), "La Loma");
+            AgroParallel.Services.VistaX.VxTramo Tramo(DateTime finLocal, double semM, double dobles)
+            {
+                var t = new AgroParallel.Services.VistaX.VxTramo
+                {
+                    InicioUtc = finLocal.ToUniversalTime().AddSeconds(-5),
+                    FinUtc = finLocal.ToUniversalTime(), Lat = -34, Lon = -60, DistM = 10, VelKmh = 7,
+                };
+                t.Surcos.Add(new AgroParallel.Services.VistaX.VxTramoSurco
+                {
+                    Tren = 1, Bajada = 1, SemM = semM,
+                    Esp = new AgroParallel.Services.VistaX.VxIndicesEspaciamiento
+                        { NEspacios = 50, DoblesPct = dobles, FallasPct = 2, SingulacionPct = 98 - dobles, CvPct = 18 },
+                });
+                return t;
+            }
+            arch.Escribir(Tramo(_ahora.AddMinutes(-30), 9, 40));   // antes de la tarea: no cuenta
+            arch.Escribir(Tramo(_ahora.AddMinutes(10), 4.5, 1));
+            arch.Escribir(Tramo(_ahora.AddMinutes(20), 5.5, 3));
+            _area = 100; _ahora = _ahora.AddHours(1);
+            _svc.Cerrar();
+
+            var ex = _svc.Exportar(r.Abierta.Id, Path.Combine(_export, "Siembra.html"));
+
+            Assert.That(ex.Ok, Is.True, ex.Error);
+            Assert.That(ex.Archivos, Does.Contain("Siembra_vistax_surcos.csv"));
+            string csv = File.ReadAllText(Path.Combine(_export, "Siembra_vistax_surcos.csv"));
+            Assert.That(csv, Does.Contain("1;1;20;5,00;96,0;2,0;2,0;18,0;100"), "promedio de los 2 tramos de la tarea");
+            string html = File.ReadAllText(Path.Combine(_export, "Siembra.html"));
+            Assert.That(html, Does.Contain("Calidad de siembra por surco (VistaX)"));
+            Assert.That(html, Does.Contain("96,0 %"));
+            Assert.That(html, Does.Contain("Siembra_vistax_surcos.csv"));
+        }
+
+        [Test]
+        public void Exportar_SinRegistroVistaX_NoAgregaSeccion()
+        {
+            var r = _svc.Crear(Pedido());
+            _area = 100; _ahora = _ahora.AddHours(1);
+            _svc.Cerrar();
+            var ex = _svc.Exportar(r.Abierta.Id, Path.Combine(_export, "T.html"));
+            Assert.That(ex.Ok, Is.True, ex.Error);
+            Assert.That(File.Exists(Path.Combine(_export, "T_vistax_surcos.csv")), Is.False);
+            Assert.That(File.ReadAllText(Path.Combine(_export, "T.html")), Does.Not.Contain("VistaX"));
+        }
+
         [Test]
         public void Exportar_IdInexistente_Rechaza()
         {

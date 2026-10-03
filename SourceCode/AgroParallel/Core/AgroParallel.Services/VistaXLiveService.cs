@@ -31,7 +31,7 @@ using AgroParallel.VistaX;
 namespace AgroParallel.Services
 {
     public sealed class VistaXLiveService : MqttLiveServiceBase<VistaXLiveService.Reading>,
-        IVistaXLiveService, IDisposable
+        IVistaXLiveService, AgroParallel.Services.VistaX.IVistaXTramosEspaciamiento, IDisposable
     {
         private readonly IVistaXConfigService _cfgSvc;
         // Fuente única de verdad de la geometría física (ancho, distancia entre
@@ -123,6 +123,9 @@ namespace AgroParallel.Services
             /// <summary>Desde cuándo la sección de este surco está ON (para
             /// los 2 s de asentamiento tras bajar la herramienta).</summary>
             public DateTime SeccionOnDesde;
+            /// <summary>Surco (tren/bajada) al que se mapeó este sensor en el
+            /// último snapshot — para entregar el tramo del registro por lote.</summary>
+            public int SurcoTren, SurcoBajada;
         }
 
         /// <summary>Un mensaje de telemetría: sus intervalos + la velocidad y
@@ -1243,7 +1246,7 @@ namespace AgroParallel.Services
             else if (!string.Equals(lote, _espLote, StringComparison.OrdinalIgnoreCase))
             {
                 _espLote = lote;
-                foreach (var r in _readings.Values) { r.Esp?.ResetLote(); r.Esp?.ResetPasada(); }
+                foreach (var r in _readings.Values) { r.Esp?.ResetLote(); r.Esp?.ResetPasada(); r.Esp?.ResetTramo(); }
             }
 
             // Cambio de insumo → otro objetivo: la ventana vieja no compara.
@@ -1285,6 +1288,8 @@ namespace AgroParallel.Services
                 }
 
                 if (!c.Elegible || r.Esp == null) continue;
+                r.SurcoTren = c.Dto.Tren;
+                r.SurcoBajada = c.Dto.Bajada;
 
                 var v = r.Esp.Ventana();
                 var d = c.Dto;
@@ -1324,6 +1329,31 @@ namespace AgroParallel.Services
                 snap.CvPctPromedio = Math.Round(sumCv / nProm, 1);
             }
             snap.SurcosSingulacionBaja = nBaja;
+        }
+
+        /// <summary>
+        /// Índices de espaciamiento de cada surco desde la última llamada, y
+        /// los vacía. Lo usa el registro por lote (VistaXRegistroLote) al
+        /// cerrar cada tramo. Solo surcos que ya pasaron por el cálculo
+        /// (semilla 1 cable = 1 surco con datos `dt`).
+        /// </summary>
+        public List<AgroParallel.Services.VistaX.VxIndicesSurco> TomarTramoEspaciamiento()
+        {
+            var lista = new List<AgroParallel.Services.VistaX.VxIndicesSurco>();
+            lock (_lock)
+            {
+                foreach (var r in _readings.Values)
+                {
+                    if (r.Esp == null || r.SurcoBajada <= 0) continue;
+                    lista.Add(new AgroParallel.Services.VistaX.VxIndicesSurco
+                    {
+                        Tren = r.SurcoTren,
+                        Bajada = r.SurcoBajada,
+                        Indices = r.Esp.TomarTramo(),
+                    });
+                }
+            }
+            return lista;
         }
 
         private static VistaXEspaciamientoDto AEspDto(AgroParallel.Services.VistaX.VxIndicesEspaciamiento ix)

@@ -378,10 +378,11 @@
           <div class="clave">El área de la tarea es <strong>solo lo pintado mientras estuvo en curso</strong>, no el total del lote: lo trabajado en otras jornadas no cuenta. Si borrás el pintado con la tarea en curso, lo que ya llevaba la tarea no se pierde.</div>
           <div class="aviso">Hay <strong>una tarea abierta por lote</strong>: para empezar otra, cerrá la anterior. Si <strong>cerrás el lote</strong> con la tarea en curso, la tarea queda <strong>en pausa</strong>; al volver al lote, entrá a <strong>LOTE › Tarea</strong> y tocá <strong>Reanudar</strong>.</div>
           <h3>Exportar una tarea</h3>
-          <p>En la lista de <strong>Tareas cerradas</strong>, tocá <strong>Exportar</strong> en la fila. Se abre el explorador de PilotX: elegí el <strong>pendrive</strong> (aparece arriba de todo) y el nombre, y confirmá. Quedan dos cosas en esa carpeta:</p>
+          <p>En la lista de <strong>Tareas cerradas</strong>, tocá <strong>Exportar</strong> en la fila. Se abre el explorador de PilotX: elegí el <strong>pendrive</strong> (aparece arriba de todo) y el nombre, y confirmá. Quedan en esa carpeta:</p>
           <ul>
             <li>un <strong>informe</strong> (.html) con lote, trabajo, cultivo, insumo, dosis, inicio, fin, tiempo y hectáreas — se abre en cualquier computadora y se puede imprimir o guardar como PDF desde el navegador;</li>
             <li>el <strong>mapa de lo pintado</strong> como shapefile (<strong>_cobertura.shp</strong> con sus .shx, .dbf y .prj), para abrir en un programa de mapas.</li>
+            <li>si se sembró con <strong>VistaX</strong>, el informe suma la <strong>calidad de siembra por surco</strong> (sem/m y, con nodos v3.1 o más nuevos, singulación, dobles, fallas y CV) de lo sembrado <strong>mientras la tarea estuvo en curso</strong>, y queda al lado la misma tabla en <strong>_vistax_surcos.csv</strong> para abrir en una planilla.</li>
           </ul>
           <div class="aviso">Para exportar, el lote de la tarea tiene que estar <strong>abierto</strong>. El mapa que se exporta es <strong>lo pintado del lote en ese momento</strong>: si después de cerrar la tarea seguiste trabajando o borraste el pintado, el mapa lo refleja. Lo más seguro es exportar apenas cerrás la tarea.</div>
           <h3>Borrar todos los lotes</h3>
@@ -646,6 +647,7 @@
             <li>No se mide: con la sección cortada, la herramienta arriba, menos de 2 km/h, los primeros 2 segundos después de arrancar o bajar, ni en sensores que cubren varios surcos. Con nodos viejos el detalle dice <em>sin dato</em>.</li>
           </ul>
           <div class="clave">El objetivo de singulación es el del <strong>insumo activo</strong> (Configuración › Campo › Insumos). Si la siembra es muy densa para separar semillas (trigo a chorrillo), no se calcula.</div>
+          <p><strong>Registro por surco del lote.</strong> No hay que tocar nada: con un <strong>lote abierto</strong> y VistaX sembrando, PilotX guarda cada ~10 m, por surco, la posición, los sem/m y (con nodos v3.1) la singulación, dobles, fallas y CV. Al cerrar el lote arma el mapa por surco y el resumen del lote; si la nube está configurada, se sube solo a OrbitX. El resumen sale en el informe al <strong>exportar una tarea</strong> (ver Tarea de trabajo).</p>
           <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Herram.</b> <i>›</i> <b>FlowX</b> <i>›</i> <b>Configurar</b></p>
           <p>El panel de FlowX muestra el caudal real, la dosis, el PWM de la bomba y cuánto insumo se ahorró por el corte automático. El botón <strong>Configurar</strong> abre el editor con seis pestañas, con el mapa vivo atrás; <strong>‹ Monitor</strong> vuelve a la pantalla de caudal. Arriba de todo se elige el <strong>nodo</strong>, se agregan los que aparecieron en la red y se prende o apaga FlowX. Abajo, <strong>Guardar configuración</strong> (y <strong>Recargar</strong> para volver a lo guardado y tirar los cambios).</p>
           <ul>

@@ -77,6 +77,7 @@ namespace AgOpenGPS
         private EnginePilotXUpdateService _pilotxUpdate;
         private AgroParallel.Services.Tareas.TareasService _tareas;
         private System.Threading.Timer _tareasTick;
+        private AgroParallel.Services.VistaX.VistaXRegistroLote _vxRegistro;
 
         /// <summary>Registro de nodos MQTT compartido: lo usan los bridges que
         /// publican targets (QuantiX/SectionX) en vez de abrir otra conexión.</summary>
@@ -359,6 +360,20 @@ namespace AgOpenGPS
 
             _web.Start();
 
+            // Registro VistaX por lote: tramos de ~10 m con sem/m, dobles,
+            // fallas y CV por surco en <lote>/VistaX/Surcos/ (lo sube
+            // OrbitXSync y lo usa el informe de la Tarea). Sin VistaX
+            // sembrando no escribe nada.
+            try
+            {
+                _vxRegistro = new AgroParallel.Services.VistaX.VistaXRegistroLote(state, vistaxLive, vistaxLive);
+                _vxRegistro.Start();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] Registro VistaX: " + ex.Message);
+            }
+
             // FlowX comanda la válvula de dosificación líquida: va atado al
             // ciclo de vida del host. Si flowX.json está vacío o deshabilitado,
             // sale en silencio.
@@ -634,6 +649,10 @@ namespace AgOpenGPS
             _orbitxRetry = null;
             try { _orbitxSync?.Dispose(); } catch { }
             _orbitxSync = null;
+            // Antes de _web?.Stop() (que para el live de VistaX): cierra el
+            // tramo en curso, guarda resumen.json y regenera el SHP del lote.
+            try { _vxRegistro?.Dispose(); } catch { }
+            _vxRegistro = null;
             try { _web?.Stop(); } catch { }
             _web = null;
             try { _pilotxUpdate?.Dispose(); } catch { }

@@ -592,11 +592,22 @@ namespace AgroParallel.OrbitX
             {
                 var snap = _state.GetSnapshot();
                 string fieldName = snap.CurrentFieldDirectory;
-                if (string.IsNullOrEmpty(fieldName)) return;
                 string fieldsRoot = snap.FieldsDirectory;
-                if (string.IsNullOrEmpty(fieldsRoot)) return;
-                string fieldDir = Path.Combine(fieldsRoot, fieldName);
-                if (!Directory.Exists(fieldDir)) return;
+                string fieldDir = !string.IsNullOrEmpty(fieldName) && !string.IsNullOrEmpty(fieldsRoot)
+                    ? Path.Combine(fieldsRoot, fieldName) : null;
+
+                // Registro VistaX por surco: si se cerró o cambió el lote, lo
+                // último del anterior (parte parcial y resumen final que deja
+                // VistaXRegistroLote al cerrar) sube ya, sin esperar los 5 min.
+                if (_vxSurcosLoteDir != null &&
+                    !string.Equals(_vxSurcosLoteDir, fieldDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    EnqueueVistaXSurcos(_vxSurcosLoteDir, _vxSurcosLote, true);
+                }
+                _vxSurcosLoteDir = fieldDir;
+                _vxSurcosLote = fieldName;
+
+                if (fieldDir == null || !Directory.Exists(fieldDir)) return;
 
                 // "ablines.txt" es el nombre viejo; PilotX guarda las guías en
                 // TrackLines.txt y así ninguna línea de guiado llegaba al cloud.
@@ -640,10 +651,35 @@ namespace AgroParallel.OrbitX
                         }
                     }
                 }
+
+                // Registro VistaX por surco (VistaXRegistroLote): partes NDJSON
+                // + resumen.json, es_lote=false (ver VistaXSurcosSync).
+                EnqueueVistaXSurcos(fieldDir, fieldName, false);
             }
             catch (Exception ex)
             {
                 AgpLog.Error("OrbitXSync", "encolar archivos de lote de PilotX", ex);
+            }
+        }
+
+        // ── Registro VistaX por surco ───────────────────────────────────────
+        private readonly AgroParallel.Services.OrbitX.VistaXSurcosSync _vxSurcos =
+            new AgroParallel.Services.OrbitX.VistaXSurcosSync();
+        private string _vxSurcosLoteDir, _vxSurcosLote;
+
+        private void EnqueueVistaXSurcos(string fieldDir, string fieldName, bool forzar)
+        {
+            try
+            {
+                var envios = _vxSurcos.Planificar(fieldDir, fieldName,
+                    p => _lastHashes.ContainsKey(p), DateTime.UtcNow, forzar);
+                foreach (var e in envios)
+                    EnqueueIfChanged(e.Path, e.RutaRel, e.Subtipo,
+                        AgroParallel.Services.OrbitX.VistaXSurcosSync.Producto, false, fieldName);
+            }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "encolar registro VistaX por surco", ex);
             }
         }
 
