@@ -549,6 +549,33 @@ namespace AgroParallel.Services.Tests
         }
 
         [Test]
+        public void CerrarElLote_ConElAreaVolviendoACero_NoPierdeNiInventaHectareas()
+        {
+            // El motor pone el área del lote en cero al cerrarlo (después de
+            // AntesDeCerrarLote) y la reconstruye desde Sections.txt al
+            // reabrirlo. La tarea tiene que sumar lo mismo que si nada pasara.
+            _svc.Crear(Pedido());
+            _area = 10000; _svc.Tick();
+
+            _svc.AntesDeCerrarLote();          // lote todavía abierto, área vigente
+            _area = 0; _loteAbierto = false;   // CloseField: contadores a cero
+            _svc.Tick();                       // sin lote: no toca nada
+
+            _area = 0; _loteAbierto = true;    // reabre: arranca en cero...
+            _svc.Tick();
+            _area = 10000; _svc.Tick();        // ...y CargarCobertura lo reconstruye
+
+            Assert.That(_svc.Estado().Abierta.AreaHa, Is.EqualTo(1.0).Within(1e-9),
+                "en pausa: lo trabajado antes de cerrar");
+
+            _svc.Reanudar();
+            _area = 25000;
+            var r = _svc.Cerrar();
+            Assert.That(r.Cerradas[0].AreaHa, Is.EqualTo(2.5).Within(1e-9),
+                "1 ha antes de cerrar + 1,5 ha después de reanudar");
+        }
+
+        [Test]
         public void Tick_DetectaBorrarPintadoYLoPersiste()
         {
             _svc.Crear(Pedido());

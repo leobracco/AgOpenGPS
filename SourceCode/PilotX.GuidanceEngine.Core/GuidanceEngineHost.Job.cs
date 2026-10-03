@@ -53,6 +53,12 @@ namespace AgOpenGPS
             // acá y no antes: si el open iba a fallar, el lote viejo sigue.
             if (IsJobStarted) CloseField();
 
+            // Área y distancia en cero ANTES de cargar nada: CargarCobertura
+            // solo las recalcula si el lote tiene Sections.txt, y un lote
+            // nuevo (sin pintar) arrancaba con las HA del anterior. Va antes
+            // de los linderos porque BuildTurnLines recalcula sus áreas.
+            ContadoresDelLote.Reiniciar(Fd, Neta);
+
             Pn.DefineLocalPlane(origin, true);
 
             AppModelField.Fields.OpenField(new DirectoryInfo(dir));
@@ -206,9 +212,9 @@ namespace AgOpenGPS
             // sobre un lote que ya no estaba abierto — y peor, se mezclaba con
             // lo del lote siguiente.
             //
-            // Es SOLO memoria: no se toca ningún archivo ni se resetea el área
-            // trabajada. Para borrar lo aplicado de verdad está el comando
-            // dedicado, que además reescribe los archivos del lote.
+            // Es SOLO memoria: no se toca ningún archivo. Para borrar lo
+            // aplicado de verdad está el comando dedicado, que además
+            // reescribe los archivos del lote.
             //
             // patchSaveList NO se limpia a propósito: ahí quedan los parches que
             // esperan bajar a disco, y vaciarlo perdería cobertura ya trabajada.
@@ -222,6 +228,12 @@ namespace AgOpenGPS
             // apuntando más allá de las listas recién vaciadas y lo del próximo
             // lote no se consumiría nunca (además de retener el área de este).
             AntiSolape?.Reiniciar();
+
+            // Área, área neta (con su grilla) y distancia del lote, a cero —
+            // como fd.workedAreaTotal = 0 + UpdateFieldBoundaryGUIAreas en el
+            // JobClose de FormGPS. Ya está todo en disco (arriba) y las Tareas
+            // tomaron su área en AntesDeCerrarLote, al principio.
+            ContadoresDelLote.Reiniciar(Fd, Neta);
 
             // La referencia es del lote que se cierra; la deriva vuelve a 0
             // salvo "Mantener corrimiento" (JobClose de FormGPS).

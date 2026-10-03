@@ -27,6 +27,10 @@
          adapter se COMPILA linkeado, no se referencia. Sirve para testear el
          manejo libre (free drive), que decide si el módulo mueve el volante. -->
     <Compile Include="..\AgroParallel\Adapters\SteerConfigService.cs" Link="Adapters\SteerConfigService.cs" />
+    <!-- Puesta a cero del área al cerrar/abrir lote: viven en el motor (net9)
+         pero son cálculo puro sobre CFieldData, se compilan linkeados. -->
+    <Compile Include="..\PilotX.GuidanceEngine.Core\CoberturaNeta.cs" Link="Engine\CoberturaNeta.cs" />
+    <Compile Include="..\PilotX.GuidanceEngine.Core\ContadoresDelLote.cs" Link="Engine\ContadoresDelLote.cs" />
   </ItemGroup>
 
 </Project>
