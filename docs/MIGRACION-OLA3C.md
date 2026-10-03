@@ -118,6 +118,7 @@ control, pero **no con un contacto real en la mano**.
 - **16 nativas** — las 4 de la ola 3a, las 7 de la 3b y las 5 de esta.
 - **3 en HTML** — `relay`, `display` y `botones`, **las tres huérfanas**: no
   están en el NAV nativo porque tampoco están en el menú del HTML. Ver §3.
+  (2026-10-03: `display` se portó reducida como «Otros › Unidades» — §3.3.)
 
 **Ninguna fila del menú cae al WebView.** El `NAV` de `ConfigPanel.axaml.cs`
 tiene 16 filas y las 16 con `Nativa = true`.
@@ -237,6 +238,34 @@ ejecuta sin el visto bueno del usuario** — queda propuesta, no hecha.
 Mientras tanto, el `NAV` y el fallback `IrATabAsync` se dejan **intactos**: si
 mañana se decide devolverles la puerta, es **una fila por pestaña** con
 `Nativa = false` y anda por el WebView sin tocar nada más (verificado en §4).
+
+### 3.3 Actualización 2026-10-03 — `display` portada como «Otros › Unidades»
+
+`display` ya es nativa: fila `display` / «Unidades» en el grupo «Otros»,
+`ConfigEditor/UnidadesTab.cs`. Tiene **solo el conmutador métrico/imperial**
+(guarda al toque, postea únicamente `is_metric`, relee el snapshot).
+
+Al re-verificar consumidores para portarla, **la fila de `num_guide_lines` de
+§3.1 resultó estar mal**: `CABCurve.BuildCurveGuidelines` y
+`GuidanceDrawExtensions` sí leen `numGuideLines`, pero los dos están detrás de
+`IsSideGuideLines`, y el motor **nunca asigna** `isSideGuideLines` desde
+Settings (queda `false` para siempre). Además `GuidanceDrawExtensions` es el
+dibujo GL legacy: las guías vecinas del mapa nativo las arma
+`MapGlSurface.RebuildGuidanceParallel` por su cuenta (cubren el lote, tope 40
+por lado). Conclusión: **`num_guide_lines` no tiene efecto en PilotX y no se
+portó.** Tampoco `headland_distance`: el motor lo carga y `CHead` lo mira, pero
+solo para llamar a `PlayHeadlandSound()`, que en el motor es un método vacío
+(y `SonidosAlarmService` no tiene evento de cabecera). El detalle de cada
+flag muerto está en la cabecera de `UnidadesTab.cs`.
+
+Sobre el métrico/imperial, lo que cambia de verdad: el wire es siempre SI, así
+que cambiar la unidad **no reescribe ningún valor guardado** (solo cambia cómo
+lo muestran/editan las 12 pestañas); el motor lo usa en un solo lugar (tope del
+ancho total de secciones), y **la cabina no cambia** (el `isMetric` runtime del
+motor es `true` fijo; el cockpit muestra siempre km/h y ha). La pestaña se lo
+dice al operario. Persiste con el perfil del vehículo, como el resto (§2.1).
+
+Siguen huérfanas `relay` y `botones` (no se portan por ahora).
 
 ---
 

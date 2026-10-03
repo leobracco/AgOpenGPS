@@ -28,7 +28,10 @@
 // líneas de giro y descarta el U-turn ya dibujado — ver la cabecera de UturnTab)
 // y "Otros › Tram" (ancho de trocha + las dos preferencias de trochas; la
 // CONSTRUCCIÓN de las huellas sobre el lote sigue en pages/tramline(s).html —
-// ver la cabecera de TramTab).
+// ver la cabecera de TramTab)
+// y "Otros › Unidades" (clave `display`: el conmutador métrico/imperial, lo
+// único vivo de la vieja pestaña display del HTML — ver la cabecera de
+// UnidadesTab).
 // y — desde el 2026-08-17 — los MÓDULOS, que viven en las MISMAS tabs de
 // navegación con los grupos y el orden del original (Otros › Sonidos, Módulos,
 // Campo, Herramientas, Cloud, Mantenimiento): ya no hay grilla intermedia "Módulos"
@@ -47,14 +50,15 @@
 // nativas. Al WebView (embebido acá adentro) salen los módulos sin panel
 // nativo (LineX, Insumos, Mapas, Lab PID, Diagnóstico PWM,
 // OrbitX, Conectar celular,
-// Red WiFi, Debug y Ayuda) y las tres pestañas HUÉRFANAS de
-// config.html —`relay`, `display`
-// y `botones`—, que no están en el NAV porque tampoco están en el menú del
-// HTML (las sacaron el 2026-08-03) y hoy NO las emite ningún botón ni ruta de
-// la UI. Ojo antes de darlas por muertas: `relay` es el mapa de pines que viaja
-// en el PGN al módulo de máquina, y `display` tiene el ÚNICO conmutador
-// métrico/imperial del producto, del que dependen los límites y las unidades de
-// 12 pestañas de acá. Ver docs/MIGRACION-OLA3C.md §3.
+// Red WiFi, Debug y Ayuda) y las dos pestañas HUÉRFANAS de
+// config.html —`relay` y `botones`—, que no están en el NAV porque tampoco
+// están en el menú del HTML (las sacaron el 2026-08-03) y hoy NO las emite
+// ningún botón ni ruta de la UI. Ojo antes de darlas por muertas: `relay` es el
+// mapa de pines que viaja en el PGN al módulo de máquina. La tercera huérfana,
+// `display`, se portó el 2026-10-03 como "Otros › Unidades" (solo el
+// métrico/imperial, del que dependen los límites y las unidades de 12 pestañas
+// de acá; el resto de sus flags no tiene consumidor en PilotX — ver
+// UnidadesTab). Ver docs/MIGRACION-OLA3C.md §3.
 // El fallback de IrATabAsync se deja INTACTO igual: es la red para el próximo
 // porteo y para cualquier deep-link viejo.
 // La página config.html no se toca ni se borra: la usa la PWA del celular. Es
@@ -119,9 +123,10 @@ public partial class ConfigPanel : UserControl
         public string? ModRuta;        // módulo solo-HTML (página del Hub)
     }
 
-    // Mismo orden y mismos grupos que el #menu de config.html. "Pines relay",
-    // "Display" y "Botones" no están porque salieron del menú del HTML
-    // (pedido 2026-08-03) y se llegan por ?tab= — igual que allá.
+    // Mismo orden y mismos grupos que el #menu de config.html. "Pines relay"
+    // y "Botones" no están porque salieron del menú del HTML (pedido
+    // 2026-08-03) y se llegan por ?tab= — igual que allá. "Display" volvió como
+    // "Otros › Unidades" (2026-10-03, ver UnidadesTab).
     private static readonly CfgNav[] NAV =
     {
         new CfgNav { Tab = "summary",     Titulo = "Resumen",      Grupo = "",           Nativa = true  },
@@ -153,6 +158,10 @@ public partial class ConfigPanel : UserControl
 
         new CfgNav { Tab = "uturn",       Titulo = "U-Turn",       Grupo = "Otros",      Nativa = true  },
         new CfgNav { Tab = "tram",        Titulo = "Tram",         Grupo = "Otros",      Nativa = true  },
+        // Ex pestaña huérfana `display` del HTML: de toda la pestaña lo único
+        // que hoy tiene efecto en PilotX es el conmutador métrico/imperial, así
+        // que se llama por lo que hace. Ver la cabecera de UnidadesTab.
+        new CfgNav { Tab = "display",     Titulo = "Unidades",     Grupo = "Otros",      Nativa = true  },
         // Sonidos vive en "Otros" porque ahí lo tiene el menú del original
         // (config.html): el operario lo busca donde siempre estuvo.
         new CfgNav { Tab = "mod_sonidos", Titulo = "Sonidos",      Grupo = "Otros",      ModClave = "sonidos" },
@@ -1123,6 +1132,10 @@ public partial class ConfigPanel : UserControl
         // construcción de las huellas sobre el lote: eso sigue en
         // pages/tramline.html y pages/tramlines.html. Ver la cabecera de TramTab.
         "tram" => new TramTab(_ctx),
+        // Unidades (clave "display", la del HTML): solo el métrico/imperial,
+        // guarda AL TOQUE. Los demás flags de la pestaña display del HTML no
+        // tienen consumidor en PilotX — ver la cabecera de UnidadesTab.
+        "display" => new UnidadesTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 
