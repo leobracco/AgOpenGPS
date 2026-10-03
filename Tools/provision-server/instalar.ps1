@@ -267,7 +267,40 @@ try {
     Paso "Acceso directo de PilotX en el escritorio"
 } catch { }
 
-# ── 7. Kiosko ────────────────────────────────────────────────────────────────
+# ── 7. Helper de red (tarea SYSTEM PilotXNetApply, de ViewX TabletTools) ────
+# Sin esto PilotX (usuario limitado) no puede aplicar la IP fija del Ethernet.
+Avisar "instalando helper de red (PilotXNetApply)" "instalando"
+try { Invoke-Expression (Invoke-RestMethod -Uri "$Servidor/red.ps1" -TimeoutSec 30) }
+catch { Write-Host "Helper de red: $($_.Exception.Message) — correr después: irm $Servidor/red.ps1 | iex" -ForegroundColor Yellow }
+
+# Y se VERIFICA que la tarea haya quedado. Correr el script y no mirar el
+# resultado es como no correrlo: en OTTAVIANO el paso figuraba en el log y la
+# tarea no existia, asi que la pantalla no podia aplicar su IP fija — PilotX
+# corre como usuario limitado y la aplica a traves de este helper. El sintoma
+# aparece semanas despues, en el campo, cuando alguien quiere fijar la IP de
+# los modulos y "no la toma".
+if (Get-ScheduledTask -TaskName "PilotXNetApply" -ErrorAction SilentlyContinue) {
+    Paso "Helper de red OK (tarea PilotXNetApply creada)"
+} else {
+    Write-Host "!! La tarea PilotXNetApply NO quedo creada." -ForegroundColor Red
+    Write-Host "   Sin ella PilotX no puede aplicar la IP fija del Ethernet." -ForegroundColor Yellow
+    Write-Host "   Correr a mano:  irm $Servidor/red.ps1 | iex" -ForegroundColor Yellow
+    Avisar "ATENCION: PilotXNetApply no se creo — la pantalla no va a poder fijar su IP" "instalando"
+}
+
+# ── 8. RustDesk contra el servidor propio, con contraseña fija (queda en el pedido) ──
+Avisar "instalando RustDesk" "instalando"
+try { Invoke-Expression (Invoke-RestMethod -Uri "$Servidor/rustdesk.ps1?p=$Pedido" -TimeoutSec 30) }
+catch { Write-Host "RustDesk: $($_.Exception.Message) — correr después: irm $Servidor/rustdesk.ps1?p=$Pedido | iex" -ForegroundColor Yellow }
+
+# ULTIMO A PROPOSITO: el kiosko cambia el Shell de Windows y el arranque, y
+# es el paso que puede llevarse el flujo puesto. En OTTAVIANO (2026-09-24) el
+# instalador murio justo despues de activarlo y nunca llegaron ni el helper de
+# red ni RustDesk: la pantalla quedo sin poder aplicar su IP fija (PilotX corre
+# como usuario limitado y la aplica a traves de PilotXNetApply) y sin acceso
+# remoto para arreglarlo. Todo lo que la pantalla necesita para trabajar va
+# ANTES; el kiosko, al final.
+# ── 9. Kiosko ────────────────────────────────────────────────────────────────
 # El kiosko cambia el Shell de Windows por PilotX: si después PilotX no puede
 # arrancar, la PC queda SIN ESCRITORIO al que volver y entra en bucle de
 # reinicios. Por eso acá no se activa nada "por las dudas": primero hay que
@@ -336,17 +369,6 @@ if ($reg.kiosko -and (Test-Path "$kit\PilotX-KioskSetup.exe")) {
         Paso "Kiosko: código $($k.ExitCode)"
     }
 }
-
-# ── 8. Helper de red (tarea SYSTEM PilotXNetApply, de ViewX TabletTools) ────
-# Sin esto PilotX (usuario limitado) no puede aplicar la IP fija del Ethernet.
-Avisar "instalando helper de red (PilotXNetApply)" "instalando"
-try { Invoke-Expression (Invoke-RestMethod -Uri "$Servidor/red.ps1" -TimeoutSec 30) }
-catch { Write-Host "Helper de red: $($_.Exception.Message) — correr después: irm $Servidor/red.ps1 | iex" -ForegroundColor Yellow }
-
-# ── 9. RustDesk contra el servidor propio, con contraseña fija (queda en el pedido) ──
-Avisar "instalando RustDesk" "instalando"
-try { Invoke-Expression (Invoke-RestMethod -Uri "$Servidor/rustdesk.ps1?p=$Pedido" -TimeoutSec 30) }
-catch { Write-Host "RustDesk: $($_.Exception.Message) — correr después: irm $Servidor/rustdesk.ps1?p=$Pedido | iex" -ForegroundColor Yellow }
 
 Avisar "instalación terminada; falta reiniciar" "instalado"
 Stop-Transcript | Out-Null

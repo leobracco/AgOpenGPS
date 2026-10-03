@@ -123,13 +123,15 @@ function ipServidor(req) {
 // ---------------------------------------------------------------------------
 // OrbitX (JWT del superadmin)
 // ---------------------------------------------------------------------------
+// conJwt: true = JWT del superadmin; string = ese JWT (ej. el scopeado a una org).
 function orbitx(metodo, ruta, body, conJwt = true) {
   return new Promise((resolve, reject) => {
     const u = new URL(ruta, cfg.orbitx_url);
     const datos = body ? JSON.stringify(body) : null;
     const opts = { method: metodo, headers: { "Content-Type": "application/json", "Accept": "application/json" } };
     if (datos) opts.headers["Content-Length"] = Buffer.byteLength(datos);
-    if (conJwt && estado.jwt) opts.headers["Authorization"] = "Bearer " + estado.jwt;
+    const jwt = typeof conJwt === "string" ? conJwt : (conJwt ? estado.jwt : null);
+    if (jwt) opts.headers["Authorization"] = "Bearer " + jwt;
     const mod = u.protocol === "https:" ? https : http;
     const r = mod.request(u, opts, res => {
       let t = ""; res.on("data", c => t += c);
@@ -249,6 +251,19 @@ const rutas = {
     const r = await orbitx("POST", "/api/admin/org", { nombre, slug, provincia: body.provincia || "", ciudad: body.ciudad || "" });
     log("org creada en OrbitX: " + slug + " (" + nombre + ")");
     return { ok: true, slug: r.slug || slug, nombre };
+  },
+  // Invitar al usuario del cliente a su org. OrbitX invita dentro de la org
+  // activa del token, así que se pide un JWT scopeado a esa org (sin pisar el
+  // global de estado.jwt). OrbitX le manda el mail; el link vuelve acá.
+  "POST /api/orgs/invitar": async (req, body) => {
+    const email = String(body.email || "").trim(); const slug = String(body.estab_slug || "").trim();
+    if (!email || !slug) throw new Error("Falta email o estab_slug");
+    const rol = body.rol || "owner";
+    const c = await orbitx("POST", "/api/auth/cambiar-org", { orgSlug: slug });
+    if (!c || !c.token) throw new Error("OrbitX no devolvió token para la org " + slug);
+    const r = await orbitx("POST", "/api/auth/invitar", { email, nombre: String(body.nombre || "").trim(), rol }, c.token);
+    log("invitación a " + email + " como " + rol + " en " + slug);
+    return { ok: true, link: r.link, expira_at: r.expira_at };
   },
   "GET /api/equipos": async () => {
     const r = await orbitx("GET", "/api/devices");
@@ -373,14 +388,10 @@ const server = http.createServer(async (req, res) => {
     if (u.pathname === "/instalar-remoto.ps1") {
       return texto(res, 200, scriptInstalar(req, u.searchParams.get("p") || "", "instalar-remoto.ps1"));
     }
-    if (u.pathname === "/rustdesk.ps1") {
-      const base = "http://" + ipServidor(req) + ":" + cfg.puerto;
-      return texto(res, 200, fs.readFileSync(path.join(AQUI, "rustdesk.ps1"), "utf8").replace(/__SERVIDOR__/g, base).replace(/__PEDIDO__/g, u.searchParams.get("p") || ""));
-    }
-    if (u.pathname === "/red.ps1") {
-      const base = "http://" + ipServidor(req) + ":" + cfg.puerto;
-      return texto(res, 200, fs.readFileSync(path.join(AQUI, "red.ps1"), "utf8").replace(/__SERVIDOR__/g, base));
-    }
+    // Misma regla del túnel que instalar.ps1: por AnyDesk la pantalla ve este
+    // servidor en su propio 127.0.0.1, no en la IP de la LAN.
+    if (u.pathname === "/rustdesk.ps1") return texto(res, 200, scriptInstalar(req, u.searchParams.get("p") || "", "rustdesk.ps1"));
+    if (u.pathname === "/red.ps1") return texto(res, 200, scriptInstalar(req, "", "red.ps1"));
     if (u.pathname === "/comando") { const c = u.searchParams.get("p") || ""; return texto(res, 200, comandoDe(req, c)); }
     if (u.pathname.startsWith("/paquetes/")) {
       const nombre = decodeURIComponent(u.pathname.slice("/paquetes/".length));
