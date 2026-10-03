@@ -6625,6 +6625,13 @@ public partial class MainWindow : Window
             case "config_resumen":
                 ShowConfig("summary");
                 return true;
+            // SISTEMA › Ayuda → el manual, en la Configuración NATIVA parada en
+            // Mantenimiento › Ayuda. Antes abría pages/config.html (la
+            // Configuración web vieja, que quedó para la PWA/celular) en una
+            // ventana aparte: el operario veía otra pantalla, con otro menú.
+            case "ayuda":
+                ShowConfigModulo("pages/ayuda.html", "Ayuda");
+                return true;
 
             // ---- Nueva A/B → flujo en el mapa (toco A, manejo, toco B) ----
             case "track_new_ab":
@@ -6884,9 +6891,8 @@ public partial class MainWindow : Window
             // perfiles.html queda para el Hub remoto/celular/Android, que no
             // pasan por este switch.
             "directorios"       => "pages/config.html",
-            // Ayuda abre CONFIGURACIÓN parada en su módulo, no la página
-            // suelta (pedido 2026-08-06, mismo criterio que Cámaras).
-            "ayuda"             => "pages/config.html?mod=ayuda.html",
+            // "ayuda" ya NO mapea acá: lo agarra el case de arriba y abre la
+            // Configuración nativa en Mantenimiento › Ayuda (2026-10-03).
             // "grafico_direccion"/"grafico_rumbo"/"grafico_xte"/"chequeo_roll"
             // ya NO mapean acá: los cuatro son paneles nativos (los cases de
             // arriba los agarran antes). Las páginas grafico-*.html quedan para
