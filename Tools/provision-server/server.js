@@ -88,9 +88,11 @@ function paquetes() {
 function kit() {
   const items = [
     { nombre: "Provision-Pantalla.ps1", ruta: path.join(REPO, "Tools", "provision-pantalla", "Provision-Pantalla.ps1"), req: true },
-    // Helper de red de ViewX TabletTools (tarea SYSTEM PilotXNetApply): sin él
-    // PilotX no puede aplicar la IP fija del Ethernet (tablet de Clancy, 2026-09-11).
-    { nombre: "TabletTools/NetApplyWatcher.ps1", ruta: path.join(cfg.tablettools_dir, "NetApplyWatcher.ps1"), req: true },
+    // Helper de red (tarea SYSTEM PilotXNetApply): sin él PilotX no puede
+    // aplicar la IP fija del Ethernet (tablet de Clancy, 2026-09-11). Se sirve
+    // la copia ENDURECIDA del repo (no la de ViewX TabletTools, que deja que el
+    // usuario de la pantalla llegue a SYSTEM con un enlace en netconfig).
+    { nombre: "NetApplyWatcher.ps1", ruta: path.join(REPO, "Tools", "net-apply", "NetApplyWatcher.ps1"), req: true },
     { nombre: "RustDesk.exe", ruta: rustdeskExe(), descarga: rustdeskNombre() },
     { nombre: "PilotX-KioskSetup.exe", ruta: path.join(REPO, "Build", "PilotX-KioskSetup.exe"), req: true },
     // Migracion desde AgOpenGPS: instalar-remoto.ps1 baja estos a la pantalla
