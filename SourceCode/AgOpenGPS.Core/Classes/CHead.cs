@@ -37,6 +37,46 @@ namespace AgOpenGPS
             }
         }
 
+        /// <summary>
+        /// Decide si el levante tiene que estar ARRIBA (implemento en cabecera)
+        /// y lo manda (SetHydPosition). Geométrico: reemplaza al scan de píxeles
+        /// de oglBack de AOG, que el motor headless no tiene — sin esto
+        /// SetHydPosition no se llamaba nunca y la placa recibía siempre 0.
+        /// Llamar DESPUÉS de WhereAreToolCorners (usa isToolOuterPointsInHeadland).
+        /// </summary>
+        /// <param name="anticipacionIzqM">Distancia anticipada de la esquina izquierda (m).</param>
+        /// <param name="anticipacionDerM">Distancia anticipada de la esquina derecha (m).</param>
+        public void DecidirLevante(double anticipacionIzqM, double anticipacionDerM)
+        {
+            if (bndList.Count == 0 || bndList[0].hdLine.Count == 0) return;
+            int n = mf.ToolNumOfSections;
+            if (n <= 0) return;
+
+            double heading = mf.ToolPivotPos.heading;
+            vec2 izq = PuntaAnticipada(mf.Section[0].leftPoint, heading, anticipacionIzqM);
+            vec2 der = PuntaAnticipada(mf.Section[n - 1].rightPoint, heading, anticipacionDerM);
+
+            isToolInHeadland = ImplementoEnCabecera(
+                isToolOuterPointsInHeadland,
+                IsPointInsideHeadArea(izq),
+                IsPointInsideHeadArea(der));
+
+            SetHydPosition();
+        }
+
+        /// <summary>
+        /// Arriba (true) solo si las dos esquinas están en cabecera y ninguna
+        /// punta anticipada entra al área de trabajo: baja anticipado al salir
+        /// del giro, y no sube mientras una esquina siga trabajando.
+        /// </summary>
+        public static bool ImplementoEnCabecera(bool esquinasEnCabecera, bool puntaIzqEnTrabajo, bool puntaDerEnTrabajo)
+            => esquinasEnCabecera && !puntaIzqEnTrabajo && !puntaDerEnTrabajo;
+
+        /// <summary>Punto <paramref name="distanciaM"/> adelante en el rumbo (0 = norte, horario).</summary>
+        public static vec2 PuntaAnticipada(vec2 esquina, double heading, double distanciaM)
+            => new vec2(esquina.easting + Math.Sin(heading) * distanciaM,
+                        esquina.northing + Math.Cos(heading) * distanciaM);
+
         public void WhereAreToolCorners()
         {
             if (bndList.Count > 0 && bndList[0].hdLine.Count > 0)

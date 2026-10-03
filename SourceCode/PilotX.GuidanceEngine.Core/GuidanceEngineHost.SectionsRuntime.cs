@@ -131,9 +131,17 @@ namespace AgOpenGPS
 
             if (tool.lookAheadDistanceOffPixelsLeft > 160) tool.lookAheadDistanceOffPixelsLeft = 160;
             if (tool.lookAheadDistanceOffPixelsRight > 160) tool.lookAheadDistanceOffPixelsRight = 160;
-            // (La parte de upstream que usa hydLiftLookAheadDistance* para
-            // decidir isToolInHeadland/SetHydPosition necesita el scan de
-            // píxeles de oglBack y sigue DIFERIDA, como dice el encabezado.)
+            // Levante hidráulico (2026-10-03): upstream decidía
+            // isToolInHeadland/SetHydPosition con el scan de píxeles de oglBack
+            // y acá quedaba DIFERIDO — el levante se configuraba pero la placa
+            // de máquina recibía siempre 0. Ahora geométrico (CHead.DecidirLevante):
+            // baja anticipado al salir del giro, sube con todo el implemento en
+            // cabecera. Solo actúa con el levante armado (botón Hidráulico) y
+            // cabecera prendida; SetHydPosition además pide velocidad > 0,2 y no
+            // marcha atrás. Las distancias vienen en décimas de metro.
+            if (Bnd.isHeadlandOn && Vehicle.isHydLiftOn)
+                Bnd.DecidirLevante(Vehicle.hydLiftLookAheadDistanceLeft * 0.1,
+                                   Vehicle.hydLiftLookAheadDistanceRight * 0.1);
 
             // ---- Secciones fuera del lindero (isInBoundary) ----
             // Port 1:1 de OpenGL.Designer.cs:941-965 del 6.8.6: por fix se
