@@ -132,6 +132,11 @@ namespace AgroParallel.WebHost
         /// que el resto de los módulos no inyectados.</summary>
         public AgroParallel.Soporte.ChatSoporteService Chat { get; set; }
 
+        /// <summary>"Reportar falla" en un toque (opcional): lo instancia y setea
+        /// el Engine, que es quien sabe dónde están los logs, el perfil y el
+        /// lote. Null = /api/soporte/reporte* degrada a service-unavailable.</summary>
+        public AgroParallel.Soporte.ReporteFallaService ReporteFalla { get; set; }
+
         /// <summary>Tareas de trabajo del lote abierto (opcional): lo setea el
         /// Engine ANTES de Start(), que es cuando se registran los controllers.
         /// Null = /api/tareas/* no existe (404), igual que los módulos no
@@ -430,6 +435,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new SonidosController(Sonidos, _wwwroot))
                  .WithController(() => new OrbitXController(_orbitxCfg))
                  .WithController(() => new ChatController(Chat, _steerConfig))
+                 .WithController(() => new ReporteFallaController(ReporteFalla))
                  .WithController(() => new FirmwaresController())
                  .WithController(() => new UsbFlashController(_usbFlash, AppContext.BaseDirectory))
                  .WithController(() => new TecladoController())

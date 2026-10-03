@@ -292,6 +292,11 @@
                 <vw:ChatPanel x:Name="ChatWidgetHost" IsVisible="False"
                               Width="360" Height="420"/>
 
+                <!-- "Reportar falla" (SISTEMA › Reportar falla): overlay propio,
+                     NO popup (sobre el mapa GL los popups no se ven). Se centra
+                     al abrir; la captura se toma ANTES de mostrarlo. -->
+                <vw:ReporteFallaPanel x:Name="ReporteFallaHost" IsVisible="False" Width="480"/>
+
                 <!-- Overlay de la pasada: flotante y centrado abajo, justo
                      arriba de las secciones. Lo que el operario toca MIRANDO la
                      línea, no la barra lateral: corrección lateral (izq /
@@ -968,6 +973,13 @@
                             HorizontalContentAlignment="Left" Padding="12,0"
                             Background="Transparent" BorderThickness="0"
                             Content="Ayuda"/>
+                    <!-- Reportar falla (2026-10-03): saca la captura, abre el
+                         panel para describir qué pasó y devuelve un código para
+                         dictar por teléfono. El ZIP sube solo a OrbitX. -->
+                    <Button x:Name="BtnSisReportar" Height="46" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left" Padding="12,0"
+                            Background="Transparent" BorderThickness="0"
+                            Content="Reportar falla"/>
 
                     <!-- Idioma: despliega los tres in-place. Los nombres van
                          SIEMPRE en su propio idioma (un brasilero busca

@@ -3149,5 +3149,77 @@
   "Recuperar": {
     "en": "Take back",
     "pt": "Recuperar"
+  },
+  "Reportar falla": {
+    "en": "Report a problem",
+    "pt": "Relatar falha"
+  },
+  "Le llega a soporte con captura, registros y configuración (sin contraseñas).": {
+    "en": "Support gets it with a screenshot, logs and settings (no passwords).",
+    "pt": "O suporte recebe com captura, registros e configuração (sem senhas)."
+  },
+  "¿Qué pasó? Por ejemplo: se cortó el piloto en la cabecera (opcional)": {
+    "en": "What happened? For example: autosteer cut out at the headland (optional)",
+    "pt": "O que aconteceu? Por exemplo: o piloto desligou na cabeceira (opcional)"
+  },
+  "Enviar reporte": {
+    "en": "Send report",
+    "pt": "Enviar relatório"
+  },
+  "Código del reporte": {
+    "en": "Report code",
+    "pt": "Código do relatório"
+  },
+  "Dictale este código a soporte por teléfono.": {
+    "en": "Read this code to support over the phone.",
+    "pt": "Dite este código ao suporte por telefone."
+  },
+  "Guardar en pendrive": {
+    "en": "Save to USB drive",
+    "pt": "Salvar no pendrive"
+  },
+  "Captura de la pantalla tomada.": {
+    "en": "Screenshot taken.",
+    "pt": "Captura de tela feita."
+  },
+  "No se pudo tomar la captura; el reporte sale igual.": {
+    "en": "Could not take the screenshot; the report is sent anyway.",
+    "pt": "Não foi possível capturar a tela; o relatório é enviado mesmo assim."
+  },
+  "Armando el reporte…": {
+    "en": "Building the report…",
+    "pt": "Montando o relatório…"
+  },
+  "No se pudo armar el reporte": {
+    "en": "Could not build the report",
+    "pt": "Não foi possível montar o relatório"
+  },
+  "el motor de PilotX no tiene el reporte disponible": {
+    "en": "the PilotX engine does not offer reports",
+    "pt": "o motor do PilotX não tem o relatório disponível"
+  },
+  "Ya está en OrbitX.": {
+    "en": "It is already in OrbitX.",
+    "pt": "Já está no OrbitX."
+  },
+  "La pantalla no está vinculada a OrbitX: guardalo en un pendrive y mandalo.": {
+    "en": "This display is not linked to OrbitX: save it to a USB drive and send it.",
+    "pt": "A tela não está vinculada ao OrbitX: salve no pendrive e envie."
+  },
+  "En cola: se sube solo apenas haya internet. Podés cerrar.": {
+    "en": "Queued: it uploads by itself as soon as there is internet. You can close this.",
+    "pt": "Na fila: sobe sozinho assim que houver internet. Pode fechar."
+  },
+  "Copiando al pendrive…": {
+    "en": "Copying to USB drive…",
+    "pt": "Copiando para o pendrive…"
+  },
+  "Guardado en": {
+    "en": "Saved to",
+    "pt": "Salvo em"
+  },
+  "No se pudo copiar al pendrive.": {
+    "en": "Could not copy to the USB drive.",
+    "pt": "Não foi possível copiar para o pendrive."
   }
 }

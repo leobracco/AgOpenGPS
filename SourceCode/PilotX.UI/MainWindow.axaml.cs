@@ -228,6 +228,8 @@ public partial class MainWindow : Window
     private QuantiXMapOverlay? _qxMapOverlay;
     private FlowXMapOverlay? _fxMapOverlay;
     private ChatPanel? _chatWidgetHost;
+    private ReporteFallaPanel? _reporteFallaHost;
+    private ReporteFallaClient? _reporteFallaCli;
     private HttpClient? _fxOverlayHttp;
     private QuantiXControlBar? _qxControlBar;
     private WidgetQuantiXClient? _qxWidgetClient;
@@ -882,6 +884,7 @@ public partial class MainWindow : Window
         _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");
         _fxMapOverlay      = this.FindControl<FlowXMapOverlay>("FxMapOverlay");
         _chatWidgetHost    = this.FindControl<ChatPanel>("ChatWidgetHost");
+        _reporteFallaHost  = this.FindControl<ReporteFallaPanel>("ReporteFallaHost");
         _avisoSinGps       = this.FindControl<Border>("AvisoSinGps");
         _avisoSinGpsTexto  = this.FindControl<TextBlock>("AvisoSinGpsTexto");
         _nudgeOverlay      = this.FindControl<Border>("NudgeOverlay");
@@ -901,6 +904,12 @@ public partial class MainWindow : Window
         {
             if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
             RouteCockpitCommand("ayuda");
+        };
+        var bSisReportar = this.FindControl<Button>("BtnSisReportar");
+        if (bSisReportar != null) bSisReportar.Click += (_, __) =>
+        {
+            if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+            _ = AbrirReporteFallaAsync();
         };
 
         // Idioma: despliega los tres in-place dentro del mismo panel.
@@ -4241,6 +4250,35 @@ public partial class MainWindow : Window
         };
         _chatWidgetHost.IsVisible = true;
         _chatWidgetHost.Attach(_chatAvisoCli);
+    }
+
+    /// <summary>SISTEMA › Reportar falla. Primero se cierra el menú y se deja
+    /// pasar un cuadro para que la captura muestre la pantalla como la veía el
+    /// operario (sin el menú ni el panel encima); recién después se abre el
+    /// panel para escribir qué pasó. Ver ReporteFallaPanel.</summary>
+    private async Task AbrirReporteFallaAsync()
+    {
+        if (_reporteFallaHost == null) return;
+        if (_reporteFallaHost.IsVisible) return;
+
+        // Dos vueltas de render: la primera aplica el IsVisible=false del menú,
+        // la segunda llega a la pantalla. 150 ms alcanzan holgado a 30+ fps.
+        await Task.Delay(150);
+        byte[]? captura = null;
+        try { captura = CapturaPantalla.Tomar(this); }
+        catch { captura = null; } // sin captura el reporte sale igual
+
+        if (_mapOverlaysHost != null) _mapOverlaysHost.IsVisible = true;
+        _reporteFallaCli ??= new ReporteFallaClient(DeriveOrigin(App.TargetUrl));
+        _reporteFallaHost.OnRequestCerrar = () => _reporteFallaHost.IsVisible = false;
+        _reporteFallaHost.Abrir(_reporteFallaCli, captura);
+
+        // Centrado horizontal y en el tercio superior: abajo queda lugar para
+        // el teclado propio, que se abre al tocar el campo de texto.
+        double ancho = _reporteFallaHost.Width > 0 ? _reporteFallaHost.Width : 480;
+        Canvas.SetLeft(_reporteFallaHost, Math.Max(12, (Bounds.Width - ancho) / 2));
+        Canvas.SetTop(_reporteFallaHost, Math.Max(12, Bounds.Height * 0.08));
+        _reporteFallaHost.IsVisible = true;
     }
 
     private void ArrancarAvisoChat()

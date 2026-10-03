@@ -67,6 +67,7 @@ namespace AgOpenGPS
         private AgroParallel.OrbitX.OrbitXSync _orbitxSync;
         private AgroParallel.Soporte.SoporteRemotoService _soporte;
         private AgroParallel.Soporte.ChatSoporteService _chat;
+        private AgroParallel.Soporte.ReporteFallaService _reporteFalla;
         private System.Threading.Timer _orbitxRetry;
         private AgroParallel.Services.SonidosAlarmService _sonidos;
         private AgroParallel.QuantiX.QuantiXMotorBridge _quantixBridge;
@@ -82,6 +83,10 @@ namespace AgOpenGPS
         /// <summary>Registro de nodos MQTT compartido: lo usan los bridges que
         /// publican targets (QuantiX/SectionX) en vez de abrir otra conexión.</summary>
         public NodoRegistryService Nodos => _nodos;
+
+        /// <summary>Monitor de fuente muda (lo crea Program y lo alimenta
+        /// VigiaFuentes). Acá solo se lee, para el reporte de falla.</summary>
+        public AgroParallel.Diagnostico.MonitorFuentesMudas FuentesMudas { get; set; }
 
         public EngineWebHost(GuidanceEngineHost host, int port = 5180,
             string brokerHost = "127.0.0.1", int brokerPort = 1883)
@@ -489,6 +494,30 @@ namespace AgOpenGPS
                 Console.Error.WriteLine("[Engine] ChatSoporte: " + ex.Message);
             }
 
+            // "Reportar falla" en un toque (SISTEMA › Reportar falla): la
+            // pantalla manda captura + descripción + sus logs; acá se suma lo
+            // del motor (logs, config sanitizada, perfil, lote, fuentes mudas),
+            // se arma el ZIP, queda en cola en disco y se sube a OrbitX cuando
+            // haya red. Sin vinculación queda en cola (y se puede sacar por
+            // pendrive). Existe porque el soporte remoto era lento: pantallas
+            // que fallaban y nadie podía leer los logs.
+            try
+            {
+                var colaReportes = new AgroParallel.Soporte.ColaReportesFalla(
+                    Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "data", "reportes_falla"));
+                _reporteFalla = new AgroParallel.Soporte.ReporteFallaService(
+                    colaReportes,
+                    () => AgroParallel.OrbitX.OrbitXConfig.Load(),
+                    () => ReporteFallaEngine.Contexto(_host, FuentesMudas, () => _nodos?.GetAll()),
+                    m => Console.WriteLine("[Engine] " + m));
+                _reporteFalla.Start();
+                if (_web != null) _web.ReporteFalla = _reporteFalla;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] ReporteFalla: " + ex.Message);
+            }
+
             // Bridge de motores QuantiX: el que PUBLICA los targets de dosis a
             // los nodos por MQTT. En FormGPS lo instancia el Load() del form —
             // acá no lo arrancaba nadie: el nodo conectaba, mandaba telemetría
@@ -628,6 +657,8 @@ namespace AgOpenGPS
             _soporte = null;
             try { _chat?.Dispose(); } catch { }
             _chat = null;
+            try { _reporteFalla?.Dispose(); } catch { }
+            _reporteFalla = null;
             try { _flowxBridge?.Stop(); _flowxBridge?.Dispose(); } catch { }
             _flowxBridge = null;
             // Antes de _web?.Stop(): orbitX.json no se puede escribir mientras

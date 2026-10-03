@@ -205,11 +205,18 @@ namespace AgOpenGPS
             host.StartCommandServer();
             Console.WriteLine("Comandos por TCP en 127.0.0.1:15556 (linea de texto, ej. \"autosteer\").");
 
+            // Monitor de fuente muda: UNA línea en el registro de eventos cuando
+            // se calla el GPS / la dirección (PGN 253) / la máquina / la IMU / un
+            // nodo MQTT, y otra cuando vuelve con la duración del corte. Lo lee
+            // también el reporte de falla (diagnostico/fuentes.txt).
+            var fuentesMudas = new AgroParallel.Diagnostico.MonitorFuentesMudas();
+
             EngineWebHost webHost = null;
             if (useWebHost)
             {
                 webHost = new EngineWebHost(host, 5180)
                 {
+                    FuentesMudas = fuentesMudas,
                     // Salida de emergencia del asistente de calibración de la
                     // dirección: sin él, Dirección › Asistente dice "no disponible".
                     AsistenteDireccionBloqueado = Array.IndexOf(args, "--sin-asistente-direccion") >= 0,
@@ -273,6 +280,12 @@ namespace AgOpenGPS
                 Console.WriteLine("Panel CoreX integrado en http://127.0.0.1:5181 (config: corex-integrado.json).");
             }
 
+            // Después de CoreX: las marcas de máquina/IMU viven ahí. Los nodos
+            // se leen del registro del web host (si no hay web host, no hay
+            // registro de nodos y se vigila lo demás).
+            var vigiaFuentes = new VigiaFuentes(fuentesMudas, host, coreX, () => webHost?.Nodos?.GetAll());
+            vigiaFuentes.Start();
+
             Timer simTimer = null;
             if (useSim)
             {
@@ -321,6 +334,7 @@ namespace AgOpenGPS
             exit.Wait();
 
             simTimer?.Dispose();
+            vigiaFuentes.Dispose();
             Log.EventWriter("GuidanceEngine: cerrando");
             webHost?.Stop();
             coreX?.Stop();

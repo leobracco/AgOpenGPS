@@ -417,8 +417,45 @@ namespace PilotX.GuidanceEngine.Adapters
 
         public AllSettingsSnapshot GetAllSettings() => new AllSettingsSnapshot();
 
+        /// <summary>
+        /// Visor de eventos (Configuración › Mantenimiento › Eventos). Antes era
+        /// un stub vacío y el visor no mostraba NADA con el motor nuevo, aunque
+        /// el archivo se escribía. Ahora: la cola del archivo de eventos del
+        /// motor (últimos 64 KB) + lo que todavía está en memoria (CrashLog lo
+        /// baja cada 30 s). Ahí aparecen, entre otras, las líneas del monitor
+        /// de fuente muda ("Fuente muda: …" / "Fuente volvió: …").
+        /// </summary>
         public EventLogSnapshot GetEventLog()
-            => new EventLogSnapshot { File = "", History = "", Session = "" };
+        {
+            var snap = new EventLogSnapshot { File = "", History = "", Session = "" };
+            try
+            {
+                string dir = RegistrySettings.logsDirectory;
+                if (!string.IsNullOrEmpty(dir))
+                {
+                    string ruta = System.IO.Path.Combine(dir, "AgOpenGPS_Events_Log.txt");
+                    snap.File = ruta;
+                    if (System.IO.File.Exists(ruta))
+                    {
+                        const int tope = 64 * 1024;
+                        using (var fs = new System.IO.FileStream(ruta, System.IO.FileMode.Open,
+                                   System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite | System.IO.FileShare.Delete))
+                        {
+                            long largo = fs.Length;
+                            if (largo > tope) fs.Seek(largo - tope, System.IO.SeekOrigin.Begin);
+                            var buf = new byte[System.Math.Min(largo, tope)];
+                            int total = 0, n;
+                            while (total < buf.Length && (n = fs.Read(buf, total, buf.Length - total)) > 0) total += n;
+                            snap.History = System.Text.Encoding.UTF8.GetString(buf, 0, total).Replace("\r\n", "\n").Replace('\r', '\n');
+                        }
+                    }
+                }
+            }
+            catch { /* visor best-effort: sin historial, sigue la sesión */ }
+            try { snap.Session = global::AgLibrary.Logging.Log.sbEvents.ToString().Replace('\r', '\n'); }
+            catch { } // el StringBuilder lo escriben varios hilos: si justo falla, sin sesión
+            return snap;
+        }
 
         // ---- Gráficos de diagnóstico en vivo ----
         // Ya NO son stubs: los 4 valores viven en el modelo Core que el motor
