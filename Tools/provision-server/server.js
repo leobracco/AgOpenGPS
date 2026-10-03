@@ -309,7 +309,9 @@ const rutas = {
     const u = new URL(req.url, "http://x"); const p = buscarPedido(u.searchParams.get("p"));
     let password = p && p.rustdesk_pass;
     if (!password) { password = secretos().rustdesk_pass || secretos().soporte_pass || nuevaClave(); if (p) { p.rustdesk_pass = password; guardarEstado(); } }
-    return { ok: true, archivo: rustdeskNombre(), servidor: cfg.rustdesk_host, clave: cfg.rustdesk_key, password };
+    // bytes: para que la pantalla valide la descarga (por túnel llegaba cortada).
+    let bytes = 0; try { bytes = fs.statSync(rustdeskExe()).size; } catch { }
+    return { ok: true, archivo: rustdeskNombre(), servidor: cfg.rustdesk_host, clave: cfg.rustdesk_key, password, bytes };
   },
   "POST /api/pedidos/rustdesk": async (req, body) => {
     const p = buscarPedido(body.codigo); if (!p) throw new Error("Pedido no existe");

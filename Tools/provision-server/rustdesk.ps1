@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # rustdesk.ps1 — deja RustDesk en la pantalla apuntando al servidor propio de
 # Agro Parallel (asistx.agroparallel.com) con contraseña fija de acceso.
 #
@@ -33,12 +33,31 @@ if (-not (Test-Path $inst)) {
     $exe = Join-Path $kit $info.archivo
     Paso "Bajando RustDesk ($($info.servidor))..."
     Invoke-WebRequest -UseBasicParsing -Uri "$Servidor/kit/RustDesk.exe" -OutFile $exe -TimeoutSec 600
+    # Por el túnel de AnyDesk la descarga llegaba cortada (259 KB de 23 MB) y
+    # Windows decía "no es una aplicación válida". Si no coincide el tamaño,
+    # se baja de internet directo (la pantalla tiene salida propia).
+    $tam = (Get-Item $exe -ErrorAction SilentlyContinue).Length
+    if ($info.bytes -and $tam -ne $info.bytes) {
+        Paso "La descarga llegó incompleta ($tam de $($info.bytes) bytes): bajo RustDesk de internet..."
+        Remove-Item $exe -Force -ErrorAction SilentlyContinue
+        Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/rustdesk/rustdesk/releases/download/1.5.0/rustdesk-1.5.0-x86_64.exe" -OutFile $exe -TimeoutSec 600
+        if ((Get-Item $exe).Length -ne 25887600) { throw "RustDesk tampoco bajó completo de internet" }
+    }
     Paso "Instalando como servicio (silencioso, hasta 3 min)..."
     $p = Start-Process $exe -ArgumentList "--silent-install" -PassThru
     if (-not $p.WaitForExit(180000)) { Write-Host "   el instalador no terminó solo; sigo igual" -ForegroundColor DarkGray }
-    Start-Sleep -Seconds 8
     if (-not (Test-Path $inst)) { throw "No quedó instalado en $inst" }
 } else { Paso "RustDesk ya estaba instalado: solo configuro servidor y contraseña" }
+
+# El exe aparece antes que el servicio: esperar al SERVICIO (pasó en PEQUEÑOS
+# TURPIALES: "No se encuentra ningún servicio con el nombre 'RustDesk'").
+foreach ($i in 1..60) { if (Get-Service RustDesk -ErrorAction SilentlyContinue) { break }; Start-Sleep -Seconds 2 }
+if (-not (Get-Service RustDesk -ErrorAction SilentlyContinue)) {
+    Paso "El servicio no apareció solo: lo instalo..."
+    & $inst --install-service | Out-Null
+    foreach ($i in 1..30) { if (Get-Service RustDesk -ErrorAction SilentlyContinue) { break }; Start-Sleep -Seconds 2 }
+    if (-not (Get-Service RustDesk -ErrorAction SilentlyContinue)) { throw "No quedó el servicio RustDesk" }
+}
 
 Stop-Service RustDesk -Force -ErrorAction SilentlyContinue
 Get-Process rustdesk -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue

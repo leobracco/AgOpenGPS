@@ -31,9 +31,12 @@ function Ok($t)     { Write-Host "  [OK] $t" -ForegroundColor Green }
 function Aviso($t)  { Write-Host "  [--] $t" -ForegroundColor DarkGray }
 function Mal($t)    { Write-Host "  [!!] $t" -ForegroundColor Red }
 function Avisar($msg, $estado) {
+    # Bytes UTF-8 explícitos: PowerShell 5.1 manda un -Body string como
+    # ISO-8859-1 y los acentos llegaban rotos al panel ("instalaci?n").
     try {
-        Invoke-RestMethod -Method Post -Uri "$Servidor/api/progreso" -ContentType "application/json" `
-            -Body (@{ pedido = $Pedido; msg = $msg; estado = $estado } | ConvertTo-Json) -TimeoutSec 10 | Out-Null
+        $json = @{ pedido = $Pedido; msg = $msg; estado = $estado } | ConvertTo-Json
+        Invoke-RestMethod -Method Post -Uri "$Servidor/api/progreso" -ContentType "application/json; charset=utf-8" `
+            -Body ([Text.Encoding]::UTF8.GetBytes($json)) -TimeoutSec 10 | Out-Null
     } catch { }
 }
 
@@ -55,7 +58,7 @@ $problemas = @()
 
 # ── 1. Registro ─────────────────────────────────────────────────────────────
 Titulo "1/8  Registro del equipo"
-Avisar "pantalla $env:COMPUTERNAME conectada (migración desde AgOpenGPS)" "instalando"
+Avisar "pantalla $env:COMPUTERNAME conectada (actualización desde la instalación anterior)" "instalando"
 # MISMO calculo que instalar.ps1, a proposito: si cada instalador deriva el id
 # a su manera, la misma pantalla se registra dos veces y en OrbitX aparecen dos
 # equipos para una sola maquina (paso con RODRIGUEZ el 2026-09-24). Ademas el
@@ -85,7 +88,7 @@ Ok "$($reg.cliente) — device $($reg.device_id), org $($reg.estab_slug)"
 # Lo primero de todo y lo único que no se puede rehacer. Si esto no sale bien,
 # no se instala nada.
 Titulo "2/8  Lotes y configuración de AgOpenGPS"
-Avisar "rescatando lotes de AgOpenGPS" "instalando"
+Avisar "respaldando lotes de la instalación anterior" "instalando"
 try {
     Invoke-WebRequest -UseBasicParsing -Uri "$Servidor/kit/Rescatar-AOG.ps1" -OutFile "$Kit\Rescatar-AOG.ps1" -TimeoutSec 120
 } catch { Mal "no se pudo bajar Rescatar-AOG.ps1: $($_.Exception.Message)" }
@@ -314,6 +317,25 @@ else {
     if ($primero -eq 0) { $problemas += "no quedó ningún lote restaurado" }
     Write-Host "  Verificá la geometría del perfil contra la máquina real antes de trabajar." -ForegroundColor Yellow
 }
+
+# ── 7b. Helper de red y soporte remoto (ANTES del kiosko) ───────────────────
+# Mismo criterio que instalar.ps1 después de OTTAVIANO (2026-09-24): todo lo
+# que la pantalla necesita va antes del kiosko. Sin PilotXNetApply, PilotX
+# (usuario limitado) no puede aplicar la IP fija del Ethernet; sin RustDesk no
+# hay forma de entrar a arreglarlo. Antes este instalador no hacía ninguno de
+# los dos (pasó en ANTONIJEVICH y PEQUEÑOS TURPIALES, 2026-10-02).
+Titulo "7b  Helper de red y soporte remoto"
+Avisar "instalando helper de red (PilotXNetApply)" "instalando"
+try { Invoke-Expression (Invoke-RestMethod -Uri "$Servidor/red.ps1" -TimeoutSec 60) }
+catch { Mal "helper de red: $($_.Exception.Message)" }
+if (Get-ScheduledTask -TaskName "PilotXNetApply" -ErrorAction SilentlyContinue) { Ok "helper de red OK (tarea PilotXNetApply creada)" }
+else {
+    $problemas += "no quedó la tarea PilotXNetApply (PilotX no va a poder fijar la IP del Ethernet)"
+    Avisar "ATENCION: PilotXNetApply no se creo — la pantalla no va a poder fijar su IP" "instalando"
+}
+Avisar "instalando RustDesk" "instalando"
+try { Invoke-Expression (Invoke-RestMethod -Uri "$Servidor/rustdesk.ps1?p=$Pedido" -TimeoutSec 60) }
+catch { Mal "RustDesk: $($_.Exception.Message) — correr después: irm $Servidor/rustdesk.ps1?p=$Pedido | iex" }
 
 # ── 8. Arranque y kiosko ────────────────────────────────────────────────────
 Titulo "8/8  Prueba de arranque"

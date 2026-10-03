@@ -24,7 +24,12 @@ $Pedido   = "__PEDIDO__"
 
 function Paso($t) { Write-Host ">> $t" -ForegroundColor Cyan }
 function Avisar($msg, $estado) {
-    try { Invoke-RestMethod -Method Post -Uri "$Servidor/api/progreso" -ContentType "application/json" -Body (@{ pedido = $Pedido; msg = $msg; estado = $estado } | ConvertTo-Json) -TimeoutSec 10 | Out-Null } catch { }
+    # Bytes UTF-8 explícitos: PowerShell 5.1 manda un -Body string como
+    # ISO-8859-1 y los acentos llegaban rotos al panel ("instalaci?n").
+    try {
+        $json = @{ pedido = $Pedido; msg = $msg; estado = $estado } | ConvertTo-Json
+        Invoke-RestMethod -Method Post -Uri "$Servidor/api/progreso" -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($json)) -TimeoutSec 10 | Out-Null
+    } catch { }
 }
 
 if (-not $Pedido) { Write-Host "Falta el código de pedido: abrí $Servidor y creá uno." -ForegroundColor Red; return }
