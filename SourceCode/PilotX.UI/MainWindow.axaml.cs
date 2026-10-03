@@ -918,6 +918,12 @@ public partial class MainWindow : Window
             if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
             _ = AbrirReporteFallaAsync();
         };
+        var bSisCerrar = this.FindControl<Button>("BtnSisCerrar");
+        if (bSisCerrar != null) bSisCerrar.Click += (_, __) =>
+        {
+            if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+            RouteCockpitCommand("apagar");
+        };
 
         // Idioma: despliega los tres in-place dentro del mismo panel.
         _sisIdiomaLista = this.FindControl<StackPanel>("SisIdiomaLista");

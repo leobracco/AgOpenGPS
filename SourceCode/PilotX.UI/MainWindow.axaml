@@ -1056,6 +1056,15 @@
                               HorizontalContentAlignment="Left" Padding="12,0"
                               Background="Transparent" BorderThickness="0" Content="Português"/>
                     </StackPanel>
+
+                    <!-- Cerrar PilotX: el ✕ se sacó de la barra (pegado al ☐,
+                         con guantes se erraba y se perdía el guiado). Va al
+                         final y separado; "apagar" pide confirmación. -->
+                    <Rectangle Height="1" Fill="#E2E7E2" Margin="6,2"/>
+                    <Button x:Name="BtnSisCerrar" Height="46" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left" Padding="12,0"
+                            Background="Transparent" BorderThickness="0"
+                            Content="Cerrar PilotX"/>
                   </StackPanel>
                 </Border>
                 <bars:MenuIzquierda x:Name="MenuIzq"
