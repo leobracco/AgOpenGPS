@@ -80,24 +80,36 @@ namespace AgroParallel.WebHost.Controllers
         public Task PostCeder() => SoloCabina(c =>
         {
             bool ok = _puerta.Ceder();
-            return new { ok, mensaje = ok ? "Control cedido." : "No hay ningún pedido de control vigente.",
-                         estado = Armar(_puerta.Autoridad.Estado(), c) };
+            return new
+            {
+                ok,
+                mensaje = ok ? "Control cedido." : "No hay ningún pedido de control vigente.",
+                estado = Armar(_puerta.Autoridad.Estado(), c)
+            };
         });
 
         [Route(HttpVerbs.Post, "/control/rechazar")]
         public Task PostRechazar() => SoloCabina(c =>
         {
             bool ok = _puerta.Autoridad.RechazarPedido();
-            return new { ok, mensaje = ok ? "Pedido rechazado." : "No había pedido.",
-                         estado = Armar(_puerta.Autoridad.Estado(), c) };
+            return new
+            {
+                ok,
+                mensaje = ok ? "Pedido rechazado." : "No había pedido.",
+                estado = Armar(_puerta.Autoridad.Estado(), c)
+            };
         });
 
         [Route(HttpVerbs.Post, "/control/recuperar")]
         public Task PostRecuperar() => SoloCabina(c =>
         {
             _puerta.Autoridad.Recuperar("la cabina retomó el control");
-            return new { ok = true, mensaje = "La cabina tiene el control.",
-                         estado = Armar(_puerta.Autoridad.Estado(), c) };
+            return new
+            {
+                ok = true,
+                mensaje = "La cabina tiene el control.",
+                estado = Armar(_puerta.Autoridad.Estado(), c)
+            };
         });
 
         private Task SoloCabina(System.Func<ClienteControl, object> accion)
