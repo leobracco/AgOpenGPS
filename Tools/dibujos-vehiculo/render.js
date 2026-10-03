@@ -50,24 +50,27 @@ if (V === 'tipo') {
   s += cota(g.piv, g.ay - 32, g.ax, g.ay - 32, AZUL);
   // Signo de la distancia al pivote (convención del motor): antena DELANTE
   // del eje = +, DETRÁS = −. Avance hacia la derecha.
-  const signo = (x, txt) => `<circle cx="${x}" cy="${g.ay - 70}" r="17" fill="#fff" stroke="${AZUL}" stroke-width="3"/>`
-    + `<text x="${x}" y="${g.ay - 70}" fill="${AZUL}" font-size="30" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle" dominant-baseline="central">${txt}</text>`;
-  s += signo(g.piv - 34, '−') + signo(g.piv + 34, '+');
-  s += guia(g.piv, g.ay - 40, g.piv, g.ay - 92, AZUL);
+  const signo = (x, txt) => `<circle cx="${x}" cy="${g.ay - 76}" r="24" fill="#fff" stroke="${AZUL}" stroke-width="4"/>`
+    + `<text x="${x}" y="${g.ay - 74}" fill="${AZUL}" font-size="42" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle" dominant-baseline="central">${txt}</text>`;
+  s += signo(g.piv - 44, '−') + signo(g.piv + 44, '+');
+  s += guia(g.piv, g.ay - 40, g.piv, g.ay - 104, AZUL);
   // Altura: del centro de la antena al piso.
   s += guia(g.ax + 16, g.ay, g.xAlt + (g.xAlt > g.ax ? 14 : -14), g.ay, VERDE);
   s += cota(g.xAlt, g.ay, g.xAlt, 392, VERDE);
   s += antena(g.ax, g.ay);
-  // Vista de arriba debajo, con el offset lateral.
-  const t = M.top, Y = 150, dy = 470, off = 46;
-  let p = plantaRecta(M);
-  const axP = M.id === 'articulado' ? t.ant : t.ant;
-  p += cota(axP + 60, Y, axP + 60, Y - off, NARANJA);
-  p += guia(axP, Y - off, axP + 70, Y - off, NARANJA);
-  p += `<circle cx="${axP}" cy="${Y - off}" r="15" fill="${ROJO}" stroke="#fff" stroke-width="3"/>`;
-  s += `<g transform="translate(0 ${dy})">${p}</g>`;
   svg = s;
-  vb = `${g.vb.split(' ')[0]} ${Math.min(+g.vb.split(' ')[1], g.ay - 100)} ${g.vb.split(' ')[2]} ${dy + 340 - Math.min(+g.vb.split(' ')[1], g.ay - 100)}`;
+  const vy = Math.min(+g.vb.split(' ')[1], g.ay - 108);
+  vb = `${g.vb.split(' ')[0]} ${vy} ${g.vb.split(' ')[2]} ${405 - vy}`;
+} else if (V === 'offset') {
+  // Vista de arriba con el offset lateral (va en la carta "Offset de antena").
+  const t = M.top, Y = 150, off = 46;
+  let p = plantaRecta(M);
+  p += cota(t.ant + 60, Y, t.ant + 60, Y - off, NARANJA);
+  p += guia(t.ant, Y - off, t.ant + 70, Y - off, NARANJA);
+  p += `<circle cx="${t.ant}" cy="${Y - off}" r="15" fill="${ROJO}" stroke="#fff" stroke-width="3"/>`;
+  svg = p;
+  const x0 = t.L[0] - 30, x1 = Math.max(t.L[1], t.cabezal ? t.cabezal[1] : 0) + 30;
+  vb = `${x0} -20 ${x1 - x0} 340`;
 } else if (V === 'dim') {
   const t = M.top, Y = 150;
   let s = plantaRecta(M);

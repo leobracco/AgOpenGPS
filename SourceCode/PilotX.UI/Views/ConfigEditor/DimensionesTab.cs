@@ -268,7 +268,7 @@ public sealed class DimensionesTab : ConfigTab
             // MaxWidth/MaxHeight EXPLÍCITOS: BarStyles.axaml trae un
             // `Style Selector="Image"` con máximos de 34 px que aplica a TODA
             // imagen de la ventana; sin esto el diagrama sale de estampilla.
-            MaxWidth = 520, MaxHeight = 260,
+            MaxWidth = 440, MaxHeight = 210,
             Stretch = Stretch.Uniform,
             HorizontalAlignment = HorizontalAlignment.Center,
         });

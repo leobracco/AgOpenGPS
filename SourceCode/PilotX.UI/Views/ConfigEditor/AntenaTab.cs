@@ -97,7 +97,7 @@ public sealed class AntenaTab : ConfigTab
 
     /// <summary>Diagrama por tipo de vehículo, dibujos de Agro Parallel (antes el
     /// ANT_IMG de AOG): de costado la altura (verde) y la distancia al pivote
-    /// (azul); de arriba el offset (naranja). El pivote es el mismo que usa el
+    /// (azul) con su signo; el offset (naranja) va aparte, en su carta. El pivote es el mismo que usa el
     /// motor: eje TRASERO en el rígido, eje DELANTERO en cosechadora y
     /// articulado — no la articulación.</summary>
     private static string Diagrama(int tipo) => tipo switch
@@ -112,6 +112,14 @@ public sealed class AntenaTab : ConfigTab
     private static readonly IBrush CotaVerde = new SolidColorBrush(Color.Parse("#2F7F27"));
     private static readonly IBrush CotaAzul = new SolidColorBrush(Color.Parse("#2F6FB0"));
     private static readonly IBrush CotaNaranja = new SolidColorBrush(Color.Parse("#D2601F"));
+
+    /// <summary>Vista de arriba con el offset, por tipo de vehículo.</summary>
+    private static string DiagramaOffset(int tipo) => tipo switch
+    {
+        1 => "PxOffsetCosechadora.png",
+        2 => "PxOffsetArticulado.png",
+        _ => "PxOffsetTractor.png",
+    };
 
     /// <summary>Máquina de la guía de instalación (el #hash de instalacion.html).</summary>
     private static string MaquinaGuia(int tipo) => tipo switch
@@ -312,7 +320,7 @@ public sealed class AntenaTab : ConfigTab
             // MaxWidth/MaxHeight EXPLÍCITOS: BarStyles.axaml trae un
             // `Style Selector="Image"` con máximos de 34 px que aplica a TODA
             // imagen de la ventana; sin esto el diagrama sale de estampilla.
-            MaxWidth = 520, MaxHeight = 470,
+            MaxWidth = 440, MaxHeight = 220,
             Stretch = Stretch.Uniform,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
@@ -341,6 +349,16 @@ public sealed class AntenaTab : ConfigTab
         // ---- segunda carta: el offset y su lado (el `dosCol` del HTML) ------
         var cartaOffset = new StackPanel { Spacing = 10, MaxWidth = 560 };
         cartaOffset.Children.Add(CfgUi.Titulo("Offset de antena"));
+        // Vista de arriba con el corrimiento lateral (naranja), chica: el dibujo
+        // de costado de arriba ya ocupa lo suyo y los campos tienen que verse
+        // sin bajar en la pantalla de 10".
+        cartaOffset.Children.Add(new Image
+        {
+            Source = Icono(DiagramaOffset(C.Snap?.Vehiculo?.VehicleType ?? 0)),
+            MaxWidth = 300, MaxHeight = 160,   // ver nota de BarStyles arriba
+            Stretch = Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
         cartaOffset.Children.Add(FilaNud("Offset", _txtOffset, CotaNaranja));
 
         var grilla = CfgUi.Grilla();
