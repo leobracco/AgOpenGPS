@@ -12,6 +12,46 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.90] — 2026-10-03
+
+Lo que decide cómo guía o aplica la máquina sigue APAGADO o en modo solo
+registro de fábrica: con los ajustes por defecto guía igual que la 1.0.89.
+
+### Added
+
+- **Dibujos propios en Configuración › Vehículo.** Tipo, Dimensiones y Antena
+  usan los dibujos de Agro Parallel (antes los de AOG). Cada medida tiene una
+  marca del color de su flecha; la distancia al pivote muestra **+** delante
+  del eje y **−** detrás. El offset de la antena tiene su vista de arriba en
+  su propia carta.
+- **"Dónde va cada pieza"**: guía de instalación con dibujos por máquina
+  (tractor, articulado, cosechadora, pulverizadora, fertilizadora), sin
+  internet. Desde Vehículo › Antena o desde la Ayuda.
+- **SISTEMA › Reportar falla**: en un toque saca la captura, pide describir
+  qué pasó y devuelve un código para dictar por teléfono; el paquete sube
+  solo a OrbitX.
+- **Tarea finalizada sellada** (no se edita después de cerrada) y **LOTE ›
+  Exportar ISO-XML** del lote.
+- **Planimetría en la cabina** (Configuración › GPS / IMU › Planimetría,
+  apagado): mapa de alturas sobre el lote, guía por curva de nivel y
+  ambientes para armar una prescripción.
+- **VistaX: registro por surco del lote**, con informe, mapa SHP y envío a
+  OrbitX.
+- **Autoridad de control**: una sola pantalla acciona la máquina a la vez
+  (celular o cabina). De fábrica solo registra, no bloquea.
+- **Configuración › Otros › Unidades** en la pantalla nativa.
+
+### Fixed
+
+- **SISTEMA › Cerrar PilotX** vuelve a estar en el menú (el manual lo
+  nombraba y no estaba).
+- El área y la distancia vuelven a cero al cerrar y al abrir lote.
+- El manejo libre de la dirección manda 0,5 km/h falsos al módulo, no 8.
+- Al actualizar, PilotX espera el resultado del actualizador antes de
+  cerrarse.
+
+---
+
 ## [1.0.89] — 2026-10-03
 
 ### Fixed
