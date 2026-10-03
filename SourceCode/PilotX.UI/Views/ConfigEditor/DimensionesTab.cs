@@ -77,13 +77,20 @@ public sealed class DimensionesTab : ConfigTab
     /// <summary>Fondo del NUD inválido (el `#fdf0ee` del CSS).</summary>
     private static readonly IBrush BgNudMal = new SolidColorBrush(Color.Parse("#FBECEC"));
 
-    /// <summary>Diagrama por tipo de vehículo (el DIM_IMG del JS).</summary>
+    /// <summary>Diagrama por tipo de vehículo: vista de arriba con las cotas de
+    /// entre ejes (verde) y trocha (azul), dibujos de Agro Parallel (antes el
+    /// DIM_IMG de AOG). La trocha se marca en el eje que dobla.</summary>
     private static string Diagrama(int tipo) => tipo switch
     {
-        1 => "RadiusWheelBaseHarvester.png",
-        2 => "RadiusWheelBaseArticulated.png",
-        _ => "RadiusWheelBase.png",
+        1 => "PxDimCosechadora.png",
+        2 => "PxDimArticulado.png",
+        _ => "PxDimTractor.png",
     };
+
+    // Colores de las cotas de los dibujos Px* (Assets/config): mismos hex que
+    // el generador. Si se regeneran los PNG con otros colores, cambiar acá.
+    private static readonly IBrush CotaVerde = new SolidColorBrush(Color.Parse("#2F7F27"));
+    private static readonly IBrush CotaAzul = new SolidColorBrush(Color.Parse("#2F6FB0"));
 
     // ---- rangos (réplica EXACTA de limWheelbase/limTrack/limHitch) ----------
     // Son los del original WinForms tras FixMinMaxSpinners, en cm | in.
@@ -261,7 +268,7 @@ public sealed class DimensionesTab : ConfigTab
             // MaxWidth/MaxHeight EXPLÍCITOS: BarStyles.axaml trae un
             // `Style Selector="Image"` con máximos de 34 px que aplica a TODA
             // imagen de la ventana; sin esto el diagrama sale de estampilla.
-            MaxWidth = 420, MaxHeight = 220,
+            MaxWidth = 520, MaxHeight = 260,
             Stretch = Stretch.Uniform,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
@@ -272,8 +279,8 @@ public sealed class DimensionesTab : ConfigTab
         _txtTrack     = Nud("Trocha",     Valor(C.Snap?.Dimensiones?.TrackWidth));
         _txtHitch     = Nud("Distancia del eje rígido al enganche", Valor(C.Snap?.Dimensiones?.HitchLength));
 
-        filas.Children.Add(FilaNud("Entre ejes", _txtWheelbase));
-        filas.Children.Add(FilaNud("Trocha", _txtTrack));
+        filas.Children.Add(FilaNud("Entre ejes", _txtWheelbase, CotaVerde));
+        filas.Children.Add(FilaNud("Trocha", _txtTrack, CotaAzul));
         _filaHitch = FilaNud("Distancia del eje rígido al enganche", _txtHitch);
         filas.Children.Add(_filaHitch);
         carta.Children.Add(filas);
@@ -334,9 +341,23 @@ public sealed class DimensionesTab : ConfigTab
     }
 
     /// <summary>La `.nudfila` del CSS: etiqueta | NUD | unidad.</summary>
-    private Control FilaNud(string etiqueta, TextBox nud)
+    /// <param name="cota">Color de la flecha de esta medida en el dibujo (null =
+    /// la medida no está dibujada). El dibujo no lleva texto para servir en los
+    /// tres idiomas: el color es lo que une la flecha con el campo.</param>
+    private Control FilaNud(string etiqueta, TextBox nud, IBrush? cota = null)
     {
-        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("230,Auto,Auto") };
+        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("26,204,Auto,Auto") };
+        if (cota != null)
+        {
+            var marca = new Border
+            {
+                Width = 18, Height = 5, CornerRadius = new CornerRadius(2),
+                Background = cota, VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            Grid.SetColumn(marca, 0);
+            g.Children.Add(marca);
+        }
 
         var lbl = new TextBlock
         {
@@ -354,9 +375,9 @@ public sealed class DimensionesTab : ConfigTab
             Margin = new Thickness(10, 0, 0, 0),
         };
 
-        Grid.SetColumn(lbl, 0);
-        Grid.SetColumn(nud, 1);
-        Grid.SetColumn(uni, 2);
+        Grid.SetColumn(lbl, 1);
+        Grid.SetColumn(nud, 2);
+        Grid.SetColumn(uni, 3);
         g.Children.Add(lbl);
         g.Children.Add(nud);
         g.Children.Add(uni);

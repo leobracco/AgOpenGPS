@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PilotX · Dónde va cada pieza</title>
+<script src="../js/widget-mode.js"></script>
+<link rel="stylesheet" href="../theme.css" />
+<style>
+  /* ==========================================================================
+     Dónde va cada pieza — guía de instalación de PilotX, OFFLINE.
+     Copia de agroparallel.com/herramientas/instalacion-pilotx.html adaptada a
+     la cabina: tema claro de PilotX, sin Google Fonts ni links a la web (la
+     pantalla muchas veces no tiene internet), sin "Imprimir", y con las rutas
+     REALES de Configuración en los recuadros "En la pantalla".
+     Los dibujos son SVG generados acá mismo: no hay imágenes que bajar.
+     Si cambia la página de la web, traer el cambio acá (MAQ y PIEZAS son los
+     mismos datos).
+     ========================================================================== */
+  :root{
+    --bg:var(--agp-bg-soft,#F5F7F4); --panel:#FFFFFF; --panel2:#F5F7F4; --lienzo:#EEF2EE;
+    --line:#E2E7E2; --line2:#C5CFC5;
+    --txt:#101612; --mut:#535E54;
+    --acc:#4ABA3E; --accTxt:#2F7F27; --warn:#C8562E;
+    --w-pot:#E0663C; --w-can:#C8922F; --w-sig:#3F7FC0; --w-ant:#3E8F33; --w-utp:#8A5CC4;
+    --body:#3B4855; --body2:#4A5866; --vidrio:#1B3A46;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg)}
+  body{color:var(--txt);font-family:var(--agp-font-sans,system-ui,'Segoe UI',sans-serif);line-height:1.45;padding:0 12px 32px}
+  .wrap{max-width:1180px;margin:0 auto}
+  .top{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:12px}
+  .volver{display:inline-flex;align-items:center;flex:none;min-height:44px;padding:0 14px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--txt);text-decoration:none;font-weight:600}
+  .top h1{font-size:20px;font-weight:700}
+  .top p{color:var(--mut);font-size:13px}
+  .vehs{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px}
+  @media(max-width:760px){.vehs{grid-template-columns:repeat(3,1fr)}}
+  .veh{min-height:56px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--mut);cursor:pointer;text-align:left;font:inherit}
+  .veh[aria-pressed="true"]{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc);background:#EEF8EC}
+  .veh b{display:block;font-size:16px;font-weight:700;color:var(--txt)}
+  .veh small{display:block;font-size:12px;margin-top:2px}
+  .barra{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+  .tg{min-height:44px;font:inherit;font-size:14px;font-weight:600;padding:0 14px;border-radius:8px;cursor:pointer;background:var(--panel);border:1px solid var(--line2);color:var(--mut)}
+  .tg[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#fff}
+  .barra .sep{width:1px;height:28px;background:var(--line2);margin:0 4px}
+  .grid{display:grid;grid-template-columns:1fr 360px;gap:14px;align-items:start}
+  @media(max-width:980px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .panel + .panel{margin-top:12px}
+  .panel h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+  .panel h2 em{font-style:normal;font-weight:400;text-transform:none;letter-spacing:0}
+  #perfil,#planta{background:var(--lienzo);border-radius:8px}
+  svg.dib{display:block;width:100%;height:auto}
+  .dib text{font-family:var(--agp-font-mono,Consolas,monospace)}
+  .pin{cursor:pointer}
+  .pin circle.o{fill:var(--acc);stroke:#fff;stroke-width:2.5}
+  .pin text{fill:#fff;font-size:14px;font-weight:700;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+  .pin.on circle.o{fill:#101612}
+  .pin.on circle.halo{opacity:1}
+  .pin circle.halo{fill:none;stroke:var(--acc);stroke-width:3;opacity:0}
+  .wire{fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+  .w-pot{stroke:var(--w-pot)} .w-ali{stroke:#6B7680} .w-can{stroke:var(--w-can)} .w-sig{stroke:var(--w-sig)} .w-ant{stroke:var(--w-ant);stroke-dasharray:7 5} .w-utp{stroke:var(--w-utp)}
+  .cables-off .wire{display:none}
+  .refs{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:12px;color:var(--mut)}
+  .refs span{display:inline-flex;align-items:center;gap:6px}
+  .refs i{width:18px;height:4px;border-radius:2px;display:inline-block}
+  .comps{display:flex;flex-direction:column;gap:6px}
+  .comp{display:grid;grid-template-columns:30px 1fr;gap:10px;text-align:left;width:100%;min-height:52px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;color:var(--txt);cursor:pointer;font:inherit}
+  .comp.on{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc);background:#EEF8EC}
+  .comp .n{width:28px;height:28px;border-radius:50%;background:var(--acc);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .comp b{display:block;font-size:16px;font-weight:700}
+  .comp .d{display:block;font-size:13px;color:var(--mut);margin-top:2px}
+  .comp .x{display:none;margin-top:8px;font-size:14px;color:var(--txt)}
+  .comp.on .x{display:block}
+  .comp .x p + p{margin-top:6px}
+  .ojo{border-left:3px solid var(--warn);padding-left:9px;color:#7A3418}
+  .claves{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px}
+  .clave{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:12px 14px}
+  .clave.w{border-left-color:var(--warn)}
+  .clave h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:6px}
+  .clave ul{padding-left:18px;font-size:14px}
+  .clave li{margin-top:5px}
+  .ruta{font-size:13px;color:var(--accTxt);background:#EEF8EC;border:1px solid #CFE7CB;border-radius:4px;padding:1px 6px;white-space:nowrap;font-weight:600}
+  footer{margin-top:16px;color:var(--mut);font-size:12px;border-top:1px solid var(--line);padding-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="volver" href="ayuda.html#instalacion">← Ayuda</a>
+    <div>
+      <h1>Dónde va cada pieza</h1>
+      <p>Elegí la máquina y tocá un número para ver dónde va esa pieza y por dónde pasa el cable.</p>
+    </div>
+  </div>
+
+  <div class="vehs" id="vehs" role="group" aria-label="Tipo de máquina"></div>
+
+  <div class="barra">
+    <button type="button" class="tg" id="tgCables" aria-pressed="true">Mostrar cables</button>
+    <span class="sep"></span>
+    <button type="button" class="tg" data-ant="1" aria-pressed="true">1 antena</button>
+    <button type="button" class="tg" data-ant="2" aria-pressed="false">2 antenas (dual)</button>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Vista de costado <em>tocá un número</em></h2>
+        <div id="perfil"></div>
+        <div class="refs">
+          <span><i style="background:var(--w-pot)"></i>Potencia del motor (batería directa)</span>
+          <span><i style="background:#6B7680"></i>Alimentación de cabina</span>
+          <span><i style="background:var(--w-can)"></i>CAN motor</span>
+          <span><i style="background:var(--w-sig)"></i>Señal (sensor y botón)</span>
+          <span><i style="background:var(--w-utp)"></i>Red UTP pantalla ↔ CoreX ECU</span>
+          <span><i style="background:var(--w-ant)"></i>Cable de antena</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Vista de arriba <em>centrado de antena y sensor</em></h2>
+        <div id="planta"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Piezas en esta máquina <em id="lblVeh"></em></h2>
+      <div class="comps" id="comps"></div>
+    </div>
+  </div>
+
+  <div class="claves" id="claves"></div>
+
+  <footer>Esquemas orientativos: cada marca y modelo tiene sus particularidades. Antes de perforar o pasar cables, desconectá el negativo de la batería. Las medidas que se toman en la instalación (altura de antena, distancia al eje, entre ejes, trocha) se cargan en <span class="ruta">Configuración › Vehículo</span>.</footer>
+</div>
+
+<script>

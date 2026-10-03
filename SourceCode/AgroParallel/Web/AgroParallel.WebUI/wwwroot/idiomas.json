@@ -3221,5 +3221,13 @@
   "No se pudo copiar al pendrive.": {
     "en": "Could not copy to the USB drive.",
     "pt": "Não foi possível copiar para o pendrive."
+  },
+  "Dónde va cada pieza": {
+    "en": "Where each part goes",
+    "pt": "Onde vai cada peça"
+  },
+  "Dónde va cada pieza (instalación)": {
+    "en": "Where each part goes (installation)",
+    "pt": "Onde vai cada peça (instalação)"
   }
 }

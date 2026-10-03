@@ -95,12 +95,30 @@ public sealed class AntenaTab : ConfigTab
     /// <summary>Fondo del NUD inválido (el `#fdf0ee` del CSS).</summary>
     private static readonly IBrush BgNudMal = new SolidColorBrush(Color.Parse("#FBECEC"));
 
-    /// <summary>Diagrama por tipo de vehículo (el ANT_IMG del JS).</summary>
+    /// <summary>Diagrama por tipo de vehículo, dibujos de Agro Parallel (antes el
+    /// ANT_IMG de AOG): de costado la altura (verde) y la distancia al pivote
+    /// (azul); de arriba el offset (naranja). El pivote es el mismo que usa el
+    /// motor: eje TRASERO en el rígido, eje DELANTERO en cosechadora y
+    /// articulado — no la articulación.</summary>
     private static string Diagrama(int tipo) => tipo switch
     {
-        1 => "AntennaHarvester.png",
-        2 => "AntennaArticulated.png",
-        _ => "AntennaTractor.png",
+        1 => "PxAntenaCosechadora.png",
+        2 => "PxAntenaArticulado.png",
+        _ => "PxAntenaTractor.png",
+    };
+
+    // Colores de las cotas de los dibujos Px* (Assets/config): mismos hex que
+    // el generador. Si se regeneran los PNG con otros colores, cambiar acá.
+    private static readonly IBrush CotaVerde = new SolidColorBrush(Color.Parse("#2F7F27"));
+    private static readonly IBrush CotaAzul = new SolidColorBrush(Color.Parse("#2F6FB0"));
+    private static readonly IBrush CotaNaranja = new SolidColorBrush(Color.Parse("#D2601F"));
+
+    /// <summary>Máquina de la guía de instalación (el #hash de instalacion.html).</summary>
+    private static string MaquinaGuia(int tipo) => tipo switch
+    {
+        1 => "cosechadora",
+        2 => "articulado",
+        _ => "tractor",
     };
 
     // ---- rangos (réplica EXACTA de LIM_ANT_* de config.js) ------------------
@@ -294,10 +312,19 @@ public sealed class AntenaTab : ConfigTab
             // MaxWidth/MaxHeight EXPLÍCITOS: BarStyles.axaml trae un
             // `Style Selector="Image"` con máximos de 34 px que aplica a TODA
             // imagen de la ventana; sin esto el diagrama sale de estampilla.
-            MaxWidth = 420, MaxHeight = 220,
+            MaxWidth = 520, MaxHeight = 470,
             Stretch = Stretch.Uniform,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
+
+        // Guía de instalación (pages/instalacion.html, offline): dibujos de dónde
+        // va cada pieza y cómo se toman estas medidas, abierta en la máquina del
+        // tipo cargado. Va en la misma tarjeta de Configuración, con su ✕.
+        var botonGuia = CfgUi.Boton("Dónde va cada pieza", () =>
+            C.AbrirHtmlEmbebido?.Invoke("pages/instalacion.html#" + MaquinaGuia(C.Snap?.Vehiculo?.VehicleType ?? 0),
+                                        "Dónde va cada pieza"));
+        botonGuia.HorizontalAlignment = HorizontalAlignment.Center;
+        carta.Children.Add(botonGuia);
 
         var filas = new StackPanel { Spacing = 8 };
 
@@ -305,8 +332,8 @@ public sealed class AntenaTab : ConfigTab
         _txtPivote = Nud("Distancia al pivote", ConSigno(C.Snap?.Antena?.AntennaPivot));
         _txtOffset = Nud("Offset",              Magnitud(C.Snap?.Antena?.AntennaOffset));
 
-        filas.Children.Add(FilaNud("Altura de antena", _txtAltura));
-        filas.Children.Add(FilaNud("Distancia al pivote", _txtPivote));
+        filas.Children.Add(FilaNud("Altura de antena", _txtAltura, CotaVerde));
+        filas.Children.Add(FilaNud("Distancia al pivote", _txtPivote, CotaAzul));
         carta.Children.Add(filas);
 
         Children.Add(CfgUi.Carta(carta));
@@ -314,7 +341,7 @@ public sealed class AntenaTab : ConfigTab
         // ---- segunda carta: el offset y su lado (el `dosCol` del HTML) ------
         var cartaOffset = new StackPanel { Spacing = 10, MaxWidth = 560 };
         cartaOffset.Children.Add(CfgUi.Titulo("Offset de antena"));
-        cartaOffset.Children.Add(FilaNud("Offset", _txtOffset));
+        cartaOffset.Children.Add(FilaNud("Offset", _txtOffset, CotaNaranja));
 
         var grilla = CfgUi.Grilla();
         foreach (var l in LADOS) grilla.Children.Add(Radio(l));
@@ -387,9 +414,23 @@ public sealed class AntenaTab : ConfigTab
     }
 
     /// <summary>La `.nudfila` del CSS: etiqueta | NUD | unidad.</summary>
-    private Control FilaNud(string etiqueta, TextBox nud)
+    /// <param name="cota">Color de la flecha de esta medida en el dibujo (null =
+    /// la medida no está dibujada). El dibujo no lleva texto para servir en los
+    /// tres idiomas: el color es lo que une la flecha con el campo.</param>
+    private Control FilaNud(string etiqueta, TextBox nud, IBrush? cota = null)
     {
-        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("230,Auto,Auto") };
+        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("26,204,Auto,Auto") };
+        if (cota != null)
+        {
+            var marca = new Border
+            {
+                Width = 18, Height = 5, CornerRadius = new CornerRadius(2),
+                Background = cota, VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            Grid.SetColumn(marca, 0);
+            g.Children.Add(marca);
+        }
 
         var lbl = new TextBlock
         {
@@ -407,9 +448,9 @@ public sealed class AntenaTab : ConfigTab
             Margin = new Thickness(10, 0, 0, 0),
         };
 
-        Grid.SetColumn(lbl, 0);
-        Grid.SetColumn(nud, 1);
-        Grid.SetColumn(uni, 2);
+        Grid.SetColumn(lbl, 1);
+        Grid.SetColumn(nud, 2);
+        Grid.SetColumn(uni, 3);
         g.Children.Add(lbl);
         g.Children.Add(nud);
         g.Children.Add(uni);

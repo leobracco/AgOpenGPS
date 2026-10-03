@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agro Parallel · Dónde va cada pieza de PilotX</title>
+<meta name="description" content="Guía visual de instalación del piloto automático PilotX: dónde van la antena, la pantalla, el CoreX ECU, el motor de volante, el sensor de ángulo de rueda, el botón y por dónde pasan los cables en tractor rígido, articulado, cosechadora, pulverizadora y fertilizadora autopropulsada.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C0F; --panel:#12161B; --panel2:#0E1216;
+    --line:#222A32; --line2:#2E3944;
+    --txt:#E6EAEE; --mut:#7C8896;
+    --acc:#A4BA3E; --acc2:#4ABA3E; --warn:#E0663C;
+    --w-pot:#E0663C; --w-ali:#E6EAEE; --w-can:#D9A64A; --w-sig:#6FA8DC; --w-ant:#A4BA3E; --w-utp:#B48CE0;
+    --body:#1B222A; --body2:#26303A; --vidrio:#16303A; --rueda:#0B0E11;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;line-height:1.5;padding:0 16px 64px}
+  .wrap{max-width:1180px;margin:0 auto}
+
+  .brand{display:flex;align-items:center;gap:10px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .brand svg{flex:none}
+  .brand .name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:19px;letter-spacing:.16em;text-transform:uppercase}
+  .brand .name i{font-style:normal;color:var(--acc)}
+  .brand .mod{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+
+  header{padding:30px 0 20px;border-bottom:1px solid var(--line);margin-bottom:22px}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--acc)}
+  h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:clamp(32px,6vw,50px);text-transform:uppercase;line-height:1.03;margin-top:8px}
+  header p{color:var(--mut);font-size:14px;max-width:70ch;margin-top:10px}
+
+  /* Selector de vehículo */
+  .vehs{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
+  @media(max-width:860px){.vehs{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:520px){.vehs{grid-template-columns:repeat(2,1fr)}}
+  .veh{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 10px 9px;color:var(--mut);cursor:pointer;text-align:left;transition:.15s}
+  .veh:hover{border-color:var(--line2);color:var(--txt)}
+  .veh[aria-pressed="true"]{border-color:var(--acc);color:var(--txt);background:#161d10}
+  .veh b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:17px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;line-height:1.1}
+  .veh small{display:block;font-size:11.5px;margin-top:3px}
+  .veh:focus-visible,.tg:focus-visible,.comp:focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
+
+  .barra{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+  .tg{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;padding:7px 11px;border-radius:6px;cursor:pointer;background:var(--panel2);border:1px solid var(--line);color:var(--mut)}
+  .tg[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#0A0C0F}
+  .barra .sep{width:1px;height:24px;background:var(--line);margin:0 4px}
+  .barra .der{margin-left:auto}
+
+  .grid{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start}
+  @media(max-width:980px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .panel + .panel{margin-top:16px}
+  .panel h2{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);font-weight:600;margin-bottom:10px;display:flex;justify-content:space-between;gap:8px}
+  .panel h2 em{font-style:normal;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em}
+
+  svg.dib{display:block;width:100%;height:auto}
+  .dib text{font-family:'JetBrains Mono',monospace}
+  .pin{cursor:pointer}
+  .pin circle.o{fill:var(--acc);stroke:#0A0C0F;stroke-width:2}
+  .pin text{fill:#0A0C0F;font-size:13px;font-weight:700;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+  .pin.on circle.o{fill:#fff}
+  .pin.on circle.halo{opacity:1}
+  .pin circle.halo{fill:none;stroke:var(--acc);stroke-width:2;opacity:0}
+  .wire{fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+  .w-pot{stroke:var(--w-pot)} .w-ali{stroke:var(--w-ali)} .w-can{stroke:var(--w-can)} .w-sig{stroke:var(--w-sig)} .w-ant{stroke:var(--w-ant);stroke-dasharray:7 5} .w-utp{stroke:var(--w-utp)}
+  .cables-off .wire{display:none}
+  .refs{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mut)}
+  .refs span{display:inline-flex;align-items:center;gap:6px}
+  .refs i{width:18px;height:3px;border-radius:2px;display:inline-block}
+  .cables-off + .refs{display:none}
+
+  /* Lista de componentes */
+  .comps{display:flex;flex-direction:column;gap:6px}
+  .comp{display:grid;grid-template-columns:28px 1fr;gap:10px;text-align:left;width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;color:var(--txt);cursor:pointer;font:inherit}
+  .comp:hover{border-color:var(--line2)}
+  .comp.on{border-color:var(--acc);background:#151c10}
+  .comp .n{width:26px;height:26px;border-radius:50%;background:var(--acc);color:#0A0C0F;font-family:'Barlow Condensed',sans-serif;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .comp b{font-family:'Barlow Condensed',sans-serif;font-size:17px;letter-spacing:.04em;text-transform:uppercase;font-weight:700}
+  .comp .d{display:block;font-size:13px;color:var(--mut);margin-top:2px}
+  .comp b{display:block}
+  .comp .x{display:none;margin-top:8px;font-size:13.5px;color:var(--txt)}
+  .comp.on .x{display:block}
+  .comp .x p + p{margin-top:6px}
+  .ojo{border-left:3px solid var(--warn);padding-left:9px;color:#F0B9A6}
+  .comp .x ul{padding-left:18px;margin-top:4px}
+  .comp .x a{color:var(--acc)}
+
+  .claves{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:20px}
+  .clave{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;position:relative;overflow:hidden}
+  .clave::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--acc)}
+  .clave.w::before{background:var(--warn)}
+  .clave h3{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);font-weight:400;margin-bottom:8px}
+  .clave ul{padding-left:18px;font-size:14px}
+  .clave li{margin-top:5px}
+  .ruta{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--acc);background:#161d10;border:1px solid #33401a;border-radius:4px;padding:1px 6px;white-space:nowrap}
+
+  section.bloque{margin-top:30px}
+  section.bloque > h2{font-family:'Barlow Condensed',sans-serif;font-size:22px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;margin-bottom:12px}
+  .links{display:flex;flex-wrap:wrap;gap:10px}
+  .lnk{display:inline-flex;align-items:center;gap:8px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:15px;padding:10px 16px;border-radius:6px;text-decoration:none;border:1px solid var(--line2);color:var(--txt)}
+  .lnk.pri{background:var(--acc);border-color:var(--acc);color:#0A0C0F}
+  footer{margin-top:30px;color:var(--mut);font-size:12px;border-top:1px solid var(--line);padding-top:14px}
+
+  @media print{
+    body{background:#fff;color:#000}
+    .barra,.vehs,.links,.brand .mod{display:none}
+    .panel,.clave,.comp{background:#fff;border-color:#bbb;color:#000}
+    .comp .x{display:block}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+      <path d="M4 21 L11 5 L14 5 L7 21 Z" fill="#A4BA3E"/>
+      <path d="M12 21 L19 5 L22 5 L15 21 Z" fill="#4ABA3E"/>
+    </svg>
+    <div class="name">Agro<i>Parallel</i></div>
+    <div class="mod">PilotX · Instalación · v1.0</div>
+  </div>
+
+  <header>
+    <div class="eyebrow">Piloto automático · Guía de montaje por máquina</div>
+    <h1>Dónde va cada pieza<br>de PilotX</h1>
+    <p>Elegí la máquina y mirá en el esquema dónde se monta la antena, la pantalla, el CoreX ECU, el motor de volante, el sensor de ángulo y el botón, y por dónde conviene pasar cada cable. Tocá un número para ver el detalle de esa pieza en esa máquina.</p>
+  </header>
+
+  <div class="vehs" id="vehs" role="group" aria-label="Tipo de máquina"></div>
+
+  <div class="barra">
+    <button type="button" class="tg" id="tgCables" aria-pressed="true">Mostrar cables</button>
+    <span class="sep"></span>
+    <button type="button" class="tg" data-ant="1" aria-pressed="true">1 antena</button>
+    <button type="button" class="tg" data-ant="2" aria-pressed="false">2 antenas (Compass)</button>
+    <button type="button" class="tg der" id="imprimir">Imprimir</button>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Vista de costado <em>tocá un número</em></h2>
+        <div id="perfil"></div>
+        <div class="refs">
+          <span><i style="background:var(--w-pot)"></i>Potencia del motor (batería directa)</span>
+          <span><i style="background:var(--w-ali)"></i>Alimentación de cabina</span>
+          <span><i style="background:var(--w-can)"></i>CAN motor</span>
+          <span><i style="background:var(--w-sig)"></i>Señal (sensor y botón)</span>
+          <span><i style="background:var(--w-utp)"></i>Red UTP pantalla ↔ CoreX ECU</span>
+          <span><i style="background:var(--w-ant)"></i>Cable de antena</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Vista de arriba <em>centrado de antena y sensor</em></h2>
+        <div id="planta"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Piezas en esta máquina <em id="lblVeh"></em></h2>
+      <div class="comps" id="comps"></div>
+    </div>
+  </div>
+
+  <div class="claves" id="claves"></div>
+
+  <section class="bloque">
+    <h2>Para seguir</h2>
+    <div class="links">
+      <a class="lnk pri" href="/manual-pilotx.html">Manual de instalación y calibración</a>
+      <a class="lnk" href="/herramientas/adaptador-volante.html">Qué adaptador de volante lleva</a>
+      <a class="lnk" href="/herramientas/sensor-angulo-rueda.html">Verificar el varillaje del sensor</a>
+      <a class="lnk" href="/herramientas/mapa-cobertura-rtk.html">Cobertura RTK de tu zona</a>
+    </div>
+  </section>
+
+  <footer>Esquemas orientativos: cada marca y modelo tiene sus particularidades. Antes de perforar o pasar cables, desconectá el negativo de la batería. Las medidas que se toman en la instalación (altura de antena, distancia al eje, entre ejes, trocha) se cargan después en la pantalla, como indica el manual.</footer>
+</div>
+
+<script>
+/* ── Piezas (texto base; cada máquina pisa lo que cambia) ── */
+const PIEZAS = {
+  antena:  { t:'Antena GNSS', d:'Techo, centrada, cielo despejado',
+    x:['Arriba de la cabina, <b>centrada a lo ancho</b> y con cielo libre alrededor: nada de caños de escape, tolvas ni barandas que tapen satélites.',
+       'Base magnética apoyada sobre chapa limpia y plana. Si el techo es de plástico, va una chapa de base atornillada.',
+       'Anotá tres medidas: <b>altura al piso</b>, <b>distancia al eje de referencia</b> (adelante o atrás) y <b>corrimiento lateral</b> si no quedó centrada.'] },
+  antena2: { t:'Antenas GNSS (2)', d:'Techo, de lado a lado, separadas',
+    x:['Las dos en el techo, <b>a la misma altura y en una línea de lado a lado</b> (perpendicular al avance), lo más separadas que permita el techo: 1 m como mínimo.',
+       'El punto medio entre las dos tiene que quedar centrado sobre la máquina. Con dos antenas el rumbo sale del GPS aun parado: en la pantalla se elige rumbo dual.',
+       'Mismas medidas que con una antena, tomadas al punto medio entre las dos.'] },
+  pantalla:{ t:'Pantalla PilotX', d:'Cabina, a mano derecha',
+    x:['Al alcance de la mano derecha del operario, sin tapar el vidrio ni los comandos.',
+       'Soporte firme: si la pantalla vibra, se lee mal y se cansan los conectores.',
+       'Se conecta al CoreX ECU con un <b>cable de red UTP</b>: ficha bien calzada de los dos lados y el cable sujeto, sin que quede colgando ni pisado por la puerta o el asiento.'] },
+  nodo:    { t:'CoreX ECU + IMU', d:'Cabina, plano y alineado',
+    x:['Adentro de la cabina, atornillado, seco y con los prensacables hacia abajo.',
+       '<b>Plano y derecho con la máquina</b>: lleva la IMU adentro, y si queda torcido la máquina "cree" que va inclinada y se corre en las lomas.',
+       'De acá salen el CAN al motor, el cable del sensor de ángulo y el del botón, y el <b>cable de red UTP</b> que va a la pantalla.'] },
+  motor:   { t:'Motor de volante', d:'Sobre la columna de dirección',
+    x:['Se monta sobre la columna con el adaptador de estrías que corresponda a la máquina. <a href="/herramientas/adaptador-volante.html">Ver qué adaptador lleva</a>.',
+       'Comprobá a mano que el volante gire libre de tope a tope con el motor puesto.',
+       'Se alimenta <b>directo de la batería</b>, con su propio fusible. No colgarlo de la llave ni del cable de cabina.'] },
+  was:     { t:'Sensor de ángulo de rueda', d:'Mangueta de una rueda que dobla',
+    x:['En la mangueta de una rueda que dobla, tomando el giro con varilla y rótulas.',
+       'Con las ruedas derechas el sensor tiene que quedar <b>a la mitad de su recorrido</b>. Girá a fondo a los dos lados y verificá que la varilla no pegue ni se trabe.',
+       'Cable con una gaza de holgura, sujeto cada 30 cm, lejos del escape y del barro que tira la rueda. <a href="/herramientas/sensor-angulo-rueda.html">Verificar la geometría del varillaje</a>.'] },
+  boton:   { t:'Botón de piloto', d:'Donde la mano cae sola',
+    x:['Sobre la consola derecha o al costado del asiento: el operario tiene que engancharlo sin buscarlo.',
+       'Dos hilos al CoreX ECU. Puede ser pulsador o llave de dos posiciones; se elige después en la pantalla.'] },
+  bateria: { t:'Batería y fusibles', d:'De acá cuelga todo el arnés',
+    x:['Fusible en la punta del borne positivo, uno para el motor y otro para la cabina.',
+       'Del borne salen dos cables: el de <b>potencia del motor</b> y el de <b>cabina</b>, que adentro se abre en pantalla y CoreX ECU (alimentación; los datos entre los dos van por el UTP).',
+       'Desconectá el negativo mientras cableás.'] },
+};
+const ORDEN = ['antena','pantalla','nodo','motor','boton','was','bateria'];
+
+/* ── Máquinas ──────────────────────────────────────────────
+   Perfil: viewBox 1000×420, avance hacia la derecha, piso en y=392.
+   Planta: viewBox 1000×300, avance hacia la derecha, eje de la máquina en y=150.
+   pins: [x,y] por pieza en el perfil. wires: polilíneas del perfil.
+   top: datos para dibujar la planta. txt: lo que cambia de cada pieza. */
+/* Piezas de dibujo (perfil). Colores sobrios: chapa gris azulada, vidrio
+   con gradiente, cubiertas con tacos. Los gradientes viven en DEFS. */
+const DEFS = '<defs>'
+  + '<linearGradient id="gChapa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3B4855"/><stop offset="1" stop-color="#222B34"/></linearGradient>'
+  + '<linearGradient id="gChapa2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A5866"/><stop offset="1" stop-color="#2C3742"/></linearGradient>'
+  + '<linearGradient id="gVidrio" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3C6A7A"/><stop offset=".45" stop-color="#1B3A46"/><stop offset="1" stop-color="#10232B"/></linearGradient>'
+  + '<linearGradient id="gLlanta" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C9B23A"/><stop offset="1" stop-color="#8E7C22"/></linearGradient>'
+  + '<linearGradient id="gTanque" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D8DEE3"/><stop offset="1" stop-color="#9AA5AF"/></linearGradient>'
+  + '</defs>';
+const piso = '<line x1="20" y1="392" x2="980" y2="392" stroke="#2E3944" stroke-width="2"/>'
+  + '<line x1="20" y1="396" x2="980" y2="396" stroke="#1A2026" stroke-width="6" stroke-dasharray="2 14"/>';
+// Cubierta con tacos + llanta amarilla + bulones
+function R(cx, cy, r, ancha){
+  const b = [...Array(8)].map((_, i) => { const a = i * Math.PI / 4; return '<circle cx="' + (cx + Math.cos(a) * r * 0.27) + '" cy="' + (cy + Math.sin(a) * r * 0.27) + '" r="' + Math.max(1.6, r * 0.03) + '" fill="#2A2410"/>'; }).join('');
+  return '<g>'
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#0B0E11"/>'
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r - r * 0.06) + '" fill="none" stroke="#1E252C" stroke-width="' + (r * 0.12) + '" stroke-dasharray="' + (r * 0.09) + ' ' + (r * 0.07) + '"/>'
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r * 0.74) + '" fill="#14191E" stroke="#232B33" stroke-width="2"/>'
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r * (ancha ? 0.5 : 0.56)) + '" fill="url(#gLlanta)"/>'
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r * 0.38) + '" fill="none" stroke="#7A6A1C" stroke-width="2"/>'
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r * 0.16) + '" fill="#5E5216"/>' + b + '</g>';
+}
+// Guardabarros: arco sobre la rueda
+const G = (cx, cy, r, a0 = 200, a1 = 340) => {
+  const P = a => [cx + Math.cos(a * Math.PI / 180) * r, cy + Math.sin(a * Math.PI / 180) * r];
+  const [x0, y0] = P(a0), [x1, y1] = P(a1);
+  return '<path d="M' + x0 + ' ' + y0 + ' A' + r + ' ' + r + ' 0 0 1 ' + x1 + ' ' + y1 + '" fill="none" stroke="url(#gChapa2)" stroke-width="13" stroke-linecap="round"/>';
+};
+// Cabina: vidrio, parantes, techo con baliza, asiento y volante
+function CAB(xa, xb, yt, yb){
+  const m = (xa + xb) / 2;
+  return '<g>'
+    + '<path d="M' + xa + ' ' + yb + ' L' + (xa + 14) + ' ' + yt + ' H' + (xb - 18) + ' L' + (xb + 4) + ' ' + yb + ' Z" fill="url(#gVidrio)"/>'
+    + '<path d="M' + (xa + 30) + ' ' + (yt + 12) + ' L' + (xa + 60) + ' ' + (yt + 12) + ' L' + (xa + 26) + ' ' + (yt + 70) + ' Z" fill="#fff" opacity=".07"/>'
+    + '<path d="M' + (m - 34) + ' ' + (yb - 4) + ' v-44 q0-10 10-10 h14 v-26 q0-6 6-6 h6 q6 0 6 6 v36 h-8 v44 Z" fill="#0E1418" opacity=".85"/>'
+    + '<line x1="' + (xb - 34) + '" y1="' + (yb - 70) + '" x2="' + (xb - 14) + '" y2="' + (yb - 50) + '" stroke="#0E1418" stroke-width="5" stroke-linecap="round"/>'
+    + '<path d="M' + xa + ' ' + yb + ' L' + (xa + 14) + ' ' + yt + ' H' + (xb - 18) + ' L' + (xb + 4) + ' ' + yb + '" fill="none" stroke="#3A4652" stroke-width="7" stroke-linejoin="round"/>'
+    + '<line x1="' + (m + 6) + '" y1="' + yt + '" x2="' + (m + 10) + '" y2="' + yb + '" stroke="#3A4652" stroke-width="5"/>'
+    + '<rect x="' + (xa - 12) + '" y="' + (yt - 15) + '" width="' + (xb - xa + 30) + '" height="17" rx="5" fill="url(#gChapa2)"/>'
+    + '<rect x="' + (xa - 6) + '" y="' + (yt - 1) + '" width="' + (xb - xa + 18) + '" height="4" fill="#1A2129"/>'
+    + '<rect x="' + (xa + 18) + '" y="' + (yt - 25) + '" width="12" height="10" rx="3" fill="#E0A23C"/>'
+    + '<line x1="' + (xb + 8) + '" y1="' + (yt + 30) + '" x2="' + (xb + 26) + '" y2="' + (yt + 22) + '" stroke="#3A4652" stroke-width="3"/>'
+    + '<rect x="' + (xb + 22) + '" y="' + (yt + 14) + '" width="7" height="22" rx="2" fill="#1A2129" stroke="#3A4652"/>'
+    + '</g>';
+}
+// Escalera de acceso
+const ESC = (x, y0, y1, n = 3) => '<g stroke="#56626E" stroke-width="3">' + '<line x1="' + x + '" y1="' + y0 + '" x2="' + x + '" y2="' + y1 + '"/><line x1="' + (x + 18) + '" y1="' + y0 + '" x2="' + (x + 18) + '" y2="' + y1 + '"/>' + [...Array(n)].map((_, i) => { const y = y0 + (y1 - y0) * (i + 1) / (n + 1); return '<line x1="' + x + '" y1="' + y + '" x2="' + (x + 18) + '" y2="' + y + '"/>'; }).join('') + '</g>';
+// Caño de escape vertical
+const ESCAPE = (x, y0, y1) => '<rect x="' + x + '" y="' + y0 + '" width="10" height="' + (y1 - y0) + '" rx="2" fill="#56626E"/><path d="M' + (x - 2) + ' ' + y0 + ' l14 -6 v6 Z" fill="#56626E"/>';
+// Rejilla (líneas verticales)
+const REJ = (x, y, w, h, n) => [...Array(n)].map((_, i) => '<line x1="' + (x + w * (i + .5) / n) + '" y1="' + y + '" x2="' + (x + w * (i + .5) / n) + '" y2="' + (y + h) + '" stroke="#1A2129" stroke-width="2.5"/>').join('');
+
+
+const MAQ = [
+ { id:'tractor', n:'Tractor', s:'Rígido · dirección delantera',
+   perfil: piso
+     + '<path d="M190 300 l-50 34 M190 286 l-46 -12" stroke="#56626E" stroke-width="7" stroke-linecap="round"/>'
+     + '<rect x="290" y="262" width="330" height="40" rx="8" fill="url(#gChapa)"/>'
+     + '<path d="M452 202 H718 Q752 204 758 236 L762 292 H452 Z" fill="url(#gChapa)"/>'
+     + '<path d="M452 202 H718 Q746 204 752 226 H452 Z" fill="#fff" opacity=".06"/>'
+     + REJ(742, 228, 18, 60, 4)
+     + '<rect x="700" y="232" width="22" height="10" rx="3" fill="#E6EAEE" opacity=".8"/>'
+     + '<g stroke="#1A2129" stroke-width="2">' + [0,1,2,3].map(i => '<line x1="' + (580 + i * 16) + '" y1="234" x2="' + (580 + i * 16) + '" y2="262"/>').join('') + '</g>'
+     + '<rect x="762" y="258" width="26" height="46" rx="4" fill="#3A4652"/>' + '<g stroke="#2A333C" stroke-width="2"><line x1="762" y1="270" x2="788" y2="270"/><line x1="762" y1="282" x2="788" y2="282"/><line x1="762" y1="294" x2="788" y2="294"/></g>'
+     + ESCAPE(610, 112, 204) + '<rect x="520" y="160" width="22" height="44" rx="10" fill="#3A4652"/>'
+     + '<rect x="590" y="292" width="100" height="16" rx="4" fill="#2C3742"/>'
+     + CAB(222, 450, 100, 256)
+     + ESC(452, 258, 330, 3)
+     + G(300, 300, 104) + R(300, 300, 92) + G(640, 338, 64, 210, 330) + R(640, 338, 54),
+   pins:{ antena:[300,70], pantalla:[436,160], nodo:[290,238], motor:[452,196], boton:[376,214], was:[640,338], bateria:[680,262] },
+   wires:[
+     ['pot','M680 262 L680 284 L478 284 L478 214 L452 196'],
+     ['ali','M680 262 L700 300 L330 300 L330 250 L290 238'],
+     ['ali','M330 250 L436 250 L436 160'],
+     ['can','M290 238 L360 238 L452 196'],
+     ['sig','M290 238 L290 312 L590 312 L640 338'],
+     ['sig','M290 238 L376 214'],
+     ['utp','M436 160 L420 172 L420 228 L300 228 L290 238'],
+     ['ant','M300 70 L300 88 L236 88 L236 238 L290 238'] ],
+   top:{ L:[170,750], ejeT:300, ejeD:640, trT:110, trD:90, rT:[150,70], rD:[90,44], cab:[215,465,80], dir:'del', ant:300 },
+   ref:'eje trasero',
+   txt:{
+     antena:['Va <b>sobre el eje trasero</b>, que es el punto de giro del tractor. Si no se puede, lo más cerca posible y anotá cuánto quedó adelante o atrás.'],
+     was:['En la <b>mangueta de una rueda delantera</b>. En doble tracción asistida, cuidá que la varilla no toque el cardán ni el palier con la suspensión del eje abajo.'],
+     bateria:['En muchos tractores la batería va adelante, debajo del capó; en otros, en el escalón de la cabina. El esquema es el mismo.'] },
+   claves:[
+     ['En la pantalla',[`Tipo de vehículo <span class="ruta">Tractor</span>`, 'Entre ejes y trocha medidos con cinta.', 'Distancia de la antena al <b>eje trasero</b>.']],
+     ['Cuidado',[ 'Pasá el cable del sensor por dentro del chasis, nunca por el lado de la rueda.', 'El cable de batería no se apoya sobre el múltiple de escape ni el turbo.'], 'w'] ] },
+
+ { id:'articulado', n:'Articulado', s:'4WD · dobla por el centro',
+   perfil: piso
+     + '<rect x="110" y="262" width="56" height="12" rx="3" fill="#56626E"/>'
+     + '<rect x="160" y="226" width="330" height="70" rx="10" fill="url(#gChapa)"/>'
+     + '<path d="M170 226 H480 V240 H170 Z" fill="#fff" opacity=".06"/>'
+     + '<rect x="220" y="196" width="150" height="32" rx="6" fill="url(#gChapa2)"/>'
+     + '<rect x="490" y="226" width="430" height="70" rx="10" fill="url(#gChapa)"/>'
+     + '<path d="M664 160 H888 Q918 162 924 196 L928 276 H664 Z" fill="url(#gChapa)"/>'
+     + '<path d="M664 160 H888 Q912 162 918 184 H664 Z" fill="#fff" opacity=".06"/>'
+     + REJ(906, 190, 20, 80, 4) + '<rect x="880" y="196" width="22" height="10" rx="3" fill="#E6EAEE" opacity=".8"/>'
+     + '<g stroke="#1A2129" stroke-width="2">' + [0,1,2,3,4].map(i => '<line x1="' + (700 + i * 16) + '" y1="196" x2="' + (700 + i * 16) + '" y2="230"/>').join('') + '</g>'
+     + ESCAPE(780, 70, 162) + '<rect x="700" y="116" width="24" height="46" rx="10" fill="#3A4652"/>'
+     + '<rect x="476" y="240" width="40" height="48" rx="6" fill="#2C3742" stroke="#56626E" stroke-width="2"/>'
+     + '<circle cx="496" cy="264" r="12" fill="#3A4652" stroke="#7C8896" stroke-width="3"/><circle cx="496" cy="264" r="4" fill="#7C8896"/>'
+     + CAB(506, 660, 92, 244)
+     + ESC(520, 296, 360, 2)
+     + G(270, 296, 106) + R(286, 300, 92, true) + R(270, 296, 96) + G(790, 296, 106) + R(806, 300, 92, true) + R(790, 296, 96),
+   pins:{ antena:[588,62], pantalla:[648,150], nodo:[560,226], motor:[662,188], boton:[610,204], was:[496,264], bateria:[880,230] },
+   wires:[
+     ['pot','M880 230 L880 250 L690 250 L690 206 L662 188'],
+     ['ali','M880 230 L896 262 L576 262 L576 236 L560 226'],
+     ['ali','M576 236 L648 236 L648 150'],
+     ['can','M560 226 L610 226 L662 188'],
+     ['sig','M560 226 L530 226 L530 290 Q512 300 496 264'],
+     ['sig','M560 226 L610 204'],
+     ['utp','M648 150 L634 162 L634 216 L568 216 L560 226'],
+     ['ant','M588 62 L588 80 L522 80 L522 226 L560 226'] ],
+   top:{ L:[130,900], ejeT:280, ejeD:780, trT:115, trD:115, rT:[150,72], rD:[150,72], cab:[480,690,84], dir:'art', art:470, ant:580 },
+   ref:'articulación',
+   txt:{
+     antena:['Va en el techo de la cabina, que está sobre el <b>chasis delantero</b>. Anotá la distancia de la antena a la <b>articulación</b> y al eje delantero.'],
+     was_solo:true,
+     was:['<b>No va en una rueda</b>: el articulado dobla por el centro. El sensor va en el <b>perno de la articulación</b>, con un brazo y varilla que tomen el ángulo entre los dos chasis.',
+          'Con la máquina derecha el sensor tiene que quedar a la mitad de su recorrido. Probá a fondo para los dos lados con el motor en marcha.',
+          'Cable con gaza de holgura en la zona de la articulación, sujeto cada 30 cm y protegido con corrugado.'],
+     nodo:['Todo el arnés de cabina queda en el chasis delantero. Lo único que cruza la articulación es lo que vaya al chasis trasero.'],
+     bateria:['Si las baterías están en el chasis trasero, el cable cruza la articulación: dejá una <b>gaza larga y protegida</b> que no se estire ni se pellizque al doblar a fondo.'] },
+   claves:[
+     ['En la pantalla',[`Tipo de vehículo <span class="ruta">Articulado</span>`, 'Entre ejes medido de eje a eje y distancia de cada eje a la articulación.', 'El ángulo del sensor es el ángulo de articulación, no el de una rueda.']],
+     ['Cuidado',[ 'Todo cable que cruce la articulación lleva gaza y protección (corrugado o espiral).', 'Probá giro completo a los dos lados con la máquina andando antes de cerrar el cableado.', 'En los Zanello hay una modificación de cableado específica: consultá la guía de Zanello en Herramientas.'], 'w'] ] },
+
+ { id:'cosechadora', n:'Cosechadora', s:'Dirección trasera',
+   perfil: piso
+     + '<path d="M168 300 V176 Q168 150 196 150 H560 L578 196 L720 196 V300 Z" fill="url(#gChapa)"/>'
+     + '<g stroke="#1A2129" stroke-width="2.5">' + [0,1,2,3,4,5,6].map(i => '<line x1="' + (196 + i * 18) + '" y1="180" x2="' + (196 + i * 18) + '" y2="240"/>').join('') + '</g>'
+     + '<path d="M300 150 L316 88 H562 L572 150 Z" fill="url(#gChapa2)"/>'
+     + '<path d="M312 88 V70 H566 V88" fill="none" stroke="#56626E" stroke-width="3"/>' + '<g stroke="#56626E" stroke-width="2">' + [0,1,2,3,4,5].map(i => '<line x1="' + (350 + i * 40) + '" y1="70" x2="' + (350 + i * 40) + '" y2="88"/>').join('') + '</g>'
+     + '<path d="M330 120 L120 104" stroke="#56626E" stroke-width="12" stroke-linecap="round"/><path d="M120 104 l-14 24" stroke="#56626E" stroke-width="10" stroke-linecap="round"/>'
+     + ESCAPE(214, 104, 150)
+     + '<path d="M716 222 L806 266 L806 318 L716 292 Z" fill="url(#gChapa2)"/>'
+     + '<rect x="796" y="296" width="190" height="58" rx="6" fill="url(#gChapa)"/>'
+     + '<path d="M986 300 L996 352 L986 354 Z" fill="#56626E"/>'
+     + '<line x1="804" y1="352" x2="992" y2="352" stroke="#7C8896" stroke-width="3" stroke-dasharray="4 3"/>'
+     + '<g stroke="#56626E" stroke-width="3" fill="none"><circle cx="900" cy="282" r="36"/>' + [0,1,2,3,4,5].map(i => { const a = i * Math.PI / 3; return '<line x1="900" y1="282" x2="' + (900 + Math.cos(a) * 36) + '" y2="' + (282 + Math.sin(a) * 36) + '"/>'; }).join('') + '<line x1="900" y1="282" x2="860" y2="250"/></g>'
+     + CAB(584, 742, 56, 198)
+     + ESC(562, 200, 300, 4)
+     + '<rect x="210" y="300" width="80" height="14" rx="4" fill="#2C3742"/>'
+     + G(640, 304, 100, 205, 335) + R(640, 304, 88) + R(250, 346, 46),
+   pins:{ antena:[668,26], pantalla:[730,140], nodo:[626,184], motor:[742,176], boton:[690,186], was:[250,346], bateria:[420,272] },
+   wires:[
+     ['pot','M420 272 L760 272 L760 196 L742 176'],
+     ['ali','M420 272 L420 286 L604 286 L604 196 L626 184'],
+     ['ali','M604 196 L730 196 L730 140'],
+     ['can','M626 184 L690 184 L742 176'],
+     ['sig','M626 184 L596 184 L596 296 L300 296 L250 346'],
+     ['sig','M626 184 L690 186'],
+     ['utp','M730 140 L716 152 L716 174 L634 174 L626 184'],
+     ['ant','M668 26 L668 46 L598 46 L598 184 L626 184'] ],
+   top:{ L:[160,790], ejeT:240, ejeD:640, trT:95, trD:130, rT:[86,40], rD:[136,66], cab:[575,755,80], dir:'tras', ant:662, cabezal:[795,975,250] },
+   ref:'eje delantero',
+   txt:{
+     antena:['Va en el techo de la cabina, centrada y <b>lo más cerca posible del eje delantero</b> (el de tracción, que no dobla). Anotá cuánto quedó adelante o atrás de ese eje.'],
+     was:['La cosechadora dobla con las <b>ruedas de atrás</b>: el sensor va en la <b>mangueta del eje trasero</b>.',
+          'El cable recorre casi todo el largo de la máquina: llevalo por el chasis, lejos del motor, del escape y de las correas, sujeto cada 30 cm.'],
+     nodo:['La cabina vibra menos que el resto, pero igual atornillalo firme y plano: la IMU tiene que leer la inclinación de la máquina, no la vibración.'],
+     bateria:['La batería suele estar lejos de la cabina: el cable de potencia del motor es largo, usá la sección que indica el kit y no la achiques para que pase.'] },
+   claves:[
+     ['En la pantalla',[`Tipo de vehículo <span class="ruta">Cosechadora</span>`, 'Distancia de la antena al <b>eje delantero</b>.', 'El cabezal se carga como implemento <b>frontal</b>, con el ancho de corte real.']],
+     ['Cuidado',[ 'Al cambiar de cabezal, revisá que el ancho cargado sea el del cabezal puesto.', 'También aplica a picadoras: misma lógica de dirección trasera.'], 'w'] ] },
+
+ { id:'pulverizadora', n:'Pulverizadora', s:'Autopropulsada',
+   perfil: piso
+     + '<rect x="160" y="178" width="672" height="28" rx="6" fill="url(#gChapa)"/>'
+     + '<path d="M236 206 L250 206 L262 300 L248 300 Z M716 206 L730 206 L740 300 L726 300 Z" fill="#56626E"/>'
+     + '<rect x="172" y="110" width="160" height="68" rx="8" fill="url(#gChapa2)"/>' + REJ(184, 122, 70, 44, 6)
+     + ESCAPE(298, 66, 110)
+     + '<path d="M346 178 Q346 94 430 94 H556 Q624 94 624 178 Z" fill="url(#gTanque)"/>'
+     + '<path d="M360 150 H610" stroke="#7C8896" stroke-width="2" stroke-dasharray="6 5"/>'
+     + '<rect x="468" y="82" width="34" height="14" rx="4" fill="#7C8896"/>'
+     + '<g stroke="#56626E" stroke-width="4" fill="none"><path d="M118 60 V306 M150 60 V306"/>' + [0,1,2,3,4,5,6,7].map(i => '<line x1="118" y1="' + (60 + i * 31) + '" x2="150" y2="' + (91 + i * 31) + '"/>').join('') + '</g>'
+     + '<rect x="150" y="150" width="22" height="16" fill="#56626E"/>'
+     + CAB(652, 810, 46, 180)
+     + ESC(826, 182, 262, 3)
+     + G(255, 322, 80, 215, 325) + R(255, 322, 70) + G(730, 322, 80, 215, 325) + R(730, 322, 70),
+   pins:{ antena:[736,16], pantalla:[798,118], nodo:[700,164], motor:[810,150], boton:[752,160], was:[730,250], bateria:[300,150] },
+   wires:[
+     ['pot','M300 150 L300 192 L836 192 L836 166 L810 150'],
+     ['ali','M300 150 L320 200 L686 200 L686 172 L700 164'],
+     ['ali','M686 172 L798 172 L798 118'],
+     ['can','M700 164 L752 164 L810 150'],
+     ['sig','M700 164 L700 200 L742 200 L742 236 L730 250'],
+     ['sig','M700 164 L752 160'],
+     ['utp','M798 118 L784 128 L784 154 L708 154 L700 164'],
+     ['ant','M736 16 L736 36 L668 36 L668 164 L700 164'] ],
+   top:{ L:[170,830], ejeT:255, ejeD:730, trT:125, trD:125, rT:[110,26], rD:[110,26], cab:[650,820,78], dir:'del', ant:735, botalon:[128,158] },
+   ref:'eje trasero',
+   txt:{
+     antena:['La antena queda <b>muy alta</b> (3 a 4 m): cargá la altura exacta. A esa altura, un grado de rolido corre la posición varios centímetros y se nota en las lomas.',
+             'Sobre la cabina, centrada a lo ancho. Anotá la distancia al eje trasero.'],
+     was:['En la mangueta de una rueda delantera, sobre la pierna de la máquina.',
+          'Si la trocha es variable, probá el varillaje con la <b>trocha mínima y la máxima</b>: la varilla no tiene que tirar ni pegar en ninguna.',
+          'Si la máquina dobla con las cuatro ruedas, consultanos antes de instalar: se configura distinto.'],
+     nodo:['En cabina, plano y alineado. En estas máquinas la IMU es clave porque la antena está muy alta.'],
+     bateria:['La batería suele ir atrás, con el motor: el cable de potencia recorre todo el chasis. Llevalo lejos del escape y de las mangueras de producto.'] },
+   claves:[
+     ['En la pantalla',[`Tipo de vehículo <span class="ruta">Tractor</span>`, '<b>Altura de antena</b> medida con cinta, del piso al centro de la antena.', 'Botalón trasero: enganche <b>fijo trasero</b>. Botalón delantero: enganche <b>frontal</b>.']],
+     ['Cuidado',[ 'Cables y conectores lejos del producto: los agroquímicos comen el plástico y oxidan los contactos.', 'Nivelá la IMU con la máquina en piso parejo y el tanque vacío.'], 'w'] ] },
+
+ { id:'fertilizadora', n:'Fertilizadora', s:'Autopropulsada',
+   perfil: piso
+     + '<rect x="166" y="196" width="640" height="30" rx="6" fill="url(#gChapa)"/>'
+     + '<path d="M244 196 L210 86 H604 L572 196 Z" fill="url(#gChapa2)"/>'
+     + '<path d="M206 80 H608 V90 H206 Z" fill="#56626E"/>'
+     + '<g stroke="#1A2129" stroke-width="2.5">' + [0,1,2,3,4,5,6,7].map(i => '<line x1="' + (262 + i * 42) + '" y1="96" x2="' + (270 + i * 38) + '" y2="190"/>').join('') + '</g>'
+     + '<path d="M210 226 L170 238" stroke="#56626E" stroke-width="8"/>'
+     + '<ellipse cx="160" cy="246" rx="38" ry="7" fill="#7C8896"/><ellipse cx="160" cy="262" rx="38" ry="7" fill="#7C8896"/><rect x="156" y="232" width="8" height="34" fill="#56626E"/>'
+     + '<path d="M120 252 q-20 10 -30 30 M118 262 q-14 16 -16 34" stroke="#7C8896" stroke-width="2" stroke-dasharray="2 5" fill="none"/>'
+     + CAB(632, 790, 64, 198)
+     + ESC(806, 200, 268, 3)
+     + G(270, 316, 86, 215, 325) + R(270, 316, 76) + G(700, 316, 86, 215, 325) + R(700, 316, 76),
+   pins:{ antena:[715,34], pantalla:[778,136], nodo:[680,182], motor:[790,170], boton:[734,180], was:[700,316], bateria:[600,226] },
+   wires:[
+     ['pot','M600 226 L600 212 L812 212 L812 182 L790 170'],
+     ['ali','M600 226 L668 226 L668 190 L680 182'],
+     ['ali','M668 190 L778 190 L778 136'],
+     ['can','M680 182 L734 182 L790 170'],
+     ['sig','M680 182 L680 232 L712 232 L712 296 L700 316'],
+     ['sig','M680 182 L734 180'],
+     ['utp','M778 136 L764 146 L764 172 L688 172 L680 182'],
+     ['ant','M715 34 L715 54 L646 54 L646 182 L680 182'] ],
+   top:{ L:[170,810], ejeT:270, ejeD:700, trT:115, trD:115, rT:[120,30], rD:[120,30], cab:[630,800,78], dir:'del', ant:715, tolva:[220,600], discos:180 },
+   ref:'eje trasero',
+   txt:{
+     antena:['Sobre la cabina, centrada, <b>lejos de la nube de fertilizante</b> que levantan los discos. Anotá altura y distancia al eje trasero.'],
+     was:['En la mangueta de una rueda delantera. El polvo de fertilizante es corrosivo: usá rótulas con fuelle y revisalas seguido.'],
+     nodo:['En cabina, plano y alineado, con todos los conectores bien cerrados: el polvo se mete por cualquier lado.'],
+     bateria:['Cable de batería lejos de la tolva y de la cadena o cinta del alimentador.'] },
+   claves:[
+     ['En la pantalla',[`Tipo de vehículo <span class="ruta">Tractor</span>`, 'Ancho de labor = <b>ancho efectivo de distribución</b> (el de la prueba de bandejas), no el ancho total que tira.', 'Distancia de la antena al eje trasero.']],
+     ['Cuidado',[ 'El fertilizante oxida conectores y bornes: grasa dieléctrica en todas las fichas.', 'Lavá la máquina sin apuntar la hidrolavadora al CoreX ECU ni a los conectores.'], 'w'] ] },
+];
+
+/* ── Planta ─────────────────────────────────────────────── */
+function planta(m, ant2){
+  const t = m.top, Y = 150;
+  const rueda = (x, tr, [w,h], dobla, lado) => {
+    const y = lado < 0 ? Y - tr : Y + tr;
+    const rot = dobla ? 14 : 0;
+    return `<g transform="rotate(${rot} ${x} ${y})"><rect x="${x - w/2}" y="${y - h/2}" width="${w}" height="${h}" rx="6" fill="#0B0E11" stroke="#3A4652" stroke-width="3"/><line x1="${x - w/2 + 4}" y1="${y}" x2="${x + w/2 - 4}" y2="${y}" stroke="#232B33" stroke-width="${h - 10}" stroke-dasharray="4 6"/><rect x="${x - w*0.18}" y="${y - h/2 - 2}" width="${w*0.36}" height="${h + 4}" rx="3" fill="#8E7C22" opacity=".35"/></g>`;
+  };
+  let s = `<line x1="20" y1="${Y}" x2="980" y2="${Y}" stroke="#2E3944" stroke-width="1" stroke-dasharray="6 6"/>`;
+  if (t.botalon) s += `<rect x="${t.botalon[0]}" y="14" width="${t.botalon[1]-t.botalon[0]}" height="272" rx="4" fill="#26303A" stroke="#3A4652"/>`;
+  if (t.cabezal) s += `<rect x="${t.cabezal[0]}" y="${Y - t.cabezal[2]/2}" width="${t.cabezal[1]-t.cabezal[0]}" height="${t.cabezal[2]}" rx="6" fill="#26303A" stroke="#3A4652"/>`;
+  if (t.discos) s += `<circle cx="${t.discos}" cy="${Y-34}" r="26" fill="#26303A" stroke="#3A4652"/><circle cx="${t.discos}" cy="${Y+34}" r="26" fill="#26303A" stroke="#3A4652"/>`;
+  if (t.dir === 'art') {
+    s += `<rect x="${t.L[0]}" y="${Y-46}" width="${t.art - t.L[0]}" height="92" rx="10" fill="var(--body)"/>`;
+    s += `<g transform="rotate(-10 ${t.art} ${Y})"><rect x="${t.art}" y="${Y-46}" width="${t.L[1]-t.art}" height="92" rx="10" fill="var(--body)"/>`;
+    s += `<rect x="${t.cab[0]}" y="${Y-t.cab[2]}" width="${t.cab[1]-t.cab[0]}" height="${t.cab[2]*2}" rx="8" fill="var(--vidrio)" stroke="#3A4652" stroke-width="3"/>`;
+    s += rueda(t.ejeD, t.trD, t.rD, false, -1) + rueda(t.ejeD, t.trD, t.rD, false, 1) + `</g>`;
+    s += rueda(t.ejeT, t.trT, t.rT, false, -1) + rueda(t.ejeT, t.trT, t.rT, false, 1);
+    s += `<circle cx="${t.art}" cy="${Y}" r="14" fill="#3A4652" stroke="#56626E" stroke-width="3"/>`;
+  } else {
+    s += `<rect x="${t.L[0]}" y="${Y-50}" width="${t.L[1]-t.L[0]}" height="100" rx="12" fill="var(--body)"/>`;
+    if (t.tolva) s += `<rect x="${t.tolva[0]}" y="${Y-80}" width="${t.tolva[1]-t.tolva[0]}" height="160" rx="8" fill="var(--body2)"/>`;
+    s += `<rect x="${t.cab[0]}" y="${Y-t.cab[2]}" width="${t.cab[1]-t.cab[0]}" height="${t.cab[2]*2}" rx="8" fill="var(--vidrio)" stroke="#3A4652" stroke-width="3"/>`;
+    s += rueda(t.ejeT, t.trT, t.rT, t.dir === 'tras', -1) + rueda(t.ejeT, t.trT, t.rT, t.dir === 'tras', 1);
+    s += rueda(t.ejeD, t.trD, t.rD, t.dir === 'del', -1) + rueda(t.ejeD, t.trD, t.rD, t.dir === 'del', 1);
+  }
+  // Ejes de referencia
+  const ejeRef = t.dir === 'tras' ? t.ejeD : (t.dir === 'art' ? t.art : t.ejeT);
+  s += `<line x1="${ejeRef}" y1="18" x2="${ejeRef}" y2="282" stroke="#A4BA3E" stroke-width="1.5" stroke-dasharray="4 5" opacity=".7"/>`;
+  s += `<text x="${ejeRef + 6}" y="290" fill="#A4BA3E" font-size="12">${m.ref}</text>`;
+  // Antena(s)
+  const ax = t.dir === 'art' ? null : t.ant;
+  const pinA = (x, y) => `<g class="pin" data-k="antena"><circle class="halo" cx="${x}" cy="${y}" r="21"/><circle class="o" cx="${x}" cy="${y}" r="15"/><text x="${x}" y="${y}">1</text></g>`;
+  if (t.dir === 'art') {
+    // la cabina está girada con el chasis delantero
+    const g = (x, y) => { const a = -10 * Math.PI / 180, dx = x - t.art, dy = y - Y; return [t.art + dx*Math.cos(a) - dy*Math.sin(a), Y + dx*Math.sin(a) + dy*Math.cos(a)]; };
+    if (ant2) { const [x1,y1] = g(t.ant, Y-52), [x2,y2] = g(t.ant, Y+52); s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#A4BA3E" stroke-dasharray="3 4"/>` + pinA(x1,y1) + pinA(x2,y2); }
+    else { const [x,y] = g(t.ant, Y); s += pinA(x,y); }
+  } else if (ant2) {
+    s += `<line x1="${ax}" y1="${Y-58}" x2="${ax}" y2="${Y+58}" stroke="#A4BA3E" stroke-dasharray="3 4"/>` + pinA(ax, Y-58) + pinA(ax, Y+58);
+  } else s += pinA(ax, Y);
+  // Sensor de ángulo
+  const wx = t.dir === 'art' ? t.art : (t.dir === 'tras' ? t.ejeT : t.ejeD);
+  const wy = t.dir === 'art' ? Y : Y - (t.dir === 'tras' ? t.trT : t.trD) + 34;
+  const nW = ORDEN.indexOf('was') + 1;
+  s += `<g class="pin" data-k="was"><circle class="halo" cx="${wx}" cy="${wy}" r="21"/><circle class="o" cx="${wx}" cy="${wy}" r="15"/><text x="${wx}" y="${wy}">${nW}</text></g>`;
+  s += `<text x="960" y="24" fill="#7C8896" font-size="12" text-anchor="end">avance →</text>`;
+  return `<svg class="dib" viewBox="0 -24 1000 348" role="img" aria-label="Vista de arriba de ${m.n}">${s}</svg>`;
+}
+
+/* ── Perfil ─────────────────────────────────────────────── */
+function perfil(m, ant2){
+  let s = m.perfil;
+  s += `<g class="cables">${m.wires.map(([k, d]) => `<path class="wire w-${k}" d="${d}"/>`).join('')}</g>`;
+  ORDEN.forEach((k, i) => {
+    const [x, y] = m.pins[k];
+    s += `<g class="pin" data-k="${k}"><circle class="halo" cx="${x}" cy="${y}" r="21"/><circle class="o" cx="${x}" cy="${y}" r="15"/><text x="${x}" y="${y}">${i + 1}</text></g>`;
+    if (k === 'antena' && ant2) s += `<text x="${x + 22}" y="${y + 4}" fill="#A4BA3E" font-size="13" font-weight="700">×2</text>`;
+  });
+  s += `<text x="960" y="24" fill="#7C8896" font-size="12" text-anchor="end">avance →</text>`;
+  return `<div id="lienzo" class="${cables ? '' : 'cables-off'}"><svg class="dib" viewBox="0 0 1000 420" role="img" aria-label="Vista de costado de ${m.n} con la ubicación de cada pieza">${DEFS}${s}</svg></div>`;
+}
+
+/* ── Estado y render ────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+let maq = MAQ[0], ant2 = false, cables = true, sel = null;
+
+function render(){
+  $('vehs').innerHTML = MAQ.map(m => `<button type="button" class="veh" data-id="${m.id}" aria-pressed="${m === maq}"><b>${m.n}</b><small>${m.s}</small></button>`).join('');
+  $('perfil').innerHTML = perfil(maq, ant2);
+  // la leyenda de cables se oculta junto con los cables
+  document.querySelector('.refs').style.display = cables ? '' : 'none';
+  $('planta').innerHTML = planta(maq, ant2);
+  $('lblVeh').textContent = maq.n + ' · ' + maq.s;
+  $('comps').innerHTML = ORDEN.map((k, i) => {
+    const base = k === 'antena' && ant2 ? PIEZAS.antena2 : PIEZAS[k];
+    const extra = (maq.txt[k] || []);
+    const parrafos = maq.txt[k + '_solo'] ? extra : [...extra, ...base.x];
+    const d = k === 'was' && maq.id === 'articulado' ? 'Perno de la articulación' : base.d;
+    return `<button type="button" class="comp${sel === k ? ' on' : ''}" data-k="${k}">
+      <span class="n">${i + 1}</span>
+      <span><b>${base.t}</b><span class="d">${d}</span>
+        <span class="x">${parrafos.map((p, j) => `<p${j < extra.length ? ' class="ojo"' : ''}>${p}</p>`).join('')}</span></span>
+    </button>`;
+  }).join('');
+  $('claves').innerHTML = maq.claves.map(([t, items, w]) => `<div class="clave${w ? ' w' : ''}"><h3>${t} · ${maq.n}</h3><ul>${items.map(i => `<li>${i}</li>`).join('')}</ul></div>`).join('');
+  marcar();
+  enlazar();
+}
+
+function marcar(){
+  document.querySelectorAll('.pin').forEach(p => p.classList.toggle('on', p.dataset.k === sel));
+  document.querySelectorAll('.comp').forEach(c => c.classList.toggle('on', c.dataset.k === sel));
+}
+
+function elegir(k, desdeDibujo){
+  sel = sel === k && !desdeDibujo ? null : k;
+  marcar();
+  if (desdeDibujo) document.querySelector(`.comp[data-k="${k}"]`)?.scrollIntoView({ block:'nearest', behavior:'smooth' });
+}
+
+function enlazar(){
+  document.querySelectorAll('.veh').forEach(b => b.onclick = () => { maq = MAQ.find(m => m.id === b.dataset.id); sel = null; guardarHash(); render(); });
+  document.querySelectorAll('.pin').forEach(p => p.onclick = () => elegir(p.dataset.k, true));
+  document.querySelectorAll('.comp').forEach(c => c.onclick = () => elegir(c.dataset.k, false));
+}
+
+function guardarHash(){ history.replaceState(null, '', '#' + maq.id + (ant2 ? '-2ant' : '')); }
+
+$('tgCables').onclick = (e) => { cables = !cables; e.currentTarget.setAttribute('aria-pressed', cables); e.currentTarget.textContent = cables ? 'Mostrar cables' : 'Cables ocultos'; render(); };
+document.querySelectorAll('[data-ant]').forEach(b => b.onclick = () => {
+  ant2 = b.dataset.ant === '2';
+  document.querySelectorAll('[data-ant]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  guardarHash(); render();
+});
+$('imprimir').onclick = () => window.print();
+
+// Link directo a una máquina: …/instalacion-pilotx.html#cosechadora o #pulverizadora-2ant
+(function(){
+  const h = location.hash.slice(1);
+  const m = MAQ.find(x => h.startsWith(x.id));
+  if (m) maq = m;
+  if (h.endsWith('-2ant')) { ant2 = true; document.querySelectorAll('[data-ant]').forEach(x => x.setAttribute('aria-pressed', x.dataset.ant === '2')); }
+})();
+render();
+</script>
+</body>
+</html>

@@ -76,10 +76,10 @@ public sealed class VehiculoTab : ConfigTab
     // Mismo orden que el #vTipos del HTML.
     private static readonly Opcion[] OPCIONES =
     {
-        new Opcion { Sub = "rigido",        Tipo = 0, Titulo = "Rígido",        Icono = "VehicleTractorRigid.png" },
-        new Opcion { Sub = "articulado",    Tipo = 2, Titulo = "Articulado",    Icono = "VehicleTractorArticulated.png" },
-        new Opcion { Sub = "cosechadora",   Tipo = 1, Titulo = "Cosechadora",   Icono = "VehicleHarvester.png" },
-        new Opcion { Sub = "pulverizadora", Tipo = 0, Titulo = "Pulverizadora", Icono = "VehicleSprayer.png" },
+        new Opcion { Sub = "rigido",        Tipo = 0, Titulo = "Rígido",        Icono = "PxTipoRigido.png" },
+        new Opcion { Sub = "articulado",    Tipo = 2, Titulo = "Articulado",    Icono = "PxTipoArticulado.png" },
+        new Opcion { Sub = "cosechadora",   Tipo = 1, Titulo = "Cosechadora",   Icono = "PxTipoCosechadora.png" },
+        new Opcion { Sub = "pulverizadora", Tipo = 0, Titulo = "Pulverizadora", Icono = "PxTipoPulverizadora.png" },
     };
 
     /// <summary>Clave del sub dentro de las prefs de UI (el `pilotx_vehiculo_sub`
@@ -243,14 +243,14 @@ public sealed class VehiculoTab : ConfigTab
             Child = new Image
             {
                 Source = Icono(o.Icono),
-                Width = 110, Height = 72,
+                Width = 132, Height = 60,
                 // MaxWidth/MaxHeight EXPLÍCITOS: BarStyles.axaml (que la ventana
                 // incluye para las barras del cockpit) trae un
                 // `Style Selector="Image"` con MaxWidth/MaxHeight 34 que aplica a
                 // TODA imagen de la ventana. Un máximo le gana al Width local, así
                 // que sin estas dos líneas el ícono sale de 34 px y la card queda
                 // con un dibujito perdido en el medio.
-                MaxWidth = 110, MaxHeight = 72,
+                MaxWidth = 132, MaxHeight = 60,
                 Stretch = Stretch.Uniform,
             },
         });
