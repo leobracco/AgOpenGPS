@@ -49,6 +49,16 @@ public sealed class BenchXConfig
     public double SemillasPorVuelta { get; set; } = 24;   // mismo default que la config de motores
     public double DientesEngranaje { get; set; } = 600;   // pulsos por vuelta del motor
 
+    // VistaX como firmware vistax-node v3.1: telemetría agp.vistax.telemetry/2
+    // con "acum", "dt" (intervalos entre semillas, 0,1 ms) y "dt_lost", cada
+    // 250 ms. Las semillas salen de un generador con estadística conocida
+    // (GeneradorSemillas) para probar dobles/fallas/CV de punta a punta.
+    // Apagado = la telemetría vieja (solo valor/raw cada 500 ms).
+    public bool VxFirmware31 { get; set; } = true;
+    public double VxDoblesPct { get; set; } = 1.5;
+    public double VxFallasPct { get; set; } = 2.0;
+    public double VxCvPct { get; set; } = 18.0;
+
     // Modo DEMO (Expo): BenchX arranca minimizado, espera a PilotX, abre el
     // lote, activa la prescripcion, pone secciones en automatico y maneja
     // solo: dos vueltas de cabecera y despues pasadas paralelas con giros en

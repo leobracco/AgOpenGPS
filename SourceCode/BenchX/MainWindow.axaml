@@ -419,6 +419,28 @@
               <ToggleSwitch OnContent="QuantiX" OffContent="QuantiX" IsChecked="{Binding EmularQuantiX}"/>
               <ToggleSwitch OnContent="VistaX" OffContent="VistaX" IsChecked="{Binding EmularVistaX}"/>
             </WrapPanel>
+            <!-- VistaX firmware 3.1: intervalos entre semillas (dt) con estadística conocida -->
+            <CheckBox Margin="0,8,0,0" Content="VistaX firmware 3.1 (dobles, fallas y CV)" IsChecked="{Binding VxFirmware31}"/>
+            <WrapPanel IsVisible="{Binding VxFirmware31}" Margin="0,4,0,0">
+              <WrapPanel.Styles>
+                <Style Selector="NumericUpDown">
+                  <Setter Property="Width" Value="130"/>
+                  <Setter Property="Margin" Value="0,2,12,2"/>
+                </Style>
+              </WrapPanel.Styles>
+              <StackPanel>
+                <TextBlock Classes="dato" Text="Dobles (%)"/>
+                <NumericUpDown Value="{Binding VxDoblesPct}" Minimum="0" Maximum="50" Increment="0.5" FormatString="0.0"/>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="dato" Text="Fallas (%)"/>
+                <NumericUpDown Value="{Binding VxFallasPct}" Minimum="0" Maximum="50" Increment="0.5" FormatString="0.0"/>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="dato" Text="CV de los simples (%)"/>
+                <NumericUpDown Value="{Binding VxCvPct}" Minimum="0" Maximum="28" Increment="1" FormatString="0"/>
+              </StackPanel>
+            </WrapPanel>
             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
               <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="QuantiX"/>
               <Border Grid.Row="0" Grid.Column="1" Classes="badge" Classes.activo="{Binding QxConectado}" Margin="16,0,0,0" HorizontalAlignment="Left">
@@ -436,7 +458,7 @@
               <TextBlock Grid.Row="4" Grid.Column="1" Classes="dato" Margin="16,4,0,0" Text="{Binding NodosStatsTexto}"/>
             </Grid>
             <TextBlock Classes="dato" TextWrapping="Wrap" Margin="0,8,0,0"
-                       Text="El QuantiX obedece los targets del bridge de PilotX y contesta como una placa V0.4 de 7 motores; el VistaX publica las semillas por segundo que salen de esos motores. Apagalos si en el banco hay nodos reales con el mismo trabajo."/>
+                       Text="El QuantiX obedece los targets del bridge de PilotX y contesta como una placa V0.4 de 7 motores; el VistaX publica las semillas por segundo que salen de esos motores. Con firmware 3.1 manda además el intervalo entre cada semilla (dt, cada 250 ms) con los dobles, fallas y CV de arriba: PilotX tiene que mostrar esos mismos números en el panel de VistaX. Apagalos si en el banco hay nodos reales con el mismo trabajo."/>
             <Border Background="{StaticResource Alerta}" CornerRadius="6" Padding="10,6"
                     Margin="0,8,0,0" IsVisible="{Binding NodosConError}">
               <TextBlock Foreground="White" TextWrapping="Wrap" Text="{Binding NodosErrorTexto}"/>

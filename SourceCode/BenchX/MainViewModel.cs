@@ -149,6 +149,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool EmularQuantiX { get => _emularQuantiX; set { _emularQuantiX = value; _nodos.EmularQuantiX = value; Notificar(); } }
     public bool EmularVistaX { get => _emularVistaX; set { _emularVistaX = value; _nodos.EmularVistaX = value; Notificar(); } }
     public string BrokerTexto { get; private set; } = "";
+
+    // VistaX como firmware 3.1: dt por cable con estadística conocida. Los %
+    // se aplican en caliente al generador de cada surco.
+    public bool VxFirmware31 { get => _nodos.VxFirmware31; set { _nodos.VxFirmware31 = value; Notificar(); } }
+    public double VxDoblesPct { get => _nodos.VxDoblesPct; set { _nodos.VxDoblesPct = value; Notificar(); } }
+    public double VxFallasPct { get => _nodos.VxFallasPct; set { _nodos.VxFallasPct = value; Notificar(); } }
+    public double VxCvPct { get => _nodos.VxCvPct; set { _nodos.VxCvPct = value; Notificar(); } }
     public bool QxConectado { get; private set; }
     public bool VxConectado { get; private set; }
     public string QxEstadoTexto { get; private set; } = "sin broker";
@@ -489,7 +496,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var sbS = new StringBuilder();
         for (int i = 0; i < sem.Length; i++) sbS.Append(sem[i].ToString("0.0", Inv)).Append(i == sem.Length - 1 ? "" : "  ");
         SemillasTexto = sem.Length == 0 ? "—" : sbS.ToString();
-        NodosStatsTexto = $"targets {_nodos.TargetsRecibidos} · publicados {_nodos.Publicados}";
+        NodosStatsTexto = $"targets {_nodos.TargetsRecibidos} · publicados {_nodos.Publicados}"
+            + (VxFirmware31 ? $" · dt {_nodos.DtPublicados} (perdidos {_nodos.DtPerdidos})" : "");
         NodosErrorTexto = _nodos.UltimoError ?? "";
         Notificar(nameof(QxConectado)); Notificar(nameof(VxConectado)); Notificar(nameof(QxEstadoTexto)); Notificar(nameof(VxEstadoTexto));
         Notificar(nameof(MotoresTexto)); Notificar(nameof(SemillasTexto)); Notificar(nameof(NodosStatsTexto));
@@ -538,6 +546,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _config.EmularGps = EmularGps; _config.EmularWas = EmularWas; _config.EmularMotor = EmularMotor;
         _config.EmularMaquina = EmularMaquina; _config.EmularImu = EmularImu;
         _config.EmularQuantiX = EmularQuantiX; _config.EmularVistaX = EmularVistaX;
+        _config.VxFirmware31 = VxFirmware31; _config.VxDoblesPct = VxDoblesPct;
+        _config.VxFallasPct = VxFallasPct; _config.VxCvPct = VxCvPct;
         _config.Demo = DemoActivo;
         GuardarFisica();
         try { _config.Guardar(_rutaConfig); } catch { }

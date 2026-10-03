@@ -21,5 +21,9 @@
     <Compile Include="..\AgOpenGPS.Core\SteerCal\SteerCalWizard.cs" Link="SteerCal\SteerCalWizard.cs" />
     <!-- Cero automático del WAS: el estimador puro, contra el WAS y la conversión del firmware simulados. -->
     <Compile Include="..\AgOpenGPS.Core\SteerCal\CeroWasEstadistico.cs" Link="SteerCal\CeroWasEstadistico.cs" />
+    <!-- Dobles/fallas/CV de PilotX (ISO 7256-1): clase pura, se LINKEA para
+         probar de punta a punta el VistaX emulado (firmware 3.1) sin arrastrar
+         AgroParallel.Services entero. -->
+    <Compile Include="..\AgroParallel\Core\AgroParallel.Services\VistaX\VxEspaciamiento.cs" Link="VistaX\VxEspaciamiento.cs" />
   </ItemGroup>
 </Project>

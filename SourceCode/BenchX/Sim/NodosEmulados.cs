@@ -19,6 +19,9 @@
 //     agp/vistax/{uid}/announcement    ESP->PC  {uid, ip, fw, hw, device, cables, uptime, boot_reason}
 //     agp/vistax/{uid}/lwt             ESP->PC  {"online":true}
 //     vistax/{uid}/telemetria          ESP->PC  {uid, sensores:[{cable, valor(sem/s), raw}]}
+//       con "Firmware 3.1" (default): igual que vistax-node v3.1.0 cada 250 ms
+//       {schema:"agp.vistax.telemetry/2", seq, uid, sensores:[{cable, valor,
+//        raw, acum, dt:[...0,1 ms...], dt_lost?}]} — ver GeneradorSemillas.
 //
 // Fisica simulada: cada motor sigue el pps objetivo con un retardo de primer
 // orden (tau 0,6 s) y ruido del 1 %. Las semillas por segundo de cada surco
@@ -70,8 +73,39 @@ public sealed class NodosEmulados : IDisposable
     private double _dientes, _semVuelta;
     private int _seq;
 
+    // Firmware 3.1: un generador por cable + pulsos de la ventana en curso.
+    private readonly GeneradorSemillas[] _gen;
+    private readonly long[] _pulsosVentana;
+    private int _seqTelemetria;
+    private DateTime _ultimaTelemetriaVx = DateTime.UtcNow;
+
     public bool EmularQuantiX { get; set; }
     public bool EmularVistaX { get; set; }
+
+    /// <summary>VistaX como firmware 3.1 (dt + dt_lost, cada 250 ms).</summary>
+    public bool VxFirmware31 { get; set; }
+
+    /// <summary>Probabilidades del generador de semillas, en % (UI de BenchX).</summary>
+    public double VxDoblesPct
+    {
+        get => _vxDoblesPct;
+        set { _vxDoblesPct = Math.Clamp(value, 0, 50); AplicarEstadistica(); }
+    }
+    public double VxFallasPct
+    {
+        get => _vxFallasPct;
+        set { _vxFallasPct = Math.Clamp(value, 0, 50); AplicarEstadistica(); }
+    }
+    public double VxCvPct
+    {
+        get => _vxCvPct;
+        set { _vxCvPct = Math.Clamp(value, 0, 28); AplicarEstadistica(); }   // tope físico ~28,8 %
+    }
+    private double _vxDoblesPct, _vxFallasPct, _vxCvPct;
+
+    /// <summary>Intervalos "dt" publicados y avisados como perdidos (diagnóstico).</summary>
+    public long DtPublicados { get; private set; }
+    public long DtPerdidos { get; private set; }
     public bool QxConectado { get; private set; }
     public bool VxConectado { get; private set; }
     public string UltimoError { get; private set; } = "";
@@ -91,6 +125,28 @@ public sealed class NodosEmulados : IDisposable
         _rawCable = new long[_semSeg.Length];
         _dientes = cfg.DientesEngranaje > 0 ? cfg.DientesEngranaje : 600;
         _semVuelta = cfg.SemillasPorVuelta > 0 ? cfg.SemillasPorVuelta : 24;
+        _gen = new GeneradorSemillas[_semSeg.Length];
+        for (int i = 0; i < _gen.Length; i++) _gen[i] = new GeneradorSemillas(1000 + i);
+        _pulsosVentana = new long[_semSeg.Length];
+        VxFirmware31 = cfg.VxFirmware31;
+        _vxDoblesPct = Math.Clamp(cfg.VxDoblesPct, 0, 50);
+        _vxFallasPct = Math.Clamp(cfg.VxFallasPct, 0, 50);
+        _vxCvPct = Math.Clamp(cfg.VxCvPct, 0, 28);
+        AplicarEstadistica();
+    }
+
+    private void AplicarEstadistica()
+    {
+        if (_gen == null) return;
+        lock (_lock)
+        {
+            foreach (var g in _gen)
+            {
+                g.PDoble = _vxDoblesPct / 100.0;
+                g.PFalla = _vxFallasPct / 100.0;
+                g.Cv = _vxCvPct / 100.0;
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -182,11 +238,20 @@ public sealed class NodosEmulados : IDisposable
                     await Anunciar(ct);
                 }
 
-                // Telemetria cada 500 ms
+                // Telemetria QuantiX cada 500 ms
                 if ((ahora - ultimoLive).TotalMilliseconds >= 500)
                 {
                     ultimoLive = ahora;
                     await PublicarLive(ct);
+                }
+
+                // Telemetria VistaX: 250 ms como el firmware 3.1 (deltaT del
+                // nodo), 500 ms la vieja.
+                if ((ahora - _ultimaTelemetriaVx).TotalMilliseconds >= (VxFirmware31 ? 250 : 500))
+                {
+                    double deltaMs = (ahora - _ultimaTelemetriaVx).TotalMilliseconds;
+                    _ultimaTelemetriaVx = ahora;
+                    await PublicarVistaX(deltaMs, ct);
                 }
             }
             catch (OperationCanceledException) { return; }
@@ -346,6 +411,18 @@ public sealed class NodosEmulados : IDisposable
                 {
                     int cable = i * _cfg.SurcosPorMotor + s;     // 0-based
                     if (cable >= _semSeg.Length) break;
+                    if (VxFirmware31)
+                    {
+                        // Firmware 3.1: semillas una por una con la estadística
+                        // configurada; la tasa nominal (sin el ruido del 4 %) es
+                        // la referencia del espaciamiento ideal.
+                        double nominal = porSurco < 0.05 ? 0 : porSurco;
+                        int caidas = _gen[cable].Avanzar(dt, nominal);
+                        _pulsosVentana[cable] += caidas;
+                        _semSeg[cable] = nominal;
+                        _rawCable[cable] = _gen[cable].Acumulado;
+                        continue;
+                    }
                     double v = porSurco * (1 + (_rnd.NextDouble() - 0.5) * 0.08);
                     _semSeg[cable] = v < 0.05 ? 0 : v;
                     _rawCable[cable] += (long)Math.Round(_semSeg[cable] * dt);
@@ -369,7 +446,8 @@ public sealed class NodosEmulados : IDisposable
         }
         if (_vx != null && _vx.IsConnected)
         {
-            string a = "{\"uid\":\"" + _cfg.VxUid + "\",\"ip\":\"" + _cfg.BrokerHost + "\",\"fw\":\"2.0.0-bench\",\"hw\":\"V1\"," +
+            string fw = VxFirmware31 ? "3.1.0-bench" : "2.0.0-bench";
+            string a = "{\"uid\":\"" + _cfg.VxUid + "\",\"ip\":\"" + _cfg.BrokerHost + "\",\"fw\":\"" + fw + "\",\"hw\":\"V1\"," +
                        "\"device\":\"VistaX\",\"cables\":" + _semSeg.Length + ",\"uptime\":" + up +
                        ",\"boot_reason\":\"bench\",\"safe_mode\":false,\"crash_count\":0,\"schema\":\"vistax.announce\",\"seq\":" + (++_seq) + "}";
             await Publicar(_vx, "agp/vistax/" + _cfg.VxUid + "/announcement", a, false, ct);
@@ -378,8 +456,8 @@ public sealed class NodosEmulados : IDisposable
 
     private async Task PublicarLive(CancellationToken ct)
     {
-        MotorEmulado[] ms; double[] sem; long[] raw;
-        lock (_lock) { ms = SnapshotMotoresSinLock(); sem = (double[])_semSeg.Clone(); raw = (long[])_rawCable.Clone(); }
+        MotorEmulado[] ms;
+        lock (_lock) { ms = SnapshotMotoresSinLock(); }
 
         if (_qx != null && _qx.IsConnected)
         {
@@ -393,8 +471,17 @@ public sealed class NodosEmulados : IDisposable
                 await Publicar(_qx, "agp/quantix/" + _cfg.QxUid + "/status_live", p, false, ct);
             }
         }
-        if (_vx != null && _vx.IsConnected)
+    }
+
+    private async Task PublicarVistaX(double deltaMs, CancellationToken ct)
+    {
+        var cli = _vx;
+        bool conectado = cli != null && cli.IsConnected;
+        if (!VxFirmware31)
         {
+            if (!conectado) return;
+            double[] sem; long[] raw;
+            lock (_lock) { sem = (double[])_semSeg.Clone(); raw = (long[])_rawCable.Clone(); }
             var sb = new StringBuilder(64 + sem.Length * 40);
             sb.Append("{\"uid\":\"").Append(_cfg.VxUid).Append("\",\"sensores\":[");
             for (int c = 0; c < sem.Length; c++)
@@ -404,8 +491,83 @@ public sealed class NodosEmulados : IDisposable
                   .Append(",\"raw\":").Append(raw[c]).Append('}');
             }
             sb.Append("]}");
-            await Publicar(_vx, "vistax/" + _cfg.VxUid + "/telemetria", sb.ToString(), false, ct);
+            await Publicar(cli!, "vistax/" + _cfg.VxUid + "/telemetria", sb.ToString(), false, ct);
+            return;
         }
+
+        // Firmware 3.1: drenar la ventana SIEMPRE (como enviarTelemetria):
+        // sin broker los pulsos se tiran y los intervalos van a dt_lost.
+        var cables = new CableTelemetria[_gen.Length];
+        lock (_lock)
+        {
+            for (int c = 0; c < _gen.Length; c++)
+            {
+                long pulsos = _pulsosVentana[c];
+                _pulsosVentana[c] = 0;
+                if (!conectado) { _gen[c].Descartar(); continue; }
+                var ct2 = new CableTelemetria
+                {
+                    Cable = c + 1,
+                    Pulsos = pulsos,
+                    Valor = deltaMs > 0 ? pulsos * 1000.0 / deltaMs : 0,
+                    Acum = _gen[c].Acumulado,
+                };
+                _gen[c].Pop(GeneradorSemillas.MaxDtPorMsg, ct2.Dt, out uint perdidos);
+                ct2.DtLost = perdidos;
+                DtPublicados += ct2.Dt.Count;
+                DtPerdidos += perdidos;
+                cables[c] = ct2;
+            }
+        }
+        if (!conectado) return;
+        string payload = PayloadTelemetriaV2(_cfg.VxUid, ++_seqTelemetria, cables);
+        await Publicar(cli!, "vistax/" + _cfg.VxUid + "/telemetria", payload, false, ct);
+    }
+
+    /// <summary>Un cable PULSE en la telemetría del firmware 3.1.</summary>
+    public sealed class CableTelemetria
+    {
+        public int Cable;
+        public double Valor;
+        public long Pulsos;
+        public long Acum;
+        public List<int> Dt = new();
+        public uint DtLost;
+    }
+
+    /// <summary>
+    /// Telemetría agp.vistax.telemetry/2 con el mismo orden de campos que
+    /// vistax-node v3.1.0 (Network.cpp, enviarTelemetria): schema, seq, uid,
+    /// sensores[{cable, valor, raw, acum, dt[], dt_lost (solo si &gt; 0)}].
+    /// "dt" va siempre, vacío si no cayó ninguna semilla.
+    /// </summary>
+    public static string PayloadTelemetriaV2(string uid, int seq, IReadOnlyList<CableTelemetria> cables)
+    {
+        var sb = new StringBuilder(96 + cables.Count * 200);
+        sb.Append("{\"schema\":\"agp.vistax.telemetry/2\",\"seq\":").Append(seq.ToString(Inv))
+          .Append(",\"uid\":\"").Append(uid).Append("\",\"sensores\":[");
+        bool primero = true;
+        foreach (var c in cables)
+        {
+            if (c == null) continue;
+            if (!primero) sb.Append(',');
+            primero = false;
+            sb.Append("{\"cable\":").Append(c.Cable.ToString(Inv))
+              .Append(",\"valor\":").Append(c.Valor.ToString("0.###", Inv))
+              .Append(",\"raw\":").Append(c.Pulsos.ToString(Inv))
+              .Append(",\"acum\":").Append(c.Acum.ToString(Inv))
+              .Append(",\"dt\":[");
+            for (int i = 0; i < c.Dt.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(c.Dt[i].ToString(Inv));
+            }
+            sb.Append(']');
+            if (c.DtLost > 0) sb.Append(",\"dt_lost\":").Append(c.DtLost.ToString(Inv));
+            sb.Append('}');
+        }
+        sb.Append("]}");
+        return sb.ToString();
     }
 
     private MotorEmulado[] SnapshotMotoresSinLock()
