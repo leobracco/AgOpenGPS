@@ -147,6 +147,10 @@ namespace AgroParallel.Models
         /// <summary>setAS_desacopleMaxDistanciaM (m) — soltar el piloto si se va más lejos de la guía.</summary>
         [JsonPropertyName("desacople_max_distancia_m")] public double? DesacopleMaxDistanciaM { get; set; }
 
+        /// <summary>setAS_bloqueoCorrimientoConPiloto — con el piloto enganchado,
+        /// "Corregir posición" no salta más de 50 cm. Nullable: no pisar si falta.</summary>
+        [JsonPropertyName("bloqueo_corrimiento_con_piloto")] public bool? BloqueoCorrimientoConPiloto { get; set; }
+
         // ---- Pantalla / sobre la línea ----
         /// <summary>setDisplay_lineWidth (px).</summary>
         [JsonPropertyName("line_width")] public int LineWidth { get; set; }

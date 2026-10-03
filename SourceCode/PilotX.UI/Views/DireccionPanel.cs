@@ -534,6 +534,8 @@ public sealed class DireccionPanel : Border
             "Si el GPS se corta, el piloto se suelta pasado este tiempo y la pantalla lo avisa. Sin esto, al volver la señal el piloto vuelve a agarrar solo. 0 = no corta."));
         _scPantalla.Children.Add(FilaAjusteD("Cortar si se aleja de la guía", "desacople_max_distancia_m", 0.5, 0, 10, 1, "m",
             "Con el piloto puesto, si el tractor queda más lejos que esto de la guía durante un segundo, el piloto se suelta y avisa. 0 = no corta."));
+        _scPantalla.Children.Add(FilaToggle("Bloquear saltos de posición con el piloto puesto", "bloqueo_corrimiento_con_piloto",
+            "En Corregir posición, con el piloto enganchado no deja \"Poner en cero\" ni saltos de más de 50 cm de una vez: correrían la línea bajo el piloto y darían un volantazo. Los toques de 1 y 10 cm siguen andando."));
         _scPantalla.Children.Add(SubTituloSep("Barra de guiado"));
         _scPantalla.Children.Add(FilaAjuste("Grosor de línea", "line_width", 1, 8, 1, 0, "px",
             "Grosor de la línea de guiado dibujada en el mapa."));

@@ -263,6 +263,10 @@ namespace AgOpenGPS.Properties
         // estos metros de la guía. 0 = no vigila: APAGADOS de fábrica.
         public double setAS_desacopleSinGpsSeg = 0;
         public double setAS_desacopleMaxDistanciaM = 0;
+        // "Corregir posición" a mano con el piloto enganchado: con esto prendido
+        // no deja saltos de más de 50 cm (ni "Poner en cero" con un corrimiento
+        // grande). APAGADO de fábrica: se activa si se quiere (CorrimientoManual).
+        public bool setAS_bloqueoCorrimientoConPiloto = false;
         // Guiado del implemento (ver CompensacionImplemento): el tractor corrige
         // su trayectoria en las curvas para que el IMPLEMENTO vaya sobre la línea.
         // 0 = apagado, 1 = nivel A (pasivo, solo modelo, sin sensores). APAGADO

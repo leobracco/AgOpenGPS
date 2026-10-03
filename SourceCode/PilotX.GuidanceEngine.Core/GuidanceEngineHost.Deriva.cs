@@ -98,10 +98,14 @@ namespace AgOpenGPS
         private bool AplicarDerivaManual(GeoDelta nueva)
         {
             GeoDelta vieja = DerivaActual;
-            string motivo = CorrimientoManual.PorQueNoSePuede(
-                nueva.NorthingDelta - vieja.NorthingDelta,
-                nueva.EastingDelta - vieja.EastingDelta,
-                isBtnAutoSteerOn);
+            // Opcional (apagado de fábrica): Dirección › Pantalla › "Bloquear
+            // saltos de posición con el piloto puesto".
+            string motivo = Properties.Settings.Default.setAS_bloqueoCorrimientoConPiloto
+                ? CorrimientoManual.PorQueNoSePuede(
+                    nueva.NorthingDelta - vieja.NorthingDelta,
+                    nueva.EastingDelta - vieja.EastingDelta,
+                    isBtnAutoSteerOn)
+                : null;
             if (motivo != null) return ResultadoReferencia(false, motivo);
 
             AplicarDeriva(nueva);

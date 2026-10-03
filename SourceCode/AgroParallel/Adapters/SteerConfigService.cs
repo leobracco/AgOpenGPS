@@ -130,6 +130,7 @@ namespace AgroParallel.Adapters
                 AcopleMaxAnguloDeg = S.setAS_acopleMaxAnguloDeg,
                 DesacopleSinGpsSeg = S.setAS_desacopleSinGpsSeg,
                 DesacopleMaxDistanciaM = S.setAS_desacopleMaxDistanciaM,
+                BloqueoCorrimientoConPiloto = S.setAS_bloqueoCorrimientoConPiloto,
 
                 LineWidth = S.setDisplay_lineWidth,
                 SnapDistance = S.setAS_snapDistance,
@@ -186,6 +187,7 @@ namespace AgroParallel.Adapters
             if (c.AcopleMaxAnguloDeg.HasValue) S.setAS_acopleMaxAnguloDeg = Math.Max(0, Math.Min(89, c.AcopleMaxAnguloDeg.Value));
             if (c.DesacopleSinGpsSeg.HasValue) S.setAS_desacopleSinGpsSeg = Math.Max(0, Math.Min(60, c.DesacopleSinGpsSeg.Value));
             if (c.DesacopleMaxDistanciaM.HasValue) S.setAS_desacopleMaxDistanciaM = Math.Max(0, c.DesacopleMaxDistanciaM.Value);
+            if (c.BloqueoCorrimientoConPiloto.HasValue) S.setAS_bloqueoCorrimientoConPiloto = c.BloqueoCorrimientoConPiloto.Value;
 
             // ---- Pantalla / sobre la línea ----
             S.setDisplay_lineWidth = c.LineWidth;
