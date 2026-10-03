@@ -82,7 +82,16 @@ namespace AgOpenGPS
         /// otro lote o un GPS roto. Se avisa y no se toca nada.</summary>
         public const double MaxCorreccionM = 50.0;
 
-        private static readonly CultureInfo Es = new CultureInfo("es-AR");
+        private static readonly NumberFormatInfo Es = new NumberFormatInfo
+        {
+            // Coma decimal y punto de miles SIN depender de la cultura "es-AR":
+            // PilotX.Desktop corre con InvariantGlobalization (crear es-AR ahí
+            // tira CultureNotFoundException y voltea la pantalla). Mismo patrón
+            // que TareaFormato.
+            NumberDecimalSeparator = ",",
+            NumberGroupSeparator = ".",
+            NumberGroupSizes = new[] { 3 },
+        };
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
         /// <param name="referencia">Punto marcado (plano del lote).</param>

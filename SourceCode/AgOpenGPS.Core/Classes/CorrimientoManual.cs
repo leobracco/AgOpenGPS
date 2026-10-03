@@ -19,7 +19,16 @@ namespace AgOpenGPS
         /// <summary>Salto máximo de una vez con el piloto enganchado (m).</summary>
         public const double MaxSaltoConPilotoM = 0.50;
 
-        private static readonly CultureInfo Es = new CultureInfo("es-AR");
+        private static readonly NumberFormatInfo Es = new NumberFormatInfo
+        {
+            // Coma decimal y punto de miles SIN depender de la cultura "es-AR":
+            // PilotX.Desktop corre con InvariantGlobalization (crear es-AR ahí
+            // tira CultureNotFoundException y voltea la pantalla). Mismo patrón
+            // que TareaFormato.
+            NumberDecimalSeparator = ",",
+            NumberGroupSeparator = ".",
+            NumberGroupSizes = new[] { 3 },
+        };
 
         /// <summary>null = se puede. Si no, el motivo para la pantalla.</summary>
         /// <param name="saltoNorteM">Cambio pedido en el norte (m).</param>

@@ -21,7 +21,16 @@ namespace AgOpenGPS
         /// <summary>Valor que usa el guiado para "no hay distancia a la línea".</summary>
         private const double SinDistancia = 32000;
 
-        private static readonly CultureInfo Es = new CultureInfo("es-AR");
+        private static readonly NumberFormatInfo Es = new NumberFormatInfo
+        {
+            // Coma decimal y punto de miles SIN depender de la cultura "es-AR":
+            // PilotX.Desktop corre con InvariantGlobalization (crear es-AR ahí
+            // tira CultureNotFoundException y voltea la pantalla). Mismo patrón
+            // que TareaFormato.
+            NumberDecimalSeparator = ",",
+            NumberGroupSeparator = ".",
+            NumberGroupSizes = new[] { 3 },
+        };
 
         /// <summary>
         /// null = se puede acoplar. Si no, el motivo en castellano, con el valor

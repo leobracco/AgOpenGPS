@@ -220,7 +220,7 @@ public sealed class ElevacionTab : ConfigTab
         {
             bool hayLote = C.Snap?.IsJobStarted ?? false;
             _txtPuntos.Text = (e != null && hayLote && estado != "apagado")
-                ? T("Puntos en este lote") + ": " + e.Puntos.ToString("#,0", CultureInfo.GetCultureInfo("es-AR"))
+                ? T("Puntos en este lote") + ": " + e.Puntos.ToString("#,0", new NumberFormatInfo { NumberGroupSeparator = ".", NumberGroupSizes = new[] { 3 } })
                 : "";
         }
         if (_txtError != null)

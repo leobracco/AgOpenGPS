@@ -33,7 +33,16 @@ namespace PilotX.Desktop.Views;
 
 public sealed partial class DireccionPanel
 {
-    private static readonly CultureInfo EsAr = CultureInfo.GetCultureInfo("es-AR");
+    private static readonly NumberFormatInfo EsAr = new NumberFormatInfo
+    {
+        // Coma decimal y punto de miles SIN depender de la cultura "es-AR":
+        // PilotX.Desktop corre con InvariantGlobalization (crear es-AR ahí
+        // tira CultureNotFoundException y voltea la pantalla). Mismo patrón
+        // que TareaFormato.
+        NumberDecimalSeparator = ",",
+        NumberGroupSeparator = ".",
+        NumberGroupSizes = new[] { 3 },
+    };
 
     private int _cwTick;
     private bool _cwActivo;
