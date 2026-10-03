@@ -33,4 +33,10 @@
     <Compile Include="..\PilotX.GuidanceEngine.Core\ContadoresDelLote.cs" Link="Engine\ContadoresDelLote.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Planimetría fase 3: grilla de referencia que volcó lib/planimetria.js
+         (OrbitX) con el lote sintético, para comparar el port C# celda por celda. -->
+    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
