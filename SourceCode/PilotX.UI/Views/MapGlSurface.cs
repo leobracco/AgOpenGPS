@@ -44,7 +44,7 @@ namespace PilotX.Desktop.Views;
 /// Surface GL del mapa (Stage 1). Hosteada por <see cref="MapPanel"/>
 /// cuando <c>App.UseGl</c> es true.
 /// </summary>
-public sealed class MapGlSurface : OpenGlControlBase
+public sealed partial class MapGlSurface : OpenGlControlBase
 {
     // ---- estado del snapshot (UI thread) -------------------------------
     private HudSnapshot? _snap;
@@ -1009,6 +1009,7 @@ public sealed class MapGlSurface : OpenGlControlBase
             if (_wheelTex != 0) _gl.DeleteTexture(_wheelTex);
             if (_implementoTex != 0) _gl.DeleteTexture(_implementoTex);
             if (_floorTex != 0) _gl.DeleteTexture(_floorTex);
+            LiberarPlanimetriaGl();
             _texProgram = 0; _texVbo = 0;
             _vehicleTex = 0; _wheelTex = 0; _implementoTex = 0; _floorTex = 0;
             _vehicleTexReady = false; _wheelTexReady = false;
@@ -1178,6 +1179,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
         if (_coverageRanges.Count > 0)
             DrawCoverage();
+
+        // --- Capa 2a: planimetría (mapa de alturas + curvas de nivel) ---
+        // Arriba de lo pintado (si no, el lote trabajado la tapa entera) y
+        // debajo de tram/guías/lindero. Ver MapGlSurface.Planimetria.cs.
+        DibujarPlanimetria(ref subioAlgo);
 
         // --- Capa 2b: tram lines (wheel tracks + outer/inner boundary) -
         // Va entre coverage y guidance: marcas de navegacion que deben
@@ -1766,6 +1772,7 @@ public sealed class MapGlSurface : OpenGlControlBase
         _ultimoImplRgba = null; _ultimoFloorRgba = null;
         _pendingTexRgba = null; _pendingWheelRgba = null;
         _pendingImplRgba = null; _pendingFloorRgba = null;
+        SoltarPlanimetria();
 
         Console.Error.WriteLine("[MapGlSurface] surface jubilada: timers frenados");
     }
@@ -2903,6 +2910,7 @@ public sealed class MapGlSurface : OpenGlControlBase
         if (_ultimoWheelRgba != null) _pendingWheelRgba = _ultimoWheelRgba;
         if (_ultimoImplRgba != null) _pendingImplRgba = _ultimoImplRgba;
         if (_ultimoFloorRgba != null) _pendingFloorRgba = _ultimoFloorRgba;
+        PerderPlanimetriaGl();
 
         Console.Error.WriteLine("[MapGlSurface] contexto GL perdido: se sueltan "
             + "los recursos y se reconstruye en el proximo init");

@@ -74,6 +74,15 @@ namespace AgOpenGPS
             Planimetria.ParsearTexto(texto, this, _cuenta);
         }
 
+        /// <summary>Lee un Elevation.txt línea por línea, sin cargar el texto
+        /// entero en memoria (un lote grande tiene cientos de miles de filas).</summary>
+        public void AgregarLineas(System.IO.TextReader lector)
+        {
+            _cuenta.Partes++;
+            string linea;
+            while ((linea = lector.ReadLine()) != null) Planimetria.ParsearLinea(linea, this, _cuenta);
+        }
+
         internal void Push(double lat, double lon, double z)
         {
             if (_n == _z.Length)
@@ -279,24 +288,34 @@ namespace AgOpenGPS
                 if (largo <= 0) continue;
                 char c0 = texto[inicioLinea];
                 if (!(c0 == '-' || (c0 >= '0' && c0 <= '9'))) continue;
-                string[] f = texto.Substring(inicioLinea, largo).Split(',');
-                if (f.Length < 8) continue;          // cabecera ("StartFix" lat,lon) u otra cosa
-                cuenta.Filas++;
-                if (f.Length != 8) { cuenta.Invalidas++; continue; }
-                double q = Numero(f[3]);
-                if (q != 4) { cuenta.NoRtk++; continue; }
-                double lat = Numero(f[0]), lon = Numero(f[1]), z = Numero(f[2]);
-                if (double.IsNaN(lat) || double.IsInfinity(lat) || double.IsNaN(lon) || double.IsInfinity(lon)
-                    || double.IsNaN(z) || double.IsInfinity(z)
-                    || Math.Abs(lat) > 90 || Math.Abs(lon) > 180
-                    || (Math.Abs(lat) < 0.01 && Math.Abs(lon) < 0.01) || z < -500 || z > 9000)
-                {
-                    cuenta.Invalidas++;
-                    continue;
-                }
-                acc.Push(lat, lon, z);
-                cuenta.Q4++;
+                ParsearLinea(texto.Substring(inicioLinea, largo), acc, cuenta);
             }
+        }
+
+        /// <summary>Una línea de Elevation.txt (sin el salto de línea). Las que no empiezan
+        /// con dígito o signo (cabecera) se ignoran sin contar.</summary>
+        internal static void ParsearLinea(string linea, AcumuladorElevacion acc, CuentaElevacion cuenta)
+        {
+            if (string.IsNullOrEmpty(linea)) return;
+            char c0 = linea[0];
+            if (!(c0 == '-' || (c0 >= '0' && c0 <= '9'))) return;
+            string[] f = linea.Split(',');
+            if (f.Length < 8) return;          // cabecera ("StartFix" lat,lon) u otra cosa
+            cuenta.Filas++;
+            if (f.Length != 8) { cuenta.Invalidas++; return; }
+            double q = Numero(f[3]);
+            if (q != 4) { cuenta.NoRtk++; return; }
+            double lat = Numero(f[0]), lon = Numero(f[1]), z = Numero(f[2]);
+            if (double.IsNaN(lat) || double.IsInfinity(lat) || double.IsNaN(lon) || double.IsInfinity(lon)
+                || double.IsNaN(z) || double.IsInfinity(z)
+                || Math.Abs(lat) > 90 || Math.Abs(lon) > 180
+                || (Math.Abs(lat) < 0.01 && Math.Abs(lon) < 0.01) || z < -500 || z > 9000)
+            {
+                cuenta.Invalidas++;
+                return;
+            }
+            acc.Push(lat, lon, z);
+            cuenta.Q4++;
         }
 
         // Number() de JS para lo que nos importa: vacío = 0, basura = NaN.

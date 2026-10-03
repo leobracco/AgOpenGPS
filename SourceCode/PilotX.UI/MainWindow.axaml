@@ -274,6 +274,61 @@
                 </StackPanel>
             </Border>
 
+            <!-- Leyenda de la capa de alturas (planimetría). Arriba a la
+                 izquierda, debajo de la barra superior; no intercepta toques
+                 (el mapa se sigue moviendo por debajo) y los menús (ZIndex 50)
+                 la tapan. La prende/apaga Configuración › GPS / IMU ›
+                 Planimetría › "Mostrar en el mapa". Oscura y translúcida como
+                 las demás leyendas sobre el mapa (excepción documentada). -->
+            <Border x:Name="LeyendaPlani" Grid.Row="2" IsVisible="False" ZIndex="30"
+                    IsHitTestVisible="False"
+                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,58,0,0"
+                    Background="#D9101612" BorderBrush="#33FFFFFF" BorderThickness="1"
+                    CornerRadius="8" Padding="12,8,12,8">
+                <StackPanel Spacing="4" MinWidth="170">
+                    <TextBlock x:Name="LeyendaPlaniTitulo" Text="Alturas del lote"
+                               Foreground="#F5F7F4" FontSize="13" FontWeight="SemiBold"/>
+                    <StackPanel x:Name="LeyendaPlaniAlturas" Spacing="2">
+                        <Border Height="10" CornerRadius="3">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                    <GradientStop Offset="0" Color="#2B6CB0"/>
+                                    <GradientStop Offset="0.25" Color="#4FB3BF"/>
+                                    <GradientStop Offset="0.5" Color="#8BC34A"/>
+                                    <GradientStop Offset="0.75" Color="#F2C94C"/>
+                                    <GradientStop Offset="1" Color="#B5651D"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        <Grid ColumnDefinitions="*,*">
+                            <TextBlock x:Name="LeyendaPlaniMin" Grid.Column="0" Text="—"
+                                       Foreground="#C5CFC5" FontSize="12"/>
+                            <TextBlock x:Name="LeyendaPlaniMax" Grid.Column="1" Text="—"
+                                       Foreground="#C5CFC5" FontSize="12" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </StackPanel>
+                    <StackPanel x:Name="LeyendaPlaniAmbientes" Spacing="2" IsVisible="False">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Border Width="12" Height="12" CornerRadius="2" Background="#C0843D"/>
+                            <TextBlock x:Name="LeyendaPlaniLoma" Text="Loma" Foreground="#F5F7F4" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Border Width="12" Height="12" CornerRadius="2" Background="#8BC34A"/>
+                            <TextBlock x:Name="LeyendaPlaniMedia" Text="Media loma" Foreground="#F5F7F4" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Border Width="12" Height="12" CornerRadius="2" Background="#2F80ED"/>
+                            <TextBlock x:Name="LeyendaPlaniBajo" Text="Bajo" Foreground="#F5F7F4" FontSize="12"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock x:Name="LeyendaPlaniCurvas" Text="" Foreground="#C5CFC5" FontSize="12"/>
+                    <StackPanel x:Name="LeyendaPlaniGuiaFila" Orientation="Horizontal" Spacing="6" IsVisible="False">
+                        <Border Width="16" Height="3" Background="#DB1F94" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="LeyendaPlaniGuia" Text="" Foreground="#F5F7F4" FontSize="12"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <Canvas Name="MapOverlaysHost" Grid.Row="2" IsVisible="False">
                 <vw:QuantiXMapOverlay x:Name="QxMapOverlay" IsVisible="False"/>
                 <!-- Franja mínima VistaX: barritas de nivel por surco sobre el

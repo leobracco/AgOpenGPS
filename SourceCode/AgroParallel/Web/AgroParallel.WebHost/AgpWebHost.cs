@@ -187,6 +187,11 @@ namespace AgroParallel.WebHost
         public Action<string> LogControl { get; set; }
 
         private System.Threading.Timer _barridoControl;
+
+        /// <summary>Planimetría en la cabina (opcional, apagada de fábrica): lo
+        /// setea el Engine ANTES de Start(). Null = /api/planimetria/* no existe
+        /// (404) y la Configuración no ofrece la función.</summary>
+        public IPlanimetriaService Planimetria { get; set; }
         private readonly int _port;
         private WebServer _server;
         private CancellationTokenSource _cts;
@@ -533,6 +538,9 @@ namespace AgroParallel.WebHost
                 // Cero automático del WAS (Dirección › Sensor).
                 var ceroWas = CeroWas;
                 if (ceroWas != null) m.WithController(() => new CeroWasController(ceroWas));
+                // Planimetría en la cabina (mapa de alturas, ambientes, guía por curva de nivel).
+                var planimetria = Planimetria;
+                if (planimetria != null) m.WithController(() => new PlanimetriaController(planimetria));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))

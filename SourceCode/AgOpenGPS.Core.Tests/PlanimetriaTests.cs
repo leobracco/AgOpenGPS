@@ -120,6 +120,22 @@ namespace AgOpenGPS.Core.Tests
         }
 
         [Test]
+        public void LecturaPorLineas_DaLoMismoQueElTextoEntero()
+        {
+            var acc = new AcumuladorElevacion();
+            foreach (string parte in Lote.Value.Partes)
+                using (var sr = new StringReader(parte)) acc.AgregarLineas(sr);
+            var a = acc.Resultado();
+            var b = Planimetria.JuntarPuntos(Lote.Value.Partes);
+            Assert.That(a.N, Is.EqualTo(b.N));
+            Assert.That(a.Cuenta.Filas, Is.EqualTo(b.Cuenta.Filas));
+            Assert.That(a.Cuenta.NoRtk, Is.EqualTo(b.Cuenta.NoRtk));
+            Assert.That(a.Cuenta.Invalidas, Is.EqualTo(b.Cuenta.Invalidas));
+            Assert.That(a.Z, Is.EqualTo(b.Z));
+            Assert.That(a.Lat, Is.EqualTo(b.Lat));
+        }
+
+        [Test]
         public void LoteSintetico_FiltraFilasViejasYDetectaPasadas()
         {
             var R = ResDefault.Value;

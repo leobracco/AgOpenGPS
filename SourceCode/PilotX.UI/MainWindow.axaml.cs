@@ -1403,6 +1403,10 @@ public partial class MainWindow : Window
                     _mapHost?.OnShape(snap);
                 });
                 Closed += (_, _) => _shapePoller?.Dispose();
+
+                // Capa de alturas (planimetría): el poller no baja nada mientras
+                // la función o la capa estén apagadas. Ver MainWindow.Planimetria.cs.
+                ArrancarPlanimetria();
             }
 
             // Stages 3/4: pollers de guidance/tool/tram. Corren tanto

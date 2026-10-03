@@ -155,6 +155,9 @@ public partial class ConfigPanel : UserControl
         // Registro de alturas (planimetría). El toggle vivía solo en la pestaña
         // Display del HTML, que salió del menú: en cabina no se llegaba.
         new CfgNav { Tab = "elevation",   Titulo = "Elevación",    Grupo = "GPS / IMU",  Nativa = true  },
+        // Planimetría en la cabina (mapa de alturas, guía por curva de nivel,
+        // ambientes → prescripción). Apagada de fábrica; usa las alturas de Elevación.
+        new CfgNav { Tab = "planimetria", Titulo = "Planimetría",  Grupo = "GPS / IMU",  Nativa = true  },
 
         new CfgNav { Tab = "uturn",       Titulo = "U-Turn",       Grupo = "Otros",      Nativa = true  },
         new CfgNav { Tab = "tram",        Titulo = "Tram",         Grupo = "Otros",      Nativa = true  },
@@ -1122,6 +1125,9 @@ public partial class ConfigPanel : UserControl
         // Elevación guarda AL TOQUE (es un interruptor) y muestra el estado
         // vivo del registro de alturas desde el refresco de 3 s del snapshot.
         "elevation" => new ElevacionTab(_ctx),
+        // Planimetría: interruptores y acciones AL TOQUE contra /api/planimetria;
+        // las dosis con su propio botón. Ver la cabecera de PlanimetriaTab.
+        "planimetria" => new PlanimetriaTab(_ctx),
         // U-Turn guarda como las hermanas (botón Guardar / al salir), pero su
         // POST tiene efecto colateral fuerte en el motor: reconstruye las líneas
         // de giro y DESCARTA el U-turn ya dibujado. Por eso su HayCambios es

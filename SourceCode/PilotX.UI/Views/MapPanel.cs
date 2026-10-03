@@ -337,6 +337,7 @@ public sealed class MapPanel : Grid
         // fue exactamente el "no se ve nada" de cabina: el latido de la surface
         // vieja seguía mostrando 3 zonas mientras la visible no tenía ninguna.
         if (_ultimoShape != null) nueva.OnShape(_ultimoShape);
+        if (_ultimaPlani != null) nueva.OnPlanimetria(_ultimaPlani);
     }
 
     /// <summary>
@@ -480,6 +481,19 @@ public sealed class MapPanel : Grid
 
     // Última prescripción empujada, para reaplicarla si la surface se recrea.
     private ShapeMapSnapshot? _ultimoShape;
+
+    /// <summary>
+    /// Push de la capa de alturas (planimetría): grilla coloreada + curvas de
+    /// nivel, ya en el plano local. Específico de GL. null = sacarla.
+    /// </summary>
+    public void OnPlanimetria(PlanimetriaMapSnapshot? snap)
+    {
+        _ultimaPlani = snap;
+        _gl?.OnPlanimetria(snap);
+    }
+
+    // Igual que el shape: su poller solo re-empuja cuando cambia la revisión.
+    private PlanimetriaMapSnapshot? _ultimaPlani;
 
 
     // ---- vista de cámara (menú Navegación): 2D/3D/Norte 2D/tilt/grilla/día-noche.

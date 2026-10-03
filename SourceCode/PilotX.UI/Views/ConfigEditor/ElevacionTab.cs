@@ -72,7 +72,7 @@ public sealed class ElevacionTab : ConfigTab
         col.Children.Add(CfgUi.Titulo("Registro de alturas del lote"));
         col.Children.Add(CfgUi.Nota(
             "Mientras trabajás, PilotX guarda la altura del suelo un punto por metro en el lote abierto, "
-            + "para armar después el mapa de alturas en OrbitX. Solo graba con RTK FIJO: con RTK flotante "
+            + "para armar el mapa de alturas (acá en la pestaña Planimetría y en OrbitX). Solo graba con RTK FIJO: con RTK flotante "
             + "o sin corrección la altura varía metros y no sirve."));
         col.Children.Add(TileToggle());
 

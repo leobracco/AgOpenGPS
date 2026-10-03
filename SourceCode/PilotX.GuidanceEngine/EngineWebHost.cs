@@ -305,6 +305,10 @@ namespace AgOpenGPS
                 imuCalibracion: imuCalibracion);
             _web.SteerCal = steerCal;
             _web.CeroWas = ceroWas;
+            // Planimetría en la cabina (Configuración › GPS / IMU › Planimetría):
+            // apagada de fábrica (planimetria.json). Prendida calcula el mapa de
+            // alturas en segundo plano; guía y prescripción solo a pedido.
+            _web.Planimetria = new EnginePlanimetriaService(_host);
 
             // Autoridad de control: quién acciona desde la red va al registro de
             // eventos (lo ve soporte); el desenganche por pérdida de control usa
