@@ -651,7 +651,12 @@ namespace AgroParallel.OrbitX
         // Viaja en PARTES de 5000 filas (ElevacionPartes), cada una como
         // archivo propio del lote:
         //   ruta_rel = aog/fields/<lote>/Elevation/Elevation_0001.txt
-        //   subtipo  = "elevation_points", producto "aog", es_lote = true
+        //   subtipo  = "elevation_points", producto "aog", es_lote = FALSE
+        //   (con lote_nombre igual). es_lote=false a propósito: en OrbitX varias
+        //   consultas traen TODOS los docs es_lote de un lote con su contenido
+        //   (contexto del lote, /api/aog/lotes/:nombre, agrarIA con limit 20):
+        //   decenas de partes de 300 KB las inflaban y podían dejar afuera el
+        //   Boundary. La planimetría las junta por subtipo + lote_nombre.
         // Las partes completas no cambian nunca: se suben una vez y el server
         // no archiva copias (mismo hash). La última parte (la que crece) se
         // sube como mucho cada ElevacionIntervaloParcial, para no mandar —ni
@@ -700,7 +705,7 @@ namespace AgroParallel.OrbitX
                     string nombre = ElevacionPartes.NombreParte(p.Indice);
                     bool encolada = EnqueueTextoSiCambio(path + "#" + p.Indice,
                         "aog/fields/" + fieldName + "/Elevation/" + nombre, nombre,
-                        p.Contenido, ElevacionPartes.Subtipo, "aog", true, fieldName);
+                        p.Contenido, ElevacionPartes.Subtipo, "aog", false, fieldName);
                     if (!p.Completa && encolada) _elevacionUltimaParcial[path] = ahora;
                 }
                 // Con la parcial demorada hay que volver a mirar en el próximo
