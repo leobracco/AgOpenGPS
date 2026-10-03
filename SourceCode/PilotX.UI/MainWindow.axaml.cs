@@ -697,6 +697,9 @@ public partial class MainWindow : Window
             };
             ArrancarAvisoChat();
         }
+        // Autoridad de control: latido de la cabina + indicador de quién tiene
+        // el control (MainWindow.AutoridadControl.cs).
+        ArrancarAutoridadControl();
         // Guías nativo (14vo port): AB delega en el flujo del mapa que ya
         // existía; curva y lista van contra /api/tracks igual que la página.
         _guiasHost = this.FindControl<GuiasPanel>("GuiasHost");

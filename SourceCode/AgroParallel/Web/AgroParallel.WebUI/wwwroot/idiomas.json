@@ -3121,5 +3121,33 @@
   "No se pudo cambiar el registro de alturas": {
     "en": "Could not change elevation logging",
     "pt": "Não foi possível alterar o registro de altitudes"
+  },
+  "El control volvió a esta pantalla.": {
+    "en": "Control is back on this screen.",
+    "pt": "O controle voltou para esta tela."
+  },
+  "pide el control": {
+    "en": "asks for control",
+    "pt": "pede o controle"
+  },
+  "Control": {
+    "en": "Control",
+    "pt": "Controle"
+  },
+  "Accionó desde la red": {
+    "en": "Operated from the network",
+    "pt": "Acionou pela rede"
+  },
+  "Ceder": {
+    "en": "Hand over",
+    "pt": "Ceder"
+  },
+  "No": {
+    "en": "No",
+    "pt": "Não"
+  },
+  "Recuperar": {
+    "en": "Take back",
+    "pt": "Recuperar"
   }
 }

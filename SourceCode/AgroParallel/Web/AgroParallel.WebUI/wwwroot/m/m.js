@@ -49,23 +49,50 @@
       return r.json();
     }), ms);
   }
+  // Identidad del equipo para la autoridad de control de PilotX: el motor
+  // anota quién acciona desde la red (y, con --autoridad-control, sólo deja
+  // accionar a la pantalla que tiene el control). Id estable por celular.
+  function clienteId() {
+    try {
+      var id = localStorage.getItem('apf_cliente');
+      if (!id) {
+        id = 'm-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+        localStorage.setItem('apf_cliente', id);
+      }
+      return id;
+    } catch (e) { return ''; }
+  }
+  function headersEscritura() {
+    var h = { 'Content-Type': 'application/json', 'X-PilotX-Nombre': 'Celular' };
+    var id = clienteId();
+    if (id) h['X-PilotX-Cliente'] = id;
+    return h;
+  }
+  // 423 = la autoridad de control rechazó el comando: mostrar SU motivo.
+  function errorHttp(r) {
+    if (r.status === 423) {
+      return r.json().then(function (j) { throw new Error((j && j.mensaje) || 'Sin control de la máquina'); },
+                           function () { throw new Error('Sin control de la máquina'); });
+    }
+    throw new Error('HTTP ' + r.status);
+  }
   function postJSON(url, body, ms) {
     return withTimeout(fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headersEscritura(),
       body: body == null ? '{}' : (typeof body === 'string' ? body : JSON.stringify(body))
     }).then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) return errorHttp(r);
       return r.json().catch(function () { return { ok: true }; });
     }), ms);
   }
   function putJSON(url, body, ms) {
     return withTimeout(fetch(url, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headersEscritura(),
       body: typeof body === 'string' ? body : JSON.stringify(body)
     }).then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) return errorHttp(r);
       return r.json().catch(function () { return { ok: true }; });
     }), ms);
   }

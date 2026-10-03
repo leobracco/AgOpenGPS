@@ -11,8 +11,10 @@ using System.Threading.Tasks;
 using AgroParallel.OrbitX;
 using AgroParallel.Services;
 using AgroParallel.Services.Abstractions;
+using AgroParallel.Services.Control;
 using AgroParallel.Services.FieldMaps;
 using AgroParallel.Usb;
+using AgroParallel.WebHost.Autoridad;
 using AgroParallel.WebHost.Controllers;
 // (controllers en sub-namespace)
 using AgroParallel.WebHost.WebSockets;
@@ -145,6 +147,36 @@ namespace AgroParallel.WebHost
         /// lo setea el Engine ANTES de Start(). Null = /api/steer/cero-was-auto/*
         /// no existe (404) y la pestaña Sensor no muestra la función.</summary>
         public ICeroWasService CeroWas { get; set; }
+
+        // ── Autoridad de control ────────────────────────────────────────────
+        // Una sola pantalla acciona la máquina a la vez (ver
+        // AgroParallel.Services.Control.AutoridadControl). La puerta existe
+        // SIEMPRE; lo que cambia con el flag es si rechaza (Exigir) o sólo
+        // anota quién acciona desde la red (SoloRegistro, el default).
+
+        /// <summary>Puerta de la autoridad de control. La usan el módulo de /api,
+        /// GuidanceController y, en el motor, el canal MQTT de comandos.</summary>
+        public PuertaControl Control { get; }
+
+        /// <summary>Modo de la autoridad. Default SoloRegistro: la PWA del celular
+        /// ya acciona (QuantiX/VistaX/FlowX) y no se la rompe. Exigir = el día que
+        /// se habilite la segunda pantalla (`--autoridad-control` del motor).</summary>
+        public ModoAutoridad ModoControl
+        {
+            get => Control.Modo;
+            set => Control.Modo = value;
+        }
+
+        /// <summary>Desenganche del piloto con aviso a la cabina (cartel de
+        /// AvisarPiloto). Lo setea el motor; null = se usa el toggle "autosteer"
+        /// (sin cartel) si el snapshot dice que está puesto.</summary>
+        public Func<string, bool> DesengancharPiloto { get; set; }
+
+        /// <summary>Destino del registro de la autoridad (quién accionó, quién tomó
+        /// el control). Default: consola + Trace. El motor lo manda al log de eventos.</summary>
+        public Action<string> LogControl { get; set; }
+
+        private System.Threading.Timer _barridoControl;
         private readonly int _port;
         private WebServer _server;
         private CancellationTokenSource _cts;
@@ -297,6 +329,63 @@ namespace AgroParallel.WebHost
             // del operario pueda acceder a /m/ (PWA Field) desde el WiFi del tractor.
             // EmbedIO HttpListenerMode.EmbedIO usa Sockets, no requiere URLACL en Windows.
             ListenerPrefix = "http://*:" + port + "/";
+
+            Control = new PuertaControl(new AutoridadControl(), ModoAutoridad.SoloRegistro,
+                EscribirLogControl, null, PilotoEnganchado);
+            Control.Autoridad.Revocado += AlRevocarControl;
+        }
+
+        private void EscribirLogControl(string msg)
+        {
+            var destino = LogControl;
+            try
+            {
+                if (destino != null) destino(msg);
+                else { Console.WriteLine(msg); System.Diagnostics.Trace.WriteLine(msg); }
+            }
+            catch { /* jamás romper por loguear */ }
+        }
+
+        private bool PilotoEnganchado()
+        {
+            try { return _guidance?.GetSnapshot()?.IsAutoSteerOn ?? false; }
+            catch { return false; }
+        }
+
+        // Un remoto perdió el control sin que la cabina lo retomara (dejó de
+        // latir o lo soltó). Si había accionado la dirección — enganchó el
+        // piloto, prendió el manejo libre o el asistente, o recibió el control
+        // con el piloto puesto — se suelta TODO lo que mueve el volante: nadie
+        // está mirando lo que el celular dejó andando.
+        private void AlRevocarControl(RevocacionControl rev)
+        {
+            EscribirLogControl("[Control] " + rev.Remoto.Nombre + " (" + rev.Remoto.Ip + ") " + rev.Motivo +
+                               ": el control vuelve a la cabina" +
+                               (rev.DireccionAccionada ? " y se suelta la dirección." : "."));
+            if (!rev.DireccionAccionada) return;
+
+            string motivo = rev.Involuntaria
+                ? "Piloto desenganchado: " + rev.Remoto.Nombre + " tenía el control y dejó de responder."
+                : "Piloto desenganchado: " + rev.Remoto.Nombre + " soltó el control.";
+            try
+            {
+                var desenganchar = DesengancharPiloto;
+                if (desenganchar != null) desenganchar(motivo);
+                else if (PilotoEnganchado()) _guidance?.ExecuteCommand("autosteer");
+            }
+            catch (Exception ex) { EscribirLogControl("[Control] Desenganche del piloto falló: " + ex.Message); }
+
+            try
+            {
+                var fd = _steerConfig?.GetFreeDrive();
+                if (fd != null && fd.On) _steerConfig.SetFreeDrive(false);
+            }
+            catch (Exception ex) { EscribirLogControl("[Control] Apagar manejo libre falló: " + ex.Message); }
+
+            // Accion("cancelar") y NO Estado(): consultar el estado cuenta como
+            // latido de la pantalla del asistente y lo mantendría vivo.
+            try { SteerCal?.Accion("cancelar"); }
+            catch (Exception ex) { EscribirLogControl("[Control] Cancelar asistente de dirección falló: " + ex.Message); }
         }
 
         // Prefijo real usado para el bind (puede ser "*" para LAN; Url sigue siendo 127.0.0.1).
@@ -323,7 +412,10 @@ namespace AgroParallel.WebHost
                     .WithUrlPrefix(ListenerPrefix)
                     .WithMode(HttpListenerMode.EmbedIO))
                 .WithLocalSessionManager()
-                .WithModule(_telemetry);
+                .WithModule(_telemetry)
+                // Autoridad de control ANTES del WebApi: corta el accionamiento
+                // de quien no tiene el control (o lo anota, en SoloRegistro).
+                .WithModule(new AutoridadControlModule(Control));
 
             if (_debugHub != null) _server = _server.WithModule(_debugHub);
             if (_quantixHub != null) _server = _server.WithModule(_quantixHub);
@@ -365,7 +457,9 @@ namespace AgroParallel.WebHost
                 // omitimos el controller (la página se ve "sin nodos").
                 if (_quantixRuntime != null)
                     m.WithController(() => new WidgetQuantiXController(_quantixRuntime, _nodos, _state));
-                if (_guidance != null) m.WithController(() => new GuidanceController(_guidance));
+                if (_guidance != null) m.WithController(() => new GuidanceController(_guidance, Control));
+                // Protocolo de la autoridad de control (pedir/ceder/latido).
+                m.WithController(() => new ControlController(Control));
                 if (_toolGeometry != null) m.WithController(() => new ToolGeometryController(_toolGeometry));
                 if (_tram != null) m.WithController(() => new TramController(_tram));
                 if (_paths != null) m.WithController(() => new PathsController(_paths));
@@ -477,6 +571,13 @@ namespace AgroParallel.WebHost
 #endif
             }
 
+            // Barrido de la autoridad: revoca al remoto que dejó de latir.
+            _barridoControl = new System.Threading.Timer(_ =>
+            {
+                try { Control.Autoridad.Barrer(); }
+                catch (Exception ex) { EscribirLogControl("[Control] Barrido: " + ex.Message); }
+            }, null, 500, 500);
+
             _cts = new CancellationTokenSource();
             _ = _server.RunAsync(_cts.Token);
             _telemetry.Start();
@@ -517,6 +618,7 @@ namespace AgroParallel.WebHost
         {
             if (!IsRunning) return;
             IsRunning = false;
+            try { _barridoControl?.Dispose(); _barridoControl = null; } catch { }
             try { _vistaxLive?.Stop(); } catch { }
             try { _flowxLive?.Stop(); } catch { }
             try { _stormxLive?.Stop(); } catch { }

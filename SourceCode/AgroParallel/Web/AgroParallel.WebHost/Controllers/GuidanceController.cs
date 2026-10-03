@@ -9,6 +9,8 @@
 
 using System.Threading.Tasks;
 using AgroParallel.Services.Abstractions;
+using AgroParallel.Services.Control;
+using AgroParallel.WebHost.Autoridad;
 using EmbedIO;
 using EmbedIO.Routing;
 using EmbedIO.WebApi;
@@ -18,10 +20,13 @@ namespace AgroParallel.WebHost.Controllers
     public sealed class GuidanceController : AgpControllerBase
     {
         private readonly IGuidanceCalculator _guidance;
+        // Autoridad de control (null = sin puerta, todo pasa como antes).
+        private readonly PuertaControl _puerta;
 
-        public GuidanceController(IGuidanceCalculator guidance)
+        public GuidanceController(IGuidanceCalculator guidance, PuertaControl puerta = null)
         {
             _guidance = guidance;
+            _puerta = puerta;
         }
 
         [Route(HttpVerbs.Get, "/aog/guidance")]
@@ -61,6 +66,25 @@ namespace AgroParallel.WebHost.Controllers
                 await WriteJsonAsync(new { ok = false, error = "empty-cmd" });
                 return;
             }
+
+            // Autoridad de control: el comando decide el nivel ("autosteer" con
+            // el piloto puesto es desenganchar → pasa siempre). Sin control, en
+            // modo Exigir se rechaza acá con 423; en SoloRegistro se anota y sigue.
+            if (_puerta != null)
+            {
+                bool pilotoOn = false;
+                try { pilotoOn = _guidance.GetSnapshot()?.IsAutoSteerOn ?? false; } catch { }
+                var nivel = ClasificadorComandos.ClasificarComandoGuiado(body.Cmd, pilotoOn);
+                bool direccion = ClasificadorComandos.EsComandoDeDireccion(body.Cmd, pilotoOn);
+                var d = _puerta.Autorizar(ClienteHttp.De(HttpContext), nivel, "cmd " + body.Cmd.Trim(), direccion);
+                if (!d.Permitido)
+                {
+                    HttpContext.Response.StatusCode = d.StatusHttp;
+                    await WriteJsonAsync(new { ok = false, cmd = body.Cmd, error = "sin-control", mensaje = d.Motivo });
+                    return;
+                }
+            }
+
             bool ok = _guidance.ExecuteCommand(body.Cmd);
             await WriteJsonAsync(new { ok, cmd = body.Cmd });
         }

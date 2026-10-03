@@ -213,11 +213,19 @@ namespace AgOpenGPS
                     // Salida de emergencia del asistente de calibración de la
                     // dirección: sin él, Dirección › Asistente dice "no disponible".
                     AsistenteDireccionBloqueado = Array.IndexOf(args, "--sin-asistente-direccion") >= 0,
+                    // Autoridad de control: APAGADA por defecto (solo registra
+                    // quién acciona desde la red). Se exige el día que se
+                    // habilite el celular/tablet como segunda pantalla.
+                    AutoridadControlExigida = Array.IndexOf(args, "--autoridad-control") >= 0,
                 };
                 webHost.Start();
                 Console.WriteLine("Asistente de calibración de la dirección: " +
                     (webHost.AsistenteDireccionBloqueado ? "APAGADO por --sin-asistente-direccion"
                      : "disponible (Dirección › Asistente; inactivo hasta que se abre)"));
+                Console.WriteLine("Autoridad de control: " +
+                    (webHost.AutoridadControlExigida
+                        ? "EXIGIDA por --autoridad-control (sin control, la red no acciona)"
+                        : "solo registro (anota quién acciona desde la red; --autoridad-control para exigirla)"));
                 Console.WriteLine("Modo --webhost: API HTTP /api/aog/* arriba en " + webHost.Url
                     + " (state/coverage/tool/tram/paths/guidance) — PilotX.Desktop puede renderizar el mapa contra este motor.");
             }
@@ -231,6 +239,25 @@ namespace AgOpenGPS
 
                 coreX.SubscribeCommands(cmd =>
                 {
+                    // MQTT no trae identidad: cualquier equipo de la LAN puede
+                    // publicar en agp/aog/guidance/command. Para la autoridad
+                    // es un remoto que nunca tiene el control: en modo Exigir
+                    // sólo pasan lectura y paradas; en SoloRegistro se anota.
+                    var puerta = webHost?.Control;
+                    if (puerta != null)
+                    {
+                        bool pilotoOn = host.isBtnAutoSteerOn;
+                        var nivel = AgroParallel.Services.Control.ClasificadorComandos.ClasificarComandoGuiado(cmd, pilotoOn);
+                        var d = puerta.Autorizar(
+                            AgroParallel.Services.Control.ClienteControl.Remoto("mqtt", "MQTT agp/aog/guidance/command", "lan"),
+                            nivel, "cmd " + (cmd ?? "").Trim(),
+                            AgroParallel.Services.Control.ClasificadorComandos.EsComandoDeDireccion(cmd, pilotoOn));
+                        if (!d.Permitido)
+                        {
+                            Console.WriteLine($"MQTT cmd \"{cmd}\" -> rechazado: {d.Motivo}");
+                            return;
+                        }
+                    }
                     bool ok = host.ExecuteCommand(cmd);
                     Console.WriteLine($"MQTT cmd \"{cmd}\" -> {(ok ? "ok" : "unknown")}");
                 });

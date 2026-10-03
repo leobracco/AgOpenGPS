@@ -4,7 +4,7 @@
 // va directo a la red — los comandos al tractor NUNCA deben servirse del cache.
 // ============================================================================
 
-const CACHE = 'ap-field-v1';
+const CACHE = 'ap-field-v2'; // v2: m.js manda identidad (autoridad de control)
 const SHELL = [
   '/m/',
   '/m/index.html',

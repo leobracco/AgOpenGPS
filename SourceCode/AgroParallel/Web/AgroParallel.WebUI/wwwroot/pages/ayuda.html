@@ -198,6 +198,7 @@
 
         <div class="ay-idx-tit">Datos</div>
         <a href="#cloud">Nube y actualizaciones</a>
+        <a href="#control">Quién tiene el control (celular)</a>
         <a href="#simulador">Simulador (banco)</a>
 
         <div class="ay-idx-tit">Si algo falla</div>
@@ -707,6 +708,19 @@
             <li>Tocá <strong>Flashear</strong> y esperá la barra de progreso.</li>
           </ol>
           <div class="clave"><strong>Completo</strong> solo está disponible si esa versión tiene el archivo de fábrica (factory); si no lo tiene, se usa <strong>Solo app</strong>.</div>
+        </section>
+
+        <section id="control">
+          <h2>Quién tiene el control (celular / tablet)</h2>
+          <p>El panel del celular (<strong>Conectar celular</strong>) puede accionar cosas de la máquina: probar un motor de QuantiX, calibrar VistaX, cambiar la config de FlowX. La pantalla de la cabina siempre sabe <strong>quién accionó</strong> y lo anota en <strong>Configuración › Mantenimiento › Eventos</strong>.</p>
+          <p>Arriba a la derecha, debajo del aviso de chat, aparece un <strong>cartelito chico</strong> solo cuando hace falta:</p>
+          <ul>
+            <li><strong>«Accionó desde la red: Celular (192.168.…)»</strong> — alguien tocó algo desde otro equipo hace menos de 15 segundos. Es solo un aviso; se va solo.</li>
+            <li><strong>«Celular … pide el control»</strong> con <strong>Ceder</strong> y <strong>No</strong> — otro equipo quiere manejar la máquina. Mientras esta pantalla esté prendida, nadie toma el control sin que vos toques <strong>Ceder</strong>.</li>
+            <li><strong>«Control: Celular …»</strong> con <strong>Recuperar</strong> — el control lo tiene otro equipo. Tocá <strong>Recuperar</strong>, o directamente cualquier botón que mueva la máquina: <strong>la cabina siempre recupera el control con un toque</strong>.</li>
+          </ul>
+          <p>Si el equipo que tenía el control <strong>deja de responder</strong> (se cortó el WiFi, se apagó el celular), a los pocos segundos el control vuelve solo a la cabina y aparece «El control volvió a esta pantalla.». Si ese equipo había <strong>puesto el piloto</strong> (o lo recibió puesto), el piloto se suelta y sale el cartel <strong>Piloto desenganchado: … dejó de responder</strong>.</p>
+          <div class="clave"><strong>Desenganchar el piloto</strong> y <strong>frenar un motor</strong> se aceptan siempre, venga de donde venga.</div>
         </section>
 
         <section id="simulador">

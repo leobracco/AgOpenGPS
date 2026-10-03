@@ -97,6 +97,16 @@ namespace AgOpenGPS
         /// calibración (ni endpoints ni enganche al PGN 254). Antes de Start().</summary>
         public bool AsistenteDireccionBloqueado { get; set; }
 
+        /// <summary>`--autoridad-control`: el accionamiento desde la red de quien
+        /// no tiene el control se RECHAZA (423). Sin el flag (default) sólo se
+        /// anota quién acciona: la PWA del celular ya acciona hoy (QuantiX,
+        /// VistaX, FlowX) y no se la rompe. Antes de Start().</summary>
+        public bool AutoridadControlExigida { get; set; }
+
+        /// <summary>Puerta de la autoridad de control (null antes de Start()). La
+        /// usa Program para filtrar los comandos que llegan por MQTT.</summary>
+        public AgroParallel.Services.Control.PuertaControl Control => _web?.Control;
+
         public void Start()
         {
             if (_web != null) return;
@@ -289,6 +299,19 @@ namespace AgOpenGPS
                 imuCalibracion: imuCalibracion);
             _web.SteerCal = steerCal;
             _web.CeroWas = ceroWas;
+
+            // Autoridad de control: quién acciona desde la red va al registro de
+            // eventos (lo ve soporte); el desenganche por pérdida de control usa
+            // el mismo cartel que los otros desenganches automáticos.
+            _web.ModoControl = AutoridadControlExigida
+                ? AgroParallel.Services.Control.ModoAutoridad.Exigir
+                : AgroParallel.Services.Control.ModoAutoridad.SoloRegistro;
+            _web.LogControl = msg =>
+            {
+                Console.WriteLine(msg);
+                try { AgLibrary.Logging.Log.EventWriter(msg); } catch { }
+            };
+            _web.DesengancharPiloto = motivo => _host.DesengancharPilotoPorControl(motivo);
 
             // Alarmas sonoras de cabina: detecta piloto/dosis/motor/tubo/tolva
             // y publica disparos; los clientes (Desktop, pantalla Sonidos)
