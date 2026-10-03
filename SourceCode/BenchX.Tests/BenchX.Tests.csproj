@@ -19,5 +19,7 @@
     <Compile Include="..\AgOpenGPS.Core\SteerCal\SteerCalModelos.cs" Link="SteerCal\SteerCalModelos.cs" />
     <Compile Include="..\AgOpenGPS.Core\SteerCal\SteerCalAnalisis.cs" Link="SteerCal\SteerCalAnalisis.cs" />
     <Compile Include="..\AgOpenGPS.Core\SteerCal\SteerCalWizard.cs" Link="SteerCal\SteerCalWizard.cs" />
+    <!-- Cero automático del WAS: el estimador puro, contra el WAS y la conversión del firmware simulados. -->
+    <Compile Include="..\AgOpenGPS.Core\SteerCal\CeroWasEstadistico.cs" Link="SteerCal\CeroWasEstadistico.cs" />
   </ItemGroup>
 </Project>

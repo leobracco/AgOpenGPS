@@ -56,6 +56,14 @@ namespace AgOpenGPS
 
         private double Ahora => _reloj.Elapsed.TotalSeconds;
 
+        /// <summary>Hay un asistente en curso (sin tocar el latido de la pantalla).
+        /// Lo consulta el cero automático del WAS para no escribir el offset a la
+        /// mitad de una calibración.</summary>
+        public bool EnCurso
+        {
+            get { lock (_lock) return _wiz.Activo; }
+        }
+
         // ---------------------------------------------------------------------
         // ISteerCalService (pantalla)
         // ---------------------------------------------------------------------

@@ -273,6 +273,38 @@ namespace AgroParallel.Adapters
             return new SteerZeroWasResult { Ok = true, WasOffset = offset, SteerAngle = angle };
         }
 
+        /// <summary>
+        /// Pone el offset del WAS en un valor dado (cero automático: Aplicar /
+        /// Deshacer). Mismo camino que <see cref="ZeroWas"/> — mismo tope de
+        /// ±3900 cuentas, persiste y manda UNA vez los PGN 252/251 (cada envío
+        /// graba la EEPROM de la placa) — pero con el offset ya calculado en vez
+        /// de la lectura viva. Si el offset ya es ese, no escribe nada.
+        /// Aditivo (2026-10-03): no está en ISteerConfigService a propósito, para
+        /// no obligar a otros hosts a implementarlo.
+        /// </summary>
+        public SteerZeroWasResult AplicarWasOffset(int offset)
+        {
+            double angle = _actualSteerAngleDegrees != null ? _actualSteerAngleDegrees() : 0.0;
+            if (Math.Abs(offset) > WasOffsetLimit)
+            {
+                return new SteerZeroWasResult
+                {
+                    Ok = false,
+                    WasOffset = S.setAS_wasOffset,
+                    SteerAngle = angle,
+                    Error = "fuera-de-rango",
+                };
+            }
+            if (S.setAS_wasOffset == offset)
+                return new SteerZeroWasResult { Ok = true, WasOffset = offset, SteerAngle = angle };
+
+            S.setAS_wasOffset = offset;
+            S.Save();
+            _sendSettings?.Invoke();
+
+            return new SteerZeroWasResult { Ok = true, WasOffset = offset, SteerAngle = angle };
+        }
+
         // --------------------------------------------------------------------
         // Manejo libre (port del bloque "Free Drive" de FormSteer.cs)
         //

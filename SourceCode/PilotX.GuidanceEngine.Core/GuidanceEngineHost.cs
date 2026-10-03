@@ -748,6 +748,8 @@ namespace AgOpenGPS
             TickDeMedioSegundo();
             YouTurnUpdater.UpdateYouTurnState();
             EngancharGuiaAlPivote();
+            // Cero automático del WAS: apagado (default) vuelve en la primera línea.
+            TickCeroWas();
 
             if (IsJobStarted)
             {

@@ -140,6 +140,11 @@ namespace AgroParallel.WebHost
         /// el Engine ANTES de Start(). Null = /api/steer/cal/* no existe (404) y
         /// la pantalla de Dirección no ofrece el asistente.</summary>
         public ISteerCalService SteerCal { get; set; }
+
+        /// <summary>Cero automático del WAS (opcional, propone y no aplica solo):
+        /// lo setea el Engine ANTES de Start(). Null = /api/steer/cero-was-auto/*
+        /// no existe (404) y la pestaña Sensor no muestra la función.</summary>
+        public ICeroWasService CeroWas { get; set; }
         private readonly int _port;
         private WebServer _server;
         private CancellationTokenSource _cts;
@@ -417,6 +422,9 @@ namespace AgroParallel.WebHost
                 // Asistente de calibración de la dirección (Dirección › Asistente).
                 var steerCal = SteerCal;
                 if (steerCal != null) m.WithController(() => new SteerCalController(steerCal));
+                // Cero automático del WAS (Dirección › Sensor).
+                var ceroWas = CeroWas;
+                if (ceroWas != null) m.WithController(() => new CeroWasController(ceroWas));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))

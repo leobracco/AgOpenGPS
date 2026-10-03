@@ -37,7 +37,7 @@ using Avalonia.Threading;
 
 namespace PilotX.Desktop.Views;
 
-public sealed class DireccionPanel : Border
+public sealed partial class DireccionPanel : Border
 {
     // ---- paleta PilotX (misma que GuiasPanel/LotePanel) --------------------
     private static readonly IBrush BgPanel    = new SolidColorBrush(Color.Parse("#FAFBFA"));
@@ -394,6 +394,9 @@ public sealed class DireccionPanel : Border
         filaInv.Children.Add(invFila);
         filaInv.Children.Add(chipInv);
         _scSensor.Children.Add(filaInv);
+        // Cero automático del WAS (opcional, apagado de fábrica): propone, no
+        // aplica solo. Ver DireccionPanel.CeroWasAuto.cs.
+        _scSensor.Children.Add(ConstruirCeroWasAuto());
 
         // ---------- pantalla FUERZA ----------
         _scFuerza = new StackPanel { Spacing = 4, IsVisible = false };
@@ -928,6 +931,8 @@ public sealed class DireccionPanel : Border
         // Estado del manejo libre mientras está prendido (ve el apagado solo).
         if (_fdOn) await FdRefrescar();
 
+        // Cero automático del WAS: cada 2 s, solo con la pestaña Sensor a la vista.
+        if (_tabActual == "sensor" && (++_cwTick % 4) == 0) await CwRefrescar();
     }
 
     // ---- render ------------------------------------------------------------------
@@ -1024,6 +1029,7 @@ public sealed class DireccionPanel : Border
             b.BorderBrush = sel ? Verde : Borde;
         }
         _tabActual = id;
+        if (id == "sensor") _ = CwRefrescar();
     }
 
     private string _tabActual = "probar";

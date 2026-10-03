@@ -155,6 +155,13 @@ namespace AgOpenGPS
                 _host.AutoSteerUpdater.AsistenteDireccion = steerCal;
             }
 
+            // Cero automático del WAS (Dirección › Sensor): apagado de fábrica
+            // (setAS_ceroWasAuto). Prendido mide y PROPONE; el offset cambia
+            // solo cuando el operario toca Aplicar, con el piloto suelto.
+            var asistenteRef = steerCal;
+            var ceroWas = new EngineCeroWasService(_host, steerConfig,
+                asistenteEnCurso: () => asistenteRef != null && asistenteRef.EnCurso);
+
             // ── Productos X-* ────────────────────────────────────────────────
             // Sin esto el motor headless servía el mapa pero NADA de QuantiX,
             // VistaX, FlowX ni nodos: contra PilotX.Desktop esas pantallas daban
@@ -281,6 +288,7 @@ namespace AgOpenGPS
                 configVehiculo: configVehiculo,
                 imuCalibracion: imuCalibracion);
             _web.SteerCal = steerCal;
+            _web.CeroWas = ceroWas;
 
             // Alarmas sonoras de cabina: detecta piloto/dosis/motor/tubo/tolva
             // y publica disparos; los clientes (Desktop, pantalla Sonidos)

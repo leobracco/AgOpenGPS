@@ -300,6 +300,11 @@ namespace AgOpenGPS.Properties
         public double setGPS_dualReverseDetectionDistance = 0.25;
         public bool setTool_isDisplayTramControl = true;
         public double setAS_uTurnCompensation = 1;
+        // Cero automático del WAS: APAGADO de fábrica. Prendido solo MIDE el
+        // sesgo del cero andando en recta y PROPONE un offset; el offset cambia
+        // únicamente cuando el operario toca Aplicar (Dirección › Sensor).
+        // Apagado no mide nada. Ver CeroWasEstadistico / EngineCeroWasService.
+        public bool setAS_ceroWasAuto = false;
         public Size setWindow_gridSize = new Size(400, 400);
         public Point setWindow_gridLocation = new Point(20, 20);
         public bool setWindow_isKioskMode = false;
