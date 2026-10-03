@@ -6,7 +6,9 @@
 //   2. Descargar → POST /api/pilotx/update/download (con polling de progreso)
 //   3. Aplicar   → POST /api/pilotx/update/apply, luego la app se cierra y
 //                  reinicia desde el updater externo en ~10s. El cliente
-//                  intenta reconectarse periódicamente.
+//                  intenta reconectarse periódicamente. Si el actualizador
+//                  rechaza el paquete, el POST vuelve con fase Error y el
+//                  motivo: PilotX no se cierra.
 // ============================================================================
 (function () {
   'use strict';
@@ -167,7 +169,11 @@
     if (!await AgpModal.confirm('Aplicar actualización', 'La aplicación se va a cerrar para aplicar la actualización. ¿Continuar?')) return;
     btnApply.disabled = true;
     try {
-      await agpApi.post('pilotx/update/apply');
+      // El motor espera el veredicto del actualizador antes de cerrarse: si
+      // lo rechazó, PilotX NO se cierra y vuelve fase Error con el motivo.
+      const r = await agpApi.post('pilotx/update/apply');
+      const st = r && r.status;
+      if (st && st.phase === 9) { render(st); return; }
       phasePill.className = 'phase-pill phase-Applying';
       phasePill.textContent = 'Aplicando…';
       stopPolling();

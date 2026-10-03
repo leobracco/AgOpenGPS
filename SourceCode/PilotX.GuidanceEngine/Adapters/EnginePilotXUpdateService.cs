@@ -6,7 +6,8 @@
 //
 // El controller (PilotXUpdateController, página /actualizar del Hub) llama
 // esta interfaz; el adapter arma su HttpClient + OrbitXConfig.Load() y delega
-// al motor portable. ApplyAsync() lanza el Updater externo y dispara
+// al motor portable. ApplyAsync() lanza el Updater externo, espera su
+// veredicto y, si va a instalar, dispara
 // PilotXSelfUpdate.ApplyRequested — el Engine se suscribe en Program.cs para
 // bajarse limpio (si nadie se suscribe, el Updater lo mata a los 60 s y ese
 // kill saltea el cierre ordenado del lote).
@@ -37,6 +38,15 @@ namespace PilotX.GuidanceEngine.Adapters
             catch { return new OrbitXConfig(); }
         }
 
+        public EnginePilotXUpdateService()
+        {
+            // ¿La corrida anterior dejó una actualización a medio reportar?
+            // (marca apply-pendiente.json). Se mira al arrancar: si quedó la
+            // versión nueva va "ok" a OrbitX; si no, "falla" + el motivo en la
+            // pantalla Actualizar. Con demora: la red puede no estar todavía.
+            _ = PilotXSelfUpdate.RevisarActualizacionAnteriorAsync(_http, LoadCfg(), TimeSpan.FromSeconds(20));
+        }
+
         public PilotXUpdateStatus GetStatus() => PilotXSelfUpdate.Snapshot();
 
         public Task<PilotXUpdateStatus> CheckAsync()
@@ -46,7 +56,7 @@ namespace PilotX.GuidanceEngine.Adapters
             => PilotXSelfUpdate.DownloadAsync(_http, LoadCfg());
 
         public Task<PilotXUpdateStatus> ApplyAsync()
-            => PilotXSelfUpdate.ApplyAsync();
+            => PilotXSelfUpdate.ApplyAsync(_http, LoadCfg());
 
         public void Dispose() => _http.Dispose();
     }

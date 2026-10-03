@@ -20,7 +20,9 @@ namespace AgroParallel.Services.Abstractions
 
         /// <summary>Lanza el updater externo, que esperará a que PilotX cierre,
         /// extraerá el ZIP encima del install dir y relanzará el ejecutable.
-        /// Después de esta llamada, el host debe cerrar PilotX.</summary>
+        /// En Windows espera el veredicto del Updater: si va a instalar, pide el
+        /// cierre del host (ApplyRequested); si aborta, devuelve Phase=Error con
+        /// el motivo en LastError y PilotX sigue abierto.</summary>
         Task<PilotXUpdateStatus> ApplyAsync();
     }
 }

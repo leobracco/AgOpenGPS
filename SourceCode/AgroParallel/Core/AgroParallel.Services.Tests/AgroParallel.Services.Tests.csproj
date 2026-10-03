@@ -31,5 +31,8 @@
     <Compile Include="..\..\..\CoreX.Shared\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
     <Compile Include="..\..\..\CoreX.Shared\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
     <Compile Include="..\..\..\CoreX.Shared\CGLM.cs" Link="AgIO\CGLM.cs" />
+    <!-- Veredicto del Updater (updater-resultado.json): el que ESCRIBE vive en
+         el exe del Updater; linkeado acá se prueba contra el que LEE (PilotX). -->
+    <Compile Include="..\..\Tools\AgroParallel.Updater\ResultadoArchivo.cs" Link="Updater\ResultadoArchivo.cs" />
   </ItemGroup>
 </Project>

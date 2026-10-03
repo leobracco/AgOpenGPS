@@ -20,7 +20,11 @@
 // vinculado, Check/Download devuelven error claro — no hay fallback público.
 //
 // Stage: <baseDir>/AgroParallel/Updates/<version>/payload.zip
-// Apply: lanza Updater.exe con args { --pid, --zip, --install, --exe } y sale.
+// Apply: lanza Updater.exe con args { --pid, --zip, --install, --exe } y ESPERA
+//        su veredicto (updater-resultado.json / codigo de salida, ver
+//        VeredictoUpdater) antes de pedir el cierre. Si el Updater aborta,
+//        PilotX sigue abierto y muestra el motivo; el resultado va a OrbitX
+//        (POST /api/ota/resultado) en el momento o al volver a arrancar.
 //
 // La detección "ya estoy actualizado" es por comparación semver (1.2.3 < 1.2.4).
 // El número de versión vivo lo expone la AssemblyInformationalVersionAttribute
@@ -361,7 +365,10 @@ namespace AgroParallel.OrbitX
                 // version_base; si no coincide con lo instalado se descarta y
                 // se sigue con el completo. AgroParallel.Updater vuelve a
                 // validar el manifiesto antes de tocar nada (1.0.51+).
-                if (string.Equals(product, DefaultProduct, StringComparison.OrdinalIgnoreCase))
+                // Si el Updater ya rechazó el parche de esta versión (ver
+                // ApplyAsync), no se vuelve a bajar: va el completo.
+                if (string.Equals(product, DefaultProduct, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(_parcheRechazado, VersionCorta(version), StringComparison.Ordinal))
                 {
                     try
                     {
@@ -565,15 +572,34 @@ namespace AgroParallel.OrbitX
         }
 
         // ── Apply ──────────────────────────────────────────────────────────
+        // Archivos del veredicto (ver VeredictoUpdater y el Updater/ResultadoArchivo).
+        public static string ResultadoUpdaterPath() => Path.Combine(StagingRoot(), "updater-resultado.json");
+        public static string MarcaAplicacionPath() => Path.Combine(StagingRoot(), "apply-pendiente.json");
+        public static string UpdaterLogPath() => Path.Combine(StagingRoot(), "updater.log");
+
+        // Tiempos de la espera del veredicto. Gracia: un Updater VIEJO (los que
+        // hay hoy en las pantallas: el Updater no se reemplaza a sí mismo) no
+        // escribe el archivo; valida en < 2 s y si rechaza, sale. Pasada la
+        // gracia vivo y sin archivo = ya validó y espera que PilotX cierre.
+        // Tope: el Updater mata a PilotX a los 60 s de esperarlo.
+        private static readonly TimeSpan GraciaSinVeredicto = TimeSpan.FromSeconds(8);
+        private static readonly TimeSpan EsperaMaximaVeredicto = TimeSpan.FromSeconds(45);
+
         /// <summary>
-        /// Lanza el updater externo y devuelve. El host debe cerrar PilotX inmediatamente
-        /// después; el updater detecta el cierre por PID y empieza el reemplazo.
+        /// Lanza el Updater externo y ESPERA su veredicto antes de pedir el
+        /// cierre: si el Updater va a instalar ("aplicando"), dispara
+        /// ApplyRequested y el host se cierra; si aborta (parche rechazado,
+        /// código 3, etc.), PilotX sigue abierto, la fase queda en Error con el
+        /// motivo (pantalla Config › Cloud › Actualizar) y se reporta "falla" a
+        /// OrbitX. Antes pedía el cierre a ciegas a los 1,5 s (caso Barbero).
         /// </summary>
-        public static Task<PilotXUpdateStatus> ApplyAsync()
+        /// <param name="http">Para reportar el resultado a OrbitX (opcional).</param>
+        /// <param name="cfg">Device-auth de OrbitX (opcional).</param>
+        public static async Task<PilotXUpdateStatus> ApplyAsync(HttpClient http = null, OrbitXConfig cfg = null)
         {
+            string version = null;
             try
             {
-                string version;
                 lock (_lock) { version = _status.AvailableVersion; }
                 if (string.IsNullOrEmpty(version))
                     throw new InvalidOperationException("No hay versión staged.");
@@ -590,6 +616,11 @@ namespace AgroParallel.OrbitX
                 string exe = EntryExe();
                 int pid = Process.GetCurrentProcess().Id;
 
+                // Veredicto viejo afuera: lo que se lea de acá en más es de ESTA corrida.
+                string resultado = ResultadoUpdaterPath();
+                try { if (File.Exists(resultado)) File.Delete(resultado); } catch { } // si no se puede borrar, abajo se ignora por fecha
+                DateTime lanzadoUtc = DateTime.UtcNow.AddSeconds(-2);
+
                 var psi = new ProcessStartInfo
                 {
                     FileName = updater,
@@ -601,16 +632,72 @@ namespace AgroParallel.OrbitX
                     CreateNoWindow = true,
                     WorkingDirectory = install
                 };
-                Process.Start(psi);
-                Update(s => { s.Phase = PilotXUpdatePhase.Applying; });
+                Process proc = Process.Start(psi);
+                Update(s => { s.Phase = PilotXUpdatePhase.Applying; s.LastError = null; });
+                Rastro("Updater lanzado (pid " + (proc?.Id.ToString() ?? "?") + "), esperando su veredicto…");
 
-                // Pedirle al host que se cierre ordenadamente. Esperamos un toque
-                // para que el HTTP response de /apply llegue al WebView antes de
-                // bajar la app; si no, el Updater igual lo mata por timeout.
+                var espera = await ReglasVeredicto.EsperarAsync(
+                    // Solo un veredicto escrito por ESTA corrida del Updater.
+                    leerResultado: () => File.Exists(resultado) && File.GetLastWriteTimeUtc(resultado) >= lanzadoUtc
+                                         ? LeerTexto(resultado) : null,
+                    termino: () => proc == null || proc.HasExited,
+                    codigoSalida: () => proc != null && proc.HasExited ? proc.ExitCode : (int?)null,
+                    leerLog: () => LeerCola(UpdaterLogPath(), 64 * 1024),
+                    graciaSinArchivo: GraciaSinVeredicto,
+                    esperaMaxima: EsperaMaximaVeredicto,
+                    paso: TimeSpan.FromMilliseconds(250)).ConfigureAwait(false);
+
+                if (espera.Decision == DecisionApply.Abortar)
+                {
+                    string motivo = espera.Motivo;
+                    Rastro("Updater abortó: " + motivo + " — PilotX sigue abierto.");
+
+                    // Si lo staged era un PARCHE, reintentar con el mismo da lo
+                    // mismo (así se fueron los 8 intentos de Barbero): se borra
+                    // y el próximo "Descargar" baja el paquete completo.
+                    bool eraParche = EsParche(zip);
+                    if (eraParche)
+                    {
+                        _parcheRechazado = VersionCorta(version);
+                        try { File.Delete(zip); } catch (Exception exDel) { Rastro("No pude borrar el parche rechazado: " + exDel.Message); }
+                    }
+                    Update(s =>
+                    {
+                        s.Phase = PilotXUpdatePhase.Error;
+                        s.LastError = "No se aplicó la actualización a la " + version + ": " + ConPunto(motivo)
+                                    + " PilotX sigue con la " + s.CurrentVersion + "."
+                                    + (eraParche ? " Tocá Descargar para bajar el paquete completo." : "");
+                        if (eraParche) s.StagingReady = false;
+                    });
+                    string anterior = Snapshot().CurrentVersion;
+                    _ = ReportarResultadoAsync(http, cfg, version, anterior, false, motivo);
+                    return Snapshot();
+                }
+
+                // Va a instalar: marca para reportar el resultado al volver.
+                try
+                {
+                    Directory.CreateDirectory(StagingRoot());
+                    var marca = new MarcaAplicacion
+                    {
+                        VersionObjetivo = version,
+                        VersionAnterior = Snapshot().CurrentVersion,
+                        Ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    };
+                    File.WriteAllText(MarcaAplicacionPath(), marca.Armar());
+                }
+                catch (Exception exMarca) { Rastro("No pude dejar la marca de aplicación: " + exMarca.Message); }
+
+                Rastro(espera.PorTiempo
+                    ? "Updater sin veredicto (versión vieja del Updater): se cierra como siempre."
+                    : "Updater confirmó que aplica: PilotX se cierra.");
+
+                // Pedirle al host que se cierre ordenadamente. Un toque de demora
+                // para que el HTTP response de /apply salga antes de bajar la app.
                 var handler = ApplyRequested;
                 if (handler != null)
                 {
-                    Task.Run(async () =>
+                    _ = Task.Run(async () =>
                     {
                         await Task.Delay(1500).ConfigureAwait(false);
                         try { handler(); } catch { } // silencioso a propósito: evento de cierre ordenado, no interrumpir el Updater
@@ -621,7 +708,156 @@ namespace AgroParallel.OrbitX
             {
                 Update(s => { s.Phase = PilotXUpdatePhase.Error; s.LastError = ex.Message; });
             }
-            return Task.FromResult(Snapshot());
+            return Snapshot();
+        }
+
+        /// <summary>
+        /// Al arrancar: si la corrida anterior dejó una marca de aplicación,
+        /// mira si la versión quedó instalada, reporta ok/falla a OrbitX y, si
+        /// no se aplicó, deja el motivo en LastError (pantalla Actualizar). La
+        /// marca se borra cuando OrbitX contestó (2xx o 4xx); si no hay red se
+        /// reintenta en el próximo arranque.
+        /// </summary>
+        public static async Task RevisarActualizacionAnteriorAsync(HttpClient http, OrbitXConfig cfg, TimeSpan demora = default)
+        {
+            try
+            {
+                string marcaPath = MarcaAplicacionPath();
+                var marca = MarcaAplicacion.Parsear(LeerTexto(marcaPath));
+                if (marca == null)
+                {
+                    try { if (File.Exists(marcaPath)) File.Delete(marcaPath); } catch { }
+                    return;
+                }
+
+                var r = ReglasVeredicto.EvaluarAlArrancar(marca,
+                    VeredictoUpdater.Parsear(LeerTexto(ResultadoUpdaterPath())),
+                    LeerCola(UpdaterLogPath(), 64 * 1024),
+                    Snapshot().CurrentVersion);
+
+                if (r.Ok) Rastro("Actualización a la " + r.VersionObjetivo + " aplicada.");
+                else
+                {
+                    Rastro("La actualización a la " + r.VersionObjetivo + " no se aplicó: " + r.Motivo);
+                    Update(s => s.LastError = "La actualización a la " + r.VersionObjetivo
+                                            + " no se aplicó: " + r.Motivo);
+                }
+
+                // La red y OrbitX pueden tardar en estar al arrancar la pantalla.
+                if (demora > TimeSpan.Zero) await Task.Delay(demora).ConfigureAwait(false);
+
+                bool contesto = await ReportarResultadoAsync(http, cfg, r.VersionObjetivo, r.VersionAnterior, r.Ok, r.Motivo)
+                                    .ConfigureAwait(false);
+                if (contesto)
+                {
+                    try { File.Delete(marcaPath); } catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                Rastro("Revisar actualización anterior: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// POST /api/ota/resultado (device-auth). Body según routes/ota.js:
+        /// { producto, version, version_anterior, resultado: "ok"|"falla", error }.
+        /// Devuelve true si OrbitX contestó (2xx o 4xx: reintentar no cambia
+        /// nada); false si no se pudo (sin vincular, sin red, 5xx).
+        /// </summary>
+        private static async Task<bool> ReportarResultadoAsync(HttpClient http, OrbitXConfig cfg,
+            string version, string versionAnterior, bool ok, string motivo)
+        {
+            try
+            {
+                if (http == null || cfg == null || string.IsNullOrEmpty(cfg.ServerUrl)
+                    || string.IsNullOrEmpty(cfg.DeviceId) || string.IsNullOrEmpty(cfg.DeviceToken)
+                    || string.IsNullOrEmpty(version))
+                    return false;
+
+                string json = JsonSerializer.Serialize(new
+                {
+                    producto = DefaultProduct,
+                    version = VersionCorta(version),
+                    version_anterior = string.IsNullOrEmpty(versionAnterior) ? null : VersionCorta(versionAnterior),
+                    resultado = ok ? "ok" : "falla",
+                    error = ok ? null : motivo,
+                });
+                string url = cfg.ServerUrl.TrimEnd('/') + "/api/ota/resultado";
+                using (var req = new HttpRequestMessage(HttpMethod.Post, url))
+                {
+                    req.Headers.Add("X-Device-ID", cfg.DeviceId);
+                    req.Headers.Add("X-Auth-Token", cfg.DeviceToken);
+                    req.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                    using (var resp = await http.SendAsync(req).ConfigureAwait(false))
+                    {
+                        int code = (int)resp.StatusCode;
+                        Rastro("Resultado del update reportado a OrbitX (" + (ok ? "ok" : "falla") + "): HTTP " + code);
+                        return code < 500;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Rastro("No se pudo reportar el resultado del update a OrbitX: " + ex.Message);
+                return false;
+            }
+        }
+
+        private static string LeerTexto(string path)
+        {
+            try
+            {
+                if (!File.Exists(path)) return null;
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                using (var sr = new StreamReader(fs))
+                    return sr.ReadToEnd();
+            }
+            catch { return null; } // a medio escribir / bloqueado: la espera vuelve a leer
+        }
+
+        // Últimos maxBytes del archivo (updater.log se acumula entre updates).
+        private static string LeerCola(string path, int maxBytes)
+        {
+            try
+            {
+                if (!File.Exists(path)) return null;
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                {
+                    if (fs.Length > maxBytes) fs.Seek(-maxBytes, SeekOrigin.End);
+                    using (var sr = new StreamReader(fs))
+                        return sr.ReadToEnd();
+                }
+            }
+            catch { return null; }
+        }
+
+        private static void Rastro(string msg)
+        {
+            try { System.Diagnostics.Trace.WriteLine("[PilotXSelfUpdate] " + msg); } catch { }
+            try { AgroParallel.Services.AgpLog.Info("PilotXSelfUpdate", msg); } catch { }
+        }
+
+        // Versión (corta) cuyo parche ya rechazó el Updater en esta corrida.
+        private static volatile string _parcheRechazado;
+
+        /// <summary>true si el ZIP es un parche diferencial (trae parche.json).</summary>
+        public static bool EsParche(string zipPath)
+        {
+            try
+            {
+                using (var za = System.IO.Compression.ZipFile.OpenRead(zipPath))
+                    return za.GetEntry("parche.json") != null;
+            }
+            catch { return false; }
+        }
+
+        private static string ConPunto(string s)
+        {
+            s = (s ?? "").Trim();
+            if (s.Length == 0) return s;
+            char u = s[s.Length - 1];
+            return u == '.' || u == '!' || u == '?' ? s : s + ".";
         }
 
         // ── Helpers ────────────────────────────────────────────────────────

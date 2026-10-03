@@ -15,6 +15,10 @@
 //   4. Relanza CoreX (y demás apps cerradas) primero, PilotX al final.
 //   5. Si algo falla, restaura desde backup y relanza igual el estado previo.
 //
+// Veredicto: <install>\AgroParallel\Updates\updater-resultado.json
+//   (validando / aplicando / rechazado / ok / fallo — ver ResultadoArchivo).
+//   PilotX lo espera antes de cerrarse: con "rechazado" sigue abierto.
+//
 // Log: <install>\AgroParallel\Updates\updater.log
 // ============================================================================
 
@@ -64,6 +68,11 @@ namespace AgroParallel.Updater
             Log("install=" + install);
             Log("exe=" + exe);
 
+            // Veredicto para PilotX (ver ResultadoArchivo): PilotX no se cierra
+            // hasta leer "aplicando"; con "rechazado" sigue abierto y muestra
+            // el motivo en Config > Cloud > Actualizar.
+            ResultadoArchivo.Escribir(install, "validando", "", 0, zip, Log);
+
             // ── Parche: validar ANTES de tocar nada ───────────────────────
             // Un parche trae SOLO los archivos que cambiaron, mas todos los
             // ensamblados propios. Se aplica encima, sin borrar nada. Por eso
@@ -81,8 +90,13 @@ namespace AgroParallel.Updater
             {
                 Log("PARCHE RECHAZADO: " + motivo);
                 Console.Error.WriteLine(motivo);
+                ResultadoArchivo.Escribir(install, "rechazado", motivo, 3, zip, Log);
                 return 3;
             }
+
+            // El paquete sirve: desde acá PilotX ya puede cerrarse (lo
+            // esperamos abajo, hasta 60 s).
+            ResultadoArchivo.Escribir(install, "aplicando", "", 0, zip, Log);
 
 
             // Frenar al vigilante de Lanzar-PilotX.bat: cuando en 1b matemos a
@@ -144,6 +158,7 @@ namespace AgroParallel.Updater
 
             // 3. Extracción.
             bool extractOk = false;
+            string motivoFallo = null;
             try
             {
                 Log("Extrayendo " + zip + " -> " + install);
@@ -154,6 +169,7 @@ namespace AgroParallel.Updater
             catch (Exception ex)
             {
                 Log("Extraccion FALLO: " + ex.Message);
+                motivoFallo = "Falló la instalación (" + ex.Message + "); se volvió a la versión anterior.";
             }
 
             // 3b. Si falló, restaurar.
@@ -228,6 +244,10 @@ namespace AgroParallel.Updater
 
             if (File.Exists(exe)) RelaunchExe(exe, install);
             else Log("ERROR: exe no existe tras update: " + exe);
+
+            // Resultado final: lo lee PilotX al volver a arrancar y lo reporta
+            // a OrbitX (POST /api/ota/resultado).
+            ResultadoArchivo.Escribir(install, extractOk ? "ok" : "fallo", motivoFallo ?? "", extractOk ? 0 : 1, zip, Log);
 
             Log("==== Updater terminado ====");
             return extractOk ? 0 : 1;

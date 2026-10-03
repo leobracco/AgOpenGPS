@@ -221,7 +221,7 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Text="Tip: el Updater externo se encarga de reemplazar binarios mientras PilotX no esta corriendo. Despues del Aplicar, la app se cierra y vuelve a abrir automaticamente con la nueva version."
+                    <TextBlock Text="Tip: el Updater externo se encarga de reemplazar binarios mientras PilotX no esta corriendo. Despues del Aplicar, la app se cierra y vuelve a abrir automaticamente con la nueva version. Si el actualizador rechaza el paquete, PilotX no se cierra y muestra el motivo en rojo; si era un parche, toca Descargar para bajar el paquete completo."
                                Foreground="{StaticResource PilotXPanelTextDim}"
                                FontSize="12"
                                TextWrapping="Wrap"
