@@ -261,6 +261,40 @@ namespace AgIO
         // caster reales (no hay ninguna disponible en este entorno de prueba).
         private bool _rtcmHooked;
 
+        // RTCM hacia el AiO (UDP 2233): cola con tope y un pedazo de 256 B cada
+        // 50 ms (~5 kB/s, holgado para el 1-3 kB/s típico de RTCM).
+        private readonly AgroParallel.CoreXBridge.RtcmDosificador _rtcm2233 =
+            new AgroParallel.CoreXBridge.RtcmDosificador(tamPaquete: 256, topeBytes: 10240);
+        private System.Threading.Timer _rtcmTimer;
+        private long _rtcmDescartadosLogueados;
+        private DateTime _rtcmUltimoLog = DateTime.MinValue;
+
+        private void TickRtcm2233()
+        {
+            try
+            {
+                var pedazo = _rtcm2233.Siguiente();
+                if (pedazo == null) return;
+                foreach (var ep in EndpointsDeModulos())
+                    UdpBridge.SendUdpTo(pedazo, new IPEndPoint(ep.Address, 2233));
+
+                long desc = _rtcm2233.Descartados;
+                if (desc != _rtcmDescartadosLogueados
+                    && (DateTime.UtcNow - _rtcmUltimoLog).TotalSeconds >= 5)
+                {
+                    _rtcmUltimoLog = DateTime.UtcNow;
+                    Log.EventWriter("CoreXEngine: RTCM acumulado de mas (vuelta del caster), se tiraron "
+                        + (desc - _rtcmDescartadosLogueados) + " bytes viejos");
+                    _rtcmDescartadosLogueados = desc;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Un timer que tira mata el proceso: se loguea y sigue.
+                Log.EventWriter("CoreXEngine: envio RTCM 2233: " + ex.Message);
+            }
+        }
+
         public void ConnectNtrip(NtripConfig config, Func<NtripGpsData> gpsFeedback)
         {
             // Suscribir UNA sola vez: el panel puede reconectar cada vez que se
@@ -286,17 +320,16 @@ namespace AgIO
                     // buffer NTRIP es de 1023 bytes). Con el chunk crudo el
                     // receptor no veía NI UNA corrección: fix clavado en GPS 1
                     // con age=0 aunque el caster bajara 1 kB/s.
-                    const int tamPaquete = 256;
-                    var eps2233 = EndpointsDeModulos();
-                    for (int off = 0; off < rtcm.Length; off += tamPaquete)
-                    {
-                        int n = Math.Min(tamPaquete, rtcm.Length - off);
-                        var pedazo = new byte[n];
-                        Array.Copy(rtcm, off, pedazo, 0, n);
-                        foreach (var ep in eps2233)
-                            UdpBridge.SendUdpTo(pedazo, new IPEndPoint(ep.Address, 2233));
-                    }
+                    //
+                    // DOSIFICADO (2026-10-03, idea de AgOpenWeb RtcmPacer): antes
+                    // los pedazos salían TODOS seguidos. Cuando el caster vuelve
+                    // de un corte de internet descarga la ráfaga acumulada y la
+                    // Teensy se ahoga: segundos sin correcciones. Ahora va a una
+                    // cola con tope (tira lo más viejo) y sale un pedazo cada
+                    // 50 ms (TickRtcm2233).
+                    _rtcm2233.Encolar(rtcm);
                 };
+                _rtcmTimer = new System.Threading.Timer(_ => TickRtcm2233(), null, 50, 50);
             }
             Ntrip.Connect(config, gpsFeedback);
         }
@@ -498,6 +531,8 @@ namespace AgIO
 
         public void Stop()
         {
+            try { _rtcmTimer?.Dispose(); } catch { }
+            _rtcmTimer = null;
             SpGPS.Close(); SpGPS2.Close(); SpRtcm.Close();
             SpIMU.Close(); SpSteerModule.Close(); SpMachineModule.Close();
             UdpBridge.Stop();
