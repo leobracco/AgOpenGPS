@@ -12,6 +12,21 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.89] — 2026-10-03
+
+### Fixed
+
+- **El levante hidráulico ahora se acciona.** Se podía configurar
+  (Configuración › Secciones › Máquina) y el botón Hidráulico lo armaba, pero
+  nunca subía ni bajaba: la placa de máquina recibía siempre "nada". Ahora
+  baja anticipado al salir del giro y sube cuando todo el implemento está en
+  la cabecera. Solo actúa con el levante habilitado, el botón Hidráulico
+  prendido y la cabecera hecha.
+- **SISTEMA › Ayuda abre el manual en la Configuración de siempre**, no en la
+  pantalla web vieja aparte.
+
+---
+
 ## [1.0.88] — 2026-10-03
 
 Lo que cambia el guiado sigue APAGADO de fábrica: con los ajustes por defecto
