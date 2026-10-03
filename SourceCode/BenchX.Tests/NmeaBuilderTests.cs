@@ -126,4 +126,27 @@ public class NmeaBuilderTests
         Assert.That(s, Does.Contain(",3359.9994600,S,"));
         Assert.That(s, Does.Contain(",06023.9997000,W,"));
     }
+
+    [Test]
+    public void RtkRelieve_lleva_calidad_4_y_la_altitud_en_gga_ogi_y_panda()
+    {
+        var g = Fix();
+        g.CalidadFix = 4;
+        g.AltitudGga = 103.25;
+        string gga = NmeaBuilder.BuildGga(g);
+        Assert.That(gga, Does.Contain(",W,4,12,0.9,103.25,M,"));
+        AssertChecksumValido(gga);
+        Assert.That(NmeaBuilder.BuildOgi(g), Does.Contain(",W,4,12,0.9,103.25,3.2,"));
+        Assert.That(NmeaBuilder.BuildNda(g), Does.Contain(",W,4,12,0.9,103.25,3.2,"));
+    }
+
+    [Test]
+    public void Terreno_depende_solo_de_la_posicion_y_es_suave()
+    {
+        double a = TerrenoSimulado.Altitud(-33.1, -61.7);
+        Assert.That(TerrenoSimulado.Altitud(-33.1, -61.7), Is.EqualTo(a));
+        // 1 m más al este: mucho menos que el umbral de salto de PilotX (0,5 m).
+        double b = TerrenoSimulado.Altitud(-33.1, -61.7 + 1.0 / (111320.0 * System.Math.Cos(33.1 * System.Math.PI / 180)));
+        Assert.That(System.Math.Abs(b - a), Is.LessThan(0.1));
+    }
 }

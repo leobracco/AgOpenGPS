@@ -98,6 +98,12 @@ namespace AgOpenGPS
 
         void IHeadingHost.SetSpeedLabelColor(bool isRed) { /* sin pantalla */ }
 
-        void IHeadingHost.TheRest() => PositionUpdater.TheRest();
+        void IHeadingHost.TheRest()
+        {
+            PositionUpdater.TheRest();
+            // Después de TheRest: pn.fix ya está corregido por rolido/offset.
+            // No hace nada si "Registrar elevación" está apagado.
+            TickRegistroElevacion();
+        }
     }
 }

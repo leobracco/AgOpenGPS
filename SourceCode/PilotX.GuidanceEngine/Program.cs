@@ -174,6 +174,14 @@ namespace AgOpenGPS
             Console.WriteLine("Anti-solape de secciones: " +
                 (useAntiSolape ? "ACTIVO" : "APAGADO por --sin-antisolape"));
 
+            // Registro de alturas (planimetría): lo prende el setting
+            // setDisplay_isLogElevation y graba SOLO con RTK fijo (calidad 4).
+            // `--elevacion-sim` acepta también el simulador (calidad 8) — solo
+            // para probar el archivo en banco; la altitud del sim es constante.
+            host.ElevacionAceptaSimulador = Array.IndexOf(args, "--elevacion-sim") >= 0;
+            if (host.ElevacionAceptaSimulador)
+                Console.WriteLine("Registro de alturas: acepta el simulador (--elevacion-sim) — SOLO pruebas");
+
             host.AutoSteerUpdater.GuiadoImplementoBloqueado = bloquearGuiadoImplemento;
             Console.WriteLine("Guiado del implemento: " +
                 (bloquearGuiadoImplemento ? "APAGADO por --sin-guiado-implemento"

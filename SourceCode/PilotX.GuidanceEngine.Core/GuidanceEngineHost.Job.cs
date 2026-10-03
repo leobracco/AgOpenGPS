@@ -158,6 +158,8 @@ namespace AgOpenGPS
             // orden perderia todo lo trabajado desde la ultima guardada.
             GuardarCoberturaPendiente();
             GuardarRestoDelLote();
+            // Lo que el registro de alturas tenga en el buffer, a Elevation.txt.
+            CerrarRegistroElevacion();
 
             // Apagar el GUIADO, no solo soltar el lote.
             //

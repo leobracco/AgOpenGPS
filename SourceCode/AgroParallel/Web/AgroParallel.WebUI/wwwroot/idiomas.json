@@ -3061,5 +3061,65 @@
   "Sin señal de GPS. La referencia se mide con la posición del tractor.": {
     "en": "No GPS signal. The reference point is measured with the tractor position.",
     "pt": "Sem sinal de GPS. A referência é medida com a posição do trator."
+  },
+  "Elevación": {
+    "en": "Elevation",
+    "pt": "Elevação"
+  },
+  "Registro de alturas del lote": {
+    "en": "Field elevation logging",
+    "pt": "Registro de altitudes do talhão"
+  },
+  "Mientras trabajás, PilotX guarda la altura del suelo un punto por metro en el lote abierto, para armar después el mapa de alturas en OrbitX. Solo graba con RTK FIJO: con RTK flotante o sin corrección la altura varía metros y no sirve.": {
+    "en": "While you work, PilotX stores the ground elevation one point per metre in the open field, to build the elevation map in OrbitX later. It only records with RTK FIX: with RTK float or no correction the height drifts by metres and is useless.",
+    "pt": "Enquanto você trabalha, o PilotX grava a altitude do solo um ponto por metro no talhão aberto, para montar depois o mapa de altitudes no OrbitX. Só grava com RTK FIXO: com RTK flutuante ou sem correção a altitude varia metros e não serve."
+  },
+  "Se pausa solo: sin RTK fijo, con la máquina parada o en marcha atrás. Los puntos quedan en Elevation.txt dentro de la carpeta del lote y viajan a OrbitX con el resto del lote. La altura de la antena (Vehículo › Antena) tiene que estar bien medida: se resta para llegar al suelo.": {
+    "en": "It pauses by itself: without RTK fix, with the machine stopped or reversing. Points are kept in Elevation.txt inside the field folder and travel to OrbitX with the rest of the field. The antenna height (Vehicle › Antenna) must be measured correctly: it is subtracted to reach the ground.",
+    "pt": "Pausa sozinho: sem RTK fixo, com a máquina parada ou em marcha à ré. Os pontos ficam em Elevation.txt dentro da pasta do talhão e vão para o OrbitX com o resto do talhão. A altura da antena (Veículo › Antena) precisa estar bem medida: ela é descontada para chegar ao solo."
+  },
+  "Activado": {
+    "en": "On",
+    "pt": "Ativado"
+  },
+  "Apagado": {
+    "en": "Off",
+    "pt": "Desligado"
+  },
+  "Grabando alturas (RTK fijo)": {
+    "en": "Recording elevation (RTK fix)",
+    "pt": "Gravando altitudes (RTK fixo)"
+  },
+  "En pausa: sin RTK fijo": {
+    "en": "Paused: no RTK fix",
+    "pt": "Em pausa: sem RTK fixo"
+  },
+  "En pausa: máquina parada": {
+    "en": "Paused: machine stopped",
+    "pt": "Em pausa: máquina parada"
+  },
+  "En pausa: marcha atrás": {
+    "en": "Paused: reversing",
+    "pt": "Em pausa: marcha à ré"
+  },
+  "En pausa: abrí un lote para grabar": {
+    "en": "Paused: open a field to record",
+    "pt": "Em pausa: abra um talhão para gravar"
+  },
+  "No se están registrando alturas": {
+    "en": "Elevation is not being recorded",
+    "pt": "As altitudes não estão sendo gravadas"
+  },
+  "Puntos en este lote": {
+    "en": "Points in this field",
+    "pt": "Pontos neste talhão"
+  },
+  "No se pudo escribir Elevation.txt": {
+    "en": "Could not write Elevation.txt",
+    "pt": "Não foi possível gravar Elevation.txt"
+  },
+  "No se pudo cambiar el registro de alturas": {
+    "en": "Could not change elevation logging",
+    "pt": "Não foi possível alterar o registro de altitudes"
   }
 }

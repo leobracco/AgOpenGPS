@@ -267,6 +267,32 @@ public sealed class ConfigSnapshot
     [JsonPropertyName("rolido")]      public ConfigRolidoSec? Rolido { get; set; }
     [JsonPropertyName("uturn")]       public ConfigUturnSec? Uturn { get; set; }
     [JsonPropertyName("tram")]        public ConfigTramSec? Tram { get; set; }
+    // Solo lo que usa la pestaña GPS / IMU › Elevación: el toggle (display)
+    // y el estado vivo del registro de alturas.
+    [JsonPropertyName("display")]     public ConfigDisplayMinSec? Display { get; set; }
+    [JsonPropertyName("elevacion")]   public ConfigElevacionSec? Elevacion { get; set; }
+}
+
+/// <summary>Sección `display` del snapshot — por ahora solo el toggle
+/// "Registrar elevación" (setDisplay_isLogElevation). El resto del display no
+/// tiene pestaña nativa; el JSON extra se ignora.</summary>
+public sealed class ConfigDisplayMinSec
+{
+    [JsonPropertyName("log_elevation")] public bool LogElevation { get; set; }
+}
+
+/// <summary>
+/// Estado VIVO del registro de alturas (no es config). `estado`: "apagado" |
+/// "sin_lote" | "grabando" | "sin_rtk" | "detenido" | "marcha_atras".
+/// null = motor viejo que no lo informa.
+/// </summary>
+public sealed class ConfigElevacionSec
+{
+    [JsonPropertyName("activo")]      public bool Activo { get; set; }
+    [JsonPropertyName("estado")]      public string? Estado { get; set; }
+    [JsonPropertyName("puntos")]      public int Puntos { get; set; }
+    [JsonPropertyName("descartados")] public int Descartados { get; set; }
+    [JsonPropertyName("error")]       public string? Error { get; set; }
 }
 
 /// <summary>

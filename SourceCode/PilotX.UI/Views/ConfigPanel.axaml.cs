@@ -147,6 +147,9 @@ public partial class ConfigPanel : UserControl
 
         new CfgNav { Tab = "heading",     Titulo = "Rumbo",        Grupo = "GPS / IMU",  Nativa = true  },
         new CfgNav { Tab = "roll",        Titulo = "Rolido",       Grupo = "GPS / IMU",  Nativa = true  },
+        // Registro de alturas (planimetría). El toggle vivía solo en la pestaña
+        // Display del HTML, que salió del menú: en cabina no se llegaba.
+        new CfgNav { Tab = "elevation",   Titulo = "Elevación",    Grupo = "GPS / IMU",  Nativa = true  },
 
         new CfgNav { Tab = "uturn",       Titulo = "U-Turn",       Grupo = "Otros",      Nativa = true  },
         new CfgNav { Tab = "tram",        Titulo = "Tram",         Grupo = "Otros",      Nativa = true  },
@@ -1107,6 +1110,9 @@ public partial class ConfigPanel : UserControl
         // propio (500 ms, el tractor en vivo), que se para al salir. Ver la
         // cabecera de RolidoTab antes de "emparejarla" con las hermanas.
         "roll" => new RolidoTab(_ctx),
+        // Elevación guarda AL TOQUE (es un interruptor) y muestra el estado
+        // vivo del registro de alturas desde el refresco de 3 s del snapshot.
+        "elevation" => new ElevacionTab(_ctx),
         // U-Turn guarda como las hermanas (botón Guardar / al salir), pero su
         // POST tiene efecto colateral fuerte en el motor: reconstruye las líneas
         // de giro y DESCARTA el U-turn ya dibujado. Por eso su HayCambios es

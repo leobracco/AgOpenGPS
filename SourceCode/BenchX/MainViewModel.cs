@@ -138,6 +138,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool EmularImu { get => _emularImu; set { _emularImu = value; _pgn.EmularImu = value; Notificar(); } }
     public void BotonDireccionRemoto() => _pgn.SteerSwitch = _pgn.SteerSwitch > 0 ? 0 : 1;
 
+    // Planimetría: GGA/PANDA/OGI con calidad 4 (RTK fijo) y la altitud del
+    // relieve simulado, para probar el registro de alturas de PilotX. Apagado
+    // = lo histórico (fix 8, altitud 1000), que PilotX NO graba.
+    private bool _rtkRelieve;
+    public bool RtkRelieve { get => _rtkRelieve; set { _rtkRelieve = value; Notificar(); } }
+
     // Nodos emulados por MQTT (QuantiX 7 motores + VistaX 14 sensores).
     private bool _emularQuantiX = true, _emularVistaX = true;
     public bool EmularQuantiX { get => _emularQuantiX; set { _emularQuantiX = value; _nodos.EmularQuantiX = value; Notificar(); } }
@@ -395,6 +401,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _sim.Estado.TimeNow = DateTime.UtcNow.ToString("HHmmss.fff,", Inv);
         _sim.Avanzar();
         _sim.Estado.ImuValido = EmularImu; // IMU apagado → PANDA con campos neutros
+        _sim.Estado.CalidadFix = RtkRelieve ? 4 : 8;
+        _sim.Estado.AltitudGga = RtkRelieve ? TerrenoSimulado.Altitud(_sim.Latitude, _sim.Longitude) : 1000;
         if (realista)
         {
             _pgn.SteerAngleActual = _act.AnguloWas;    // lo que lee el WAS, no la rueda

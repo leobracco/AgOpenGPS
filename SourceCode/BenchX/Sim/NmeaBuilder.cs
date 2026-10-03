@@ -31,13 +31,20 @@ public static class NmeaBuilder
     private static string LonAncho(GpsEstado g) => System.Math.Abs(g.LonNmea).ToString("00000.0000000", Inv);
     private static string LonCorto(GpsEstado g) => System.Math.Abs(g.LonNmea).ToString("0000.0000000", Inv);
 
+    // "8,12,0.9,1000": calidad, satélites, HDOP y altitud. Por defecto sale
+    // EXACTO lo histórico (fix 8 = simulador, altitud 1000); con "RTK fijo +
+    // relieve" en BenchX la calidad pasa a 4 y la altitud sigue el terreno
+    // simulado — para probar el registro de alturas (planimetría).
+    private static string CalidadYAltitud(GpsEstado g)
+        => g.CalidadFix.ToString(Inv) + ",12,0.9," + g.AltitudGga.ToString(Inv);
+
     public static string BuildGga(GpsEstado g)
     {
         var sb = new StringBuilder("$GPGGA,");
         sb.Append(g.TimeNow)
           .Append(Lat(g)).Append(',').Append(g.NS).Append(',')
           .Append(LonAncho(g)).Append(',').Append(g.EW).Append(',')
-          .Append("8,12,0.9,1000,M,46.9,M,37.1,,*");
+          .Append(CalidadYAltitud(g)).Append(",M,46.9,M,37.1,,*");
         return Cerrar(sb);
     }
 
@@ -77,7 +84,7 @@ public static class NmeaBuilder
         sb.Append(g.TimeNow)
           .Append(Lat(g)).Append(',').Append(g.NS).Append(',')
           .Append(LonCorto(g)).Append(',').Append(g.EW).Append(',')
-          .Append("8,12,0.9,1000,3.2,")
+          .Append(CalidadYAltitud(g)).Append(",3.2,")
           .Append(g.SpeedKnots.ToString(Inv)).Append(',')
           .Append(g.HeadingDeg.ToString("N5", Inv)).Append(',')
           .Append(g.RollDeg.ToString(Inv)).Append(",0.12,359.9,T*");
@@ -90,7 +97,7 @@ public static class NmeaBuilder
         sb.Append(g.TimeNow)
           .Append(Lat(g)).Append(',').Append(g.NS).Append(',')
           .Append(LonCorto(g)).Append(',').Append(g.EW).Append(',')
-          .Append("8,12,0.9,1000,3.2,")
+          .Append(CalidadYAltitud(g)).Append(",3.2,")
           .Append(g.SpeedKnots.ToString(Inv)).Append(',');
         if (g.ImuValido)
             sb.Append(g.HeadingImu.ToString(Inv)).Append(',')

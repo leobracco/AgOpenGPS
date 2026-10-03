@@ -243,6 +243,16 @@ namespace PilotX.GuidanceEngine.Adapters
                     AutoOffCorex = s.setDisplay_isAutoOffAgIO,
                     ShutdownNoPower = s.setDisplay_isShutdownWhenNoPower,
                     HardwareMessages = s.setDisplay_isHardwareMessages
+                },
+                // Estado VIVO del registro de alturas (no es config): lo pinta
+                // la pestaña GPS / IMU › Elevación con el refresco de 3 s.
+                Elevacion = new ConfigElevacionSec
+                {
+                    Activo = s.setDisplay_isLogElevation,
+                    Estado = _engine.ElevacionEstado,
+                    Puntos = _engine.ElevacionPuntos,
+                    Descartados = _engine.ElevacionDescartados,
+                    Error = _engine.ElevacionError
                 }
             };
             return snap;

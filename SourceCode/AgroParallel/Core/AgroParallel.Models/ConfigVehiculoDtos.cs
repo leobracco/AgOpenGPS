@@ -34,6 +34,25 @@ namespace AgroParallel.Models
         public ConfigTramSec Tram { get; set; }
         public ConfigDisplaySec Display { get; set; }
         public ConfigBotonesSec Botones { get; set; }
+        /// <summary>Estado vivo del registro de alturas (planimetría). Aditivo:
+        /// null en hosts que no lo implementan.</summary>
+        public ConfigElevacionSec Elevacion { get; set; }
+    }
+
+    /// <summary>
+    /// Registro de alturas del lote (Elevation.txt). NO es configuración: el
+    /// toggle vive en `display.log_elevation`; esto es lo que está pasando.
+    ///   · estado: "apagado" | "sin_lote" | "grabando" | "sin_rtk" |
+    ///     "detenido" | "marcha_atras".
+    ///   · puntos: filas de Elevation.txt del lote abierto (previas + nuevas).
+    /// </summary>
+    public class ConfigElevacionSec
+    {
+        public bool Activo { get; set; }
+        public string Estado { get; set; }
+        public int Puntos { get; set; }
+        public int Descartados { get; set; }
+        public string Error { get; set; }
     }
 
     public class ConfigVehiculoSec

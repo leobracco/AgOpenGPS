@@ -11,7 +11,9 @@ public sealed class GpsEstado
     public double HeadingDeg;
     public double SpeedKnots;
     public double RollDeg;
-    public double Altitude = 300;      // solo KSXT; GGA/OGI/NDA llevan el "1000" fijo histórico
+    public double Altitude = 300;      // solo KSXT; GGA/OGI/NDA usan AltitudGga
+    public int CalidadFix = 8;          // GGA/OGI/NDA: 8 = simulador (histórico); 4 = RTK fijo
+    public double AltitudGga = 1000;   // GGA/OGI/NDA: el "1000" histórico salvo "RTK fijo + relieve"
     public int HeadingImu, RollImu;    // grados*10, para PANDA
     public bool ImuValido = true;      // false = PANDA con 65535/32767 ("sin IMU", el engine los ignora)
 }

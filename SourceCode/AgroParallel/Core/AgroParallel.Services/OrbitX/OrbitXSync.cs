@@ -616,6 +616,10 @@ namespace AgroParallel.OrbitX
                     }
                 }
 
+                // Registro de alturas (planimetría): Elevation.txt NO va en la
+                // lista de arriba porque no viaja entero — ver EnqueueElevacion.
+                EnqueueElevacion(fieldDir, fieldName);
+
                 // VistaX logs del campo: NDJSON (raw) + bundles SHP (puntos por
                 // surco y heatmap) + PRJ (WGS84) — los binarios se transportan
                 // Base64 (ver EnqueueIfChanged → IsBinaryPath).
@@ -641,6 +645,114 @@ namespace AgroParallel.OrbitX
             {
                 AgpLog.Error("OrbitXSync", "encolar archivos de lote de PilotX", ex);
             }
+        }
+
+        // ── Elevation.txt (registro de alturas) ─────────────────────────────
+        // Viaja en PARTES de 5000 filas (ElevacionPartes), cada una como
+        // archivo propio del lote:
+        //   ruta_rel = aog/fields/<lote>/Elevation/Elevation_0001.txt
+        //   subtipo  = "elevation_points", producto "aog", es_lote = true
+        // Las partes completas no cambian nunca: se suben una vez y el server
+        // no archiva copias (mismo hash). La última parte (la que crece) se
+        // sube como mucho cada ElevacionIntervaloParcial, para no mandar —ni
+        // archivar en el server— una copia nueva cada 30 s.
+        // Un Elevation.txt con la cabecera sola (lotes migrados de AOG) no
+        // viaja: no hay filas.
+        private static readonly TimeSpan ElevacionIntervaloParcial = TimeSpan.FromMinutes(5);
+        private readonly Dictionary<string, long> _elevacionLargoProcesado = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DateTime> _elevacionUltimaParcial = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+
+        private void EnqueueElevacion(string fieldDir, string fieldName)
+        {
+            try
+            {
+                string path = Path.Combine(fieldDir, "Elevation.txt");
+                var fi = new FileInfo(path);
+                if (!fi.Exists) return;
+
+                // Sin cambios de tamaño (y sin parcial demorada) no hay nada que
+                // releer: el archivo es append-only.
+                long largo;
+                if (_elevacionLargoProcesado.TryGetValue(path, out largo) && largo == fi.Length) return;
+
+                // FileShare.ReadWrite: el motor lo puede tener abierto escribiendo.
+                string contenido;
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var sr = new StreamReader(fs, Encoding.UTF8))
+                {
+                    contenido = sr.ReadToEnd();
+                }
+
+                var partes = ElevacionPartes.Partir(contenido);
+                DateTime ahora = DateTime.UtcNow;
+                bool parcialDemorada = false;
+                foreach (var p in partes)
+                {
+                    if (!p.Completa)
+                    {
+                        DateTime ultima;
+                        if (_elevacionUltimaParcial.TryGetValue(path, out ultima) && ahora - ultima < ElevacionIntervaloParcial)
+                        {
+                            parcialDemorada = true;
+                            continue;
+                        }
+                    }
+                    string nombre = ElevacionPartes.NombreParte(p.Indice);
+                    bool encolada = EnqueueTextoSiCambio(path + "#" + p.Indice,
+                        "aog/fields/" + fieldName + "/Elevation/" + nombre, nombre,
+                        p.Contenido, ElevacionPartes.Subtipo, "aog", true, fieldName);
+                    if (!p.Completa && encolada) _elevacionUltimaParcial[path] = ahora;
+                }
+                // Con la parcial demorada hay que volver a mirar en el próximo
+                // tick aunque el archivo no crezca (máquina parada al final).
+                if (!parcialDemorada) _elevacionLargoProcesado[path] = fi.Length;
+            }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "encolar Elevation.txt", ex);
+            }
+        }
+
+        /// <summary>
+        /// Como EnqueueIfChanged pero con el texto ya armado (una parte de un
+        /// archivo). <paramref name="claveHash"/> identifica la parte para el
+        /// "ya confirmado por el server". true = quedó encolada.
+        /// </summary>
+        private bool EnqueueTextoSiCambio(string claveHash, string rutaRel, string nombre, string texto,
+            string subtipo, string producto, bool esLote, string loteNombre)
+        {
+            string hash = ComputeMd5(texto);
+            string prev;
+            if (_lastHashes.TryGetValue(claveHash, out prev) && prev == hash) return false;
+            foreach (var enCola in _queue)
+            {
+                if (enCola.LocalPath != claveHash) continue;
+                if (enCola.HashMd5 == hash) return false;
+                // Una versión vieja de la MISMA parte sigue esperando (sin red
+                // en el lote): se reemplaza en el lugar en vez de apilar copias.
+                // Seguro: el encolado y la subida corren en el mismo SyncTick,
+                // nunca a la vez.
+                enCola.Contenido = texto;
+                enCola.HashMd5 = hash;
+                enCola.TamanoBytes = Encoding.UTF8.GetByteCount(texto);
+                enCola.Intentos = 0;
+                return true;
+            }
+            _queue.Enqueue(new SyncItem
+            {
+                LocalPath = claveHash,
+                RutaRel = rutaRel,
+                Nombre = nombre,
+                Subtipo = subtipo,
+                Producto = producto,
+                Contenido = texto,
+                EsBinario = false,
+                HashMd5 = hash,
+                TamanoBytes = Encoding.UTF8.GetByteCount(texto),
+                EsLote = esLote,
+                LoteNombre = loteNombre
+            });
+            return true;
         }
 
         // Nombre de archivo → `subtipo` que espera el cloud.

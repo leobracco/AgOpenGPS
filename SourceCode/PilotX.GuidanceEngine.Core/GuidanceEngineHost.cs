@@ -503,6 +503,8 @@ namespace AgOpenGPS
         public void Stop()
         {
             _running = false;
+            // Flush del registro de alturas (Elevation.txt) antes de salir.
+            CerrarRegistroElevacion();
             try { _loopBackSocket?.Close(); } catch { }
             _loopBackSocket = null;
         }
