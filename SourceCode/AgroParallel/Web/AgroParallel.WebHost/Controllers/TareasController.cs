@@ -1,10 +1,10 @@
 // ============================================================================
 // TareasController.cs — REST de las "Tareas de trabajo" del lote abierto.
 //   GET  /api/tareas/estado                         → TareasEstado
-//   POST /api/tareas/crear     {cultivo, tipo_trabajo, notas} → TareasEstado
+//   POST /api/tareas/crear     {cultivo, tipo_trabajo, notas, operario?} → TareasEstado
 //   POST /api/tareas/pausar                         → TareasEstado
 //   POST /api/tareas/reanudar                       → TareasEstado
-//   POST /api/tareas/cerrar                         → TareasEstado
+//   POST /api/tareas/cerrar                         → TareasEstado (FINALIZA: sella)
 //   POST /api/tareas/exportar  {id, destino}        → TareaExportResultado
 // Wire snake_case por AgpJson. Si el host no inyectó el servicio (p. ej. el
 // head Android hoy) el controller no se registra y las rutas dan 404.
@@ -38,6 +38,7 @@ namespace AgroParallel.WebHost.Controllers
                 Cultivo = body?.Cultivo,
                 TipoTrabajo = body?.TipoTrabajo,
                 Notas = body?.Notas,
+                Operario = body?.Operario,
             }));
         }
 
@@ -78,6 +79,10 @@ namespace AgroParallel.WebHost.Controllers
 
             [System.Text.Json.Serialization.JsonPropertyName("notas")]
             public string Notas { get; set; }
+
+            /// <summary>Opcional: quién maneja/aplica (queda en el snapshot).</summary>
+            [System.Text.Json.Serialization.JsonPropertyName("operario")]
+            public string Operario { get; set; }
         }
 
         private sealed class ExportarBody

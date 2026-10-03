@@ -346,6 +346,9 @@
               <!-- Tarea de trabajo del lote abierto (cultivo, tipo, área,
                    pausar/cerrar, exportar informe + SHP). Card nativa. -->
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tarea"><StackPanel><Image Classes="sico" Source="/Assets/menu/JobActive.png"/><TextBlock Classes="slbl" Text="Tarea"/></StackPanel></Button>
+              <!-- El lote abierto a ISO-XML (TASKDATA v4.3: lindero, cabecera,
+                   guías AB/curvas) al pendrive, para pantallas John Deere/CNH. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_isoxml"><StackPanel><Image Classes="sico" Source="/Assets/menu/Boundary.png"/><TextBlock Classes="slbl" Text="Exportar ISO-XML"/></StackPanel></Button>
               <!-- "Nuevo desde KML" se sacó del menú (pedido 2026-08-06);
                    el comando lote_kml sigue cableado por si vuelve. -->
               <!-- Rescatado del difunto "Herr. lote" (pedido 2026-08-06):

@@ -143,6 +143,11 @@ namespace AgroParallel.WebHost
         /// inyectados.</summary>
         public AgroParallel.Services.Tareas.TareasService Tareas { get; set; }
 
+        /// <summary>Export del lote abierto a ISO-XML (opcional): (destino,
+        /// versión "3"|"4") → resultado. Lo setea el Engine ANTES de Start().
+        /// Null = /api/lotes/exportar-isoxml no existe (404).</summary>
+        public System.Func<string, string, AgroParallel.Models.IsoXmlExportResultadoDto> ExportarIsoXml { get; set; }
+
         /// <summary>Asistente de calibración de la dirección (opcional): lo setea
         /// el Engine ANTES de Start(). Null = /api/steer/cal/* no existe (404) y
         /// la pantalla de Dirección no ofrece el asistente.</summary>
@@ -519,6 +524,9 @@ namespace AgroParallel.WebHost
                 // Tareas de trabajo (cultivo, tipo, inicio/fin, área, export).
                 var tareas = Tareas;
                 if (tareas != null) m.WithController(() => new TareasController(tareas));
+                // Export del lote a ISO-XML (LOTE › Exportar ISO-XML).
+                var isoxml = ExportarIsoXml;
+                if (isoxml != null) m.WithController(() => new LoteIsoXmlController(isoxml));
                 // Asistente de calibración de la dirección (Dirección › Asistente).
                 var steerCal = SteerCal;
                 if (steerCal != null) m.WithController(() => new SteerCalController(steerCal));

@@ -4,8 +4,13 @@
 // Se abre desde LOTE › Tarea. El operario la usa con el tractor andando, así
 // que tiene tres estados y nada más:
 //   · sin lote       → un aviso ("abrí un lote").
-//   · tarea abierta  → área y tiempo en grande, Pausar/Reanudar y Cerrar
-//                      (con confirmación inline, nunca modal).
+//   · tarea abierta  → área y tiempo en grande, Pausar/Reanudar y Finalizar
+//                      (con confirmación inline, nunca modal). FINALIZADA =
+//                      sellada: no se edita ni se reabre, solo se exporta.
+//   · cierre de lote → si el operario cierra el lote con una tarea abierta,
+//                      MainWindow abre esta card en modo "cierre" y pregunta
+//                      ACÁ (no popup sobre el mapa): Finalizar tarea / Dejar
+//                      abierta (pausa) / Cancelar. Ver PedirCierreLote.
 //   · sin tarea      → "Nueva tarea": tipo de trabajo (5 botones), cultivo y
 //                      notas (teclado PROPIO de PilotX), insumo activo del
 //                      catálogo a la vista, Iniciar. Abajo las cerradas, con
@@ -69,6 +74,12 @@ public sealed class TareasPanel : Border
     public event Action? Cerrado;
     /// <summary>Aviso corto (toast de MainWindow, nunca modal).</summary>
     public event Action<string>? Aviso;
+    /// <summary>El operario ya decidió qué hacer con la tarea: MainWindow
+    /// tiene que cerrar el lote ahora (POST /api/lotes/close).</summary>
+    public event Func<Task>? CerrarLotePedido;
+
+    private bool _modoCierreLote;
+    private readonly Border _cierreLote;
 
     // ---- controles -----------------------------------------------------------
     private readonly TextBlock _subtitulo;
@@ -93,6 +104,7 @@ public sealed class TareasPanel : Border
     private readonly Dictionary<string, Button> _btnTipos = new();
     private readonly TextBox _txtCultivo;
     private readonly TextBox _txtNotas;
+    private readonly TextBox _txtOperario;
     private readonly TextBlock _insumoTxt;
     private readonly Button _btnIniciar;
     private readonly StackPanel _listaCerradas;
@@ -175,7 +187,7 @@ public sealed class TareasPanel : Border
 
         _btnPausa = BotonGrande("Pausar", acento: false);
         _btnPausa.Click += async (_, _) => await PausaReanudarAsync();
-        _btnCerrar = BotonGrande("Cerrar tarea", acento: false);
+        _btnCerrar = BotonGrande("Finalizar tarea", acento: false);
         _btnCerrar.Click += (_, _) => { _confirmar!.IsVisible = true; };
         var acciones = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
         _btnPausa.Margin = new Thickness(0, 0, 5, 0);
@@ -187,12 +199,12 @@ public sealed class TareasPanel : Border
         // Confirmación INLINE (no modal: ShowDialog traba la cabina).
         var confTxt = new TextBlock
         {
-            Text = "¿Cerrar la tarea? Deja de sumar hectáreas y queda lista para exportar.",
+            Text = "¿Finalizar la tarea? Deja de sumar hectáreas y queda sellada: no se puede editar ni reabrir, solo exportar.",
             FontSize = 13, Foreground = Texto, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8),
         };
         var btnNo = BotonGrande("No", acento: false);
         btnNo.Click += (_, _) => _confirmar!.IsVisible = false;
-        var btnSi = BotonGrande("Sí, cerrar", acento: true);
+        var btnSi = BotonGrande("Sí, finalizar", acento: true);
         btnSi.Click += async (_, _) => await CerrarTareaAsync();
         var confBtns = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
         btnNo.Margin = new Thickness(0, 0, 5, 0);
@@ -209,6 +221,37 @@ public sealed class TareasPanel : Border
             CornerRadius = new CornerRadius(10), Padding = new Thickness(10), IsVisible = false,
         };
 
+        // Cierre de lote con la tarea abierta: la pregunta va ACÁ, arriba de
+        // todo, inline (nada de popup sobre el mapa GL).
+        var cierreTit = new TextBlock
+        {
+            Text = "Vas a cerrar el lote", FontSize = 15, FontWeight = FontWeight.Bold, Foreground = Texto,
+        };
+        var cierreTxt = new TextBlock
+        {
+            Text = "Esta tarea sigue abierta. ¿Qué hacemos con ella?",
+            FontSize = 13, Foreground = Texto, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 8),
+        };
+        var btnFinCierre = BotonGrande("Finalizar tarea y cerrar el lote", acento: true);
+        btnFinCierre.Click += async (_, _) => await CierreLoteAsync(finalizar: true);
+        var btnPausaCierre = BotonGrande("Dejar abierta (pausa) y cerrar el lote", acento: false);
+        btnPausaCierre.Click += async (_, _) => await CierreLoteAsync(finalizar: false);
+        var btnCancelCierre = BotonGrande("Cancelar (no cerrar el lote)", acento: false);
+        btnCancelCierre.Height = 48;
+        btnCancelCierre.Click += (_, _) => SalirModoCierre();
+        var cierreCol = new StackPanel { Spacing = 6 };
+        cierreCol.Children.Add(cierreTit);
+        cierreCol.Children.Add(cierreTxt);
+        cierreCol.Children.Add(btnFinCierre);
+        cierreCol.Children.Add(btnPausaCierre);
+        cierreCol.Children.Add(btnCancelCierre);
+        _cierreLote = new Border
+        {
+            Child = cierreCol, Background = BgSuave, BorderBrush = Ambar, BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(10), Padding = new Thickness(10), IsVisible = false,
+        };
+
+        _vistaAbierta.Children.Add(_cierreLote);
         _vistaAbierta.Children.Add(filaTit);
         _vistaAbierta.Children.Add(kpis);
         _vistaAbierta.Children.Add(_abDetalle);
@@ -245,6 +288,14 @@ public sealed class TareasPanel : Border
         _txtNotas.LostFocus += (_, _) => _ = _client?.TecladoAsync(false);
         _vistaNueva.Children.Add(_txtNotas);
 
+        // Quién maneja/aplica: queda en el registro de la tarea (trazabilidad
+        // de pulverizaciones). Opcional.
+        _vistaNueva.Children.Add(Etiqueta("Operario"));
+        _txtOperario = Campo("Opcional", multilinea: false);
+        _txtOperario.GotFocus += (_, _) => _ = _client?.TecladoAsync(true, Traductor.T("Operario"));
+        _txtOperario.LostFocus += (_, _) => _ = _client?.TecladoAsync(false);
+        _vistaNueva.Children.Add(_txtOperario);
+
         _insumoTxt = new TextBlock { FontSize = 12.5, Foreground = TextoMuted, TextWrapping = TextWrapping.Wrap };
         _vistaNueva.Children.Add(_insumoTxt);
 
@@ -253,7 +304,7 @@ public sealed class TareasPanel : Border
         _btnIniciar.Click += async (_, _) => await IniciarAsync();
         _vistaNueva.Children.Add(_btnIniciar);
 
-        _cerradasTit = Etiqueta("Tareas cerradas");
+        _cerradasTit = Etiqueta("Tareas finalizadas");
         _cerradasTit.Margin = new Thickness(0, 8, 0, 0);
         _listaCerradas = new StackPanel { Spacing = 6 };
         _vistaNueva.Children.Add(_cerradasTit);
@@ -290,11 +341,33 @@ public sealed class TareasPanel : Border
     {
         _modo = "";
         _confirmar.IsVisible = false;
+        _modoCierreLote = false;
+        _cierreLote.IsVisible = false;
         IsVisible = true;
         Traductor.Aplicar(this);
         _timer ??= new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, async (_, _) => await RefrescarAsync());
         _timer.Start();
         _ = RefrescarAsync();
+    }
+
+    /// <summary>
+    /// El operario tocó "Cerrar lote" con una tarea abierta: se abre la card
+    /// con la pregunta arriba (Finalizar / Dejar abierta / Cancelar). El lote
+    /// NO se cierra hasta que elija; Cancelar no cierra nada.
+    /// </summary>
+    public void PedirCierreLote()
+    {
+        Abrir();
+        _modoCierreLote = true;
+        _cierreLote.IsVisible = true;
+        if (_ultimo?.Abierta != null) PintarAbierta(_ultimo.Abierta);
+    }
+
+    private void SalirModoCierre()
+    {
+        _modoCierreLote = false;
+        _cierreLote.IsVisible = false;
+        if (_ultimo?.Abierta != null) PintarAbierta(_ultimo.Abierta);
     }
 
     public void Cerrar()
@@ -326,6 +399,13 @@ public sealed class TareasPanel : Border
         _subtitulo.Text = e.HayLote ? Traductor.T("Lote") + ": " + e.Lote : Traductor.T("Sin lote abierto");
 
         string modo = !e.HayLote ? "sinlote" : e.Abierta != null ? "abierta" : "nueva";
+        if (_modoCierreLote && modo != "abierta")
+        {
+            // La tarea dejó de estar abierta (o el lote se cerró) mientras
+            // estaba la pregunta: ya no hay nada que preguntar.
+            _modoCierreLote = false;
+            _cierreLote.IsVisible = false;
+        }
         bool cambioModo = modo != _modo;
         _modo = modo;
         _vistaSinLote.IsVisible = modo == "sinlote";
@@ -349,10 +429,17 @@ public sealed class TareasPanel : Border
         var partes = new List<string> { Traductor.T("Inicio") + " " + t.InicioTexto };
         if (!string.IsNullOrWhiteSpace(t.Insumo)) partes.Add(t.Insumo!);
         if (!string.IsNullOrWhiteSpace(t.DosisTexto)) partes.Add(t.DosisTexto!);
+        if (!string.IsNullOrWhiteSpace(t.ImplementoTexto)) partes.Add(t.ImplementoTexto!);
+        if (!string.IsNullOrWhiteSpace(t.Operario)) partes.Add(Traductor.T("Operario") + ": " + t.Operario);
         _abDetalle.Text = string.Join("  ·  ", partes);
         _abNotas.IsVisible = !string.IsNullOrWhiteSpace(t.Notas);
         _abNotas.Text = t.Notas ?? "";
 
+        // Con la pregunta de cierre de lote arriba, los botones de siempre se
+        // esconden: una sola decisión a la vista.
+        _btnPausa.IsVisible = !_modoCierreLote;
+        _btnCerrar.IsVisible = !_modoCierreLote;
+        if (_modoCierreLote) _confirmar.IsVisible = false;
         _btnPausa.Content = Traductor.T(activa ? "Pausar" : "Reanudar");
         // Reanudar es la acción que hay que ver: va en verde.
         Pintar(_btnPausa, acento: !activa);
@@ -364,6 +451,8 @@ public sealed class TareasPanel : Border
         {
             _txtCultivo.Text = e.CultivoSugerido ?? "";
             _txtNotas.Text = "";
+            // El operario NO se borra entre tareas: suele ser el mismo toda la
+            // jornada y tipearlo de nuevo cada vez es lo que hace que no se cargue.
             ElegirTipo(string.IsNullOrEmpty(e.TipoSugerido) ? "siembra" : e.TipoSugerido!);
         }
         _insumoTxt.Text = string.IsNullOrWhiteSpace(e.InsumoActivo)
@@ -398,6 +487,17 @@ public sealed class TareasPanel : Border
         var col = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         col.Children.Add(linea1);
         col.Children.Add(linea2);
+        // Integridad del registro: sellada / ALTERADA (en rojo) / sin sello.
+        if (!string.IsNullOrWhiteSpace(t.IntegridadTexto))
+        {
+            bool alterada = t.Integridad == "alterada";
+            col.Children.Add(new TextBlock
+            {
+                Text = Traductor.T(t.IntegridadTexto!),
+                FontSize = 11.5, FontWeight = alterada ? FontWeight.Bold : FontWeight.Normal,
+                Foreground = alterada ? Rojo : TextoMuted, TextWrapping = TextWrapping.Wrap,
+            });
+        }
 
         var btn = BotonGrande("Exportar", acento: false);
         btn.Height = 48;
@@ -434,7 +534,8 @@ public sealed class TareasPanel : Border
         try
         {
             _ = _client.TecladoAsync(false);
-            var e = await _client.CrearAsync(_tipoElegido, _txtCultivo.Text ?? "", _txtNotas.Text ?? "").ConfigureAwait(true);
+            var e = await _client.CrearAsync(_tipoElegido, _txtCultivo.Text ?? "", _txtNotas.Text ?? "",
+                                             _txtOperario.Text ?? "").ConfigureAwait(true);
             Resultado(e, "Tarea iniciada.");
         }
         finally { _ocupado = false; }
@@ -462,7 +563,41 @@ public sealed class TareasPanel : Border
         {
             _confirmar.IsVisible = false;
             var e = await _client.CerrarAsync().ConfigureAwait(true);
-            Resultado(e, "Tarea cerrada. Podés exportarla desde la lista.");
+            Resultado(e, "Tarea finalizada y sellada. Podés exportarla desde la lista.");
+        }
+        finally { _ocupado = false; }
+    }
+
+    /// <summary>Respuesta a "Vas a cerrar el lote". Finalizar: sella la tarea
+    /// y recién si salió bien pide el cierre. Dejar abierta: pide el cierre
+    /// directo (el motor deja la tarea activa en pausa al cerrar el lote).</summary>
+    private async Task CierreLoteAsync(bool finalizar)
+    {
+        if (_ocupado || _client == null) return;
+        _ocupado = true;
+        try
+        {
+            if (finalizar)
+            {
+                var e = await _client.CerrarAsync().ConfigureAwait(true);
+                if (e == null) { Aviso?.Invoke(Traductor.T("Sin conexión con PilotX.") + "  (AGP-NET-201)"); return; }
+                if (!e.Ok)
+                {
+                    // No se pudo finalizar: el lote NO se cierra (el operario
+                    // decide de nuevo con el motivo a la vista).
+                    Aviso?.Invoke(Traductor.T(e.Error ?? "No se pudo finalizar la tarea."));
+                    Pintar(e);
+                    return;
+                }
+            }
+            _modoCierreLote = false;
+            _cierreLote.IsVisible = false;
+            var pedido = CerrarLotePedido;
+            Cerrar();
+            if (pedido != null) await pedido().ConfigureAwait(true);
+            Aviso?.Invoke(Traductor.T(finalizar
+                ? "Tarea finalizada y sellada. Lote cerrado."
+                : "Lote cerrado. La tarea quedó en pausa: al volver, LOTE › Tarea › Reanudar."));
         }
         finally { _ocupado = false; }
     }

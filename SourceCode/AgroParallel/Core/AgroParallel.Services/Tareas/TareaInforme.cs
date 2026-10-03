@@ -21,18 +21,22 @@ namespace AgroParallel.Services.Tareas
     {
         /// <param name="archivoShp">Nombre del .shp exportado junto al informe
         /// (null si no hubo cobertura que exportar).</param>
-        public static string ArmarHtml(Tarea t, DateTime generado, string archivoShp)
+        /// <param name="integridad">IntegridadTarea ya verificada; null = la
+        /// calcula acá.</param>
+        public static string ArmarHtml(Tarea t, DateTime generado, string archivoShp, string integridad = null)
         {
-            return ArmarHtml(t, generado, archivoShp, null, null);
+            return ArmarHtml(t, generado, archivoShp, null, null, integridad);
         }
 
         /// <param name="vistax">Calidad de siembra por surco que registró
         /// VistaX durante la tarea (null = no hubo registro: no sale la sección).</param>
         /// <param name="archivoCsvVistax">Nombre del CSV exportado al lado (o null).</param>
         public static string ArmarHtml(Tarea t, DateTime generado, string archivoShp,
-            AgroParallel.Services.VistaX.VxResumenLote vistax, string archivoCsvVistax)
+            AgroParallel.Services.VistaX.VxResumenLote vistax, string archivoCsvVistax,
+            string integridad = null)
         {
             if (t == null) throw new ArgumentNullException(nameof(t));
+            integridad = integridad ?? TareaSello.Verificar(t);
 
             double areaM2 = TareaReglas.AreaTrabajadaM2(t, 0);
             DateTime finRef = t.Fin ?? generado;
@@ -62,9 +66,11 @@ namespace AgroParallel.Services.Tareas
               .Append("th,td{padding:8px 6px;border-bottom:1px solid var(--borde);vertical-align:top}\n")
               .Append(".notas{white-space:pre-wrap}\n")
               .Append(".pie{margin-top:18px;color:var(--dim);font-size:12px}\n")
-              .Append("h2{font-size:18px;margin:24px 0 6px}\n")
+              .Append("h2{font-size:16px;margin:22px 0 6px}\n")
               .Append("table.surcos th,table.surcos td{width:auto;text-align:right;padding:6px}\n")
               .Append("table.surcos th:first-child,table.surcos td:first-child{text-align:left}\n")
+              .Append(".alerta{border:2px solid #C84E48;background:#FBEDEC;color:#7A1F1A;border-radius:10px;padding:12px 14px;margin:0 0 16px;font-weight:600}\n")
+              .Append(".sello{font-family:Consolas,'Courier New',monospace;font-size:12px;word-break:break-all}\n")
               .Append("@media print{body{background:#fff}.hoja{margin:0;border:0;border-radius:0;padding:0;max-width:none}@page{size:A4;margin:16mm}}\n")
               .Append("</style>\n</head>\n<body>\n<div class=\"hoja\">\n");
 
@@ -73,6 +79,10 @@ namespace AgroParallel.Services.Tareas
             if (t.Fin.HasValue) sb.Append(" a ").Append(E(TareaFormato.Fecha(t.Fin)));
             sb.Append(" · ").Append(E(EstadoTarea.Etiqueta(t.Estado))).Append("</div></div>");
             sb.Append("<div class=\"marca\"><strong>PilotX</strong><br>Agro Parallel</div></header>\n");
+
+            if (integridad == IntegridadTarea.Alterada)
+                sb.Append("<div class=\"alerta\">ATENCIÓN: este registro fue modificado después de finalizar la tarea. ")
+                  .Append("El contenido no coincide con el sello que PilotX guardó al finalizarla; los datos de abajo pueden no ser los originales.</div>\n");
 
             sb.Append("<div class=\"kpis\">");
             Kpi(sb, TareaFormato.Hectareas(areaM2), "Área trabajada");
@@ -95,10 +105,44 @@ namespace AgroParallel.Services.Tareas
             sb.Append("<tr><th>Notas</th><td class=\"notas\">").Append(E(Vacio(t.Notas))).Append("</td></tr>\n");
             sb.Append("</table>\n");
 
+            // Snapshot: con qué se trabajó, copiado AL INICIAR la tarea.
+            sb.Append("<h2>Configuración al iniciar la tarea</h2>\n<table>\n");
+            var sn = t.Snapshot;
+            if (sn == null)
+            {
+                Fila(sb, "Configuración", "No registrada (tarea iniciada antes de esta función)");
+            }
+            else
+            {
+                Fila(sb, "Operario", Vacio(sn.Operario));
+                Fila(sb, "Perfil de vehículo", Vacio(sn.Vehiculo));
+                Fila(sb, "Implemento", Vacio(TareaFormato.Implemento(sn)));
+                string anchos = TareaFormato.AnchosSecciones(sn);
+                if (anchos.Length > 0) Fila(sb, "Anchos de sección", anchos);
+                if (sn.FlowX != null && sn.FlowX.Count > 0)
+                {
+                    var lineas = new StringBuilder();
+                    foreach (var p in sn.FlowX)
+                    {
+                        if (lineas.Length > 0) lineas.Append('\n');
+                        lineas.Append(TareaFormato.FlowX(p));
+                    }
+                    sb.Append("<tr><th>FlowX (dosis líquida)</th><td class=\"notas\">").Append(E(lineas.ToString())).Append("</td></tr>\n");
+                }
+                Fila(sb, "Tomada el", TareaFormato.Fecha(sn.Tomado));
+            }
+            sb.Append("</table>\n");
+
+            sb.Append("<h2>Integridad del registro</h2>\n<table>\n");
+            Fila(sb, "Estado", Vacio(IntegridadTarea.Etiqueta(integridad)));
+            if (!string.IsNullOrEmpty(t.Sello))
+                sb.Append("<tr><th>Sello SHA-256</th><td class=\"sello\">").Append(E(t.Sello)).Append("</td></tr>\n");
+            sb.Append("</table>\n");
             if (vistax != null && vistax.Tramos > 0) SeccionVistaX(sb, vistax, archivoCsvVistax);
 
             sb.Append("<div class=\"pie\">Generado por PilotX el ").Append(E(TareaFormato.Fecha(generado)))
-              .Append(". El área es la superficie pintada mientras la tarea estuvo en curso; las pausas no suman.</div>\n");
+              .Append(". El área es la superficie pintada mientras la tarea estuvo en curso; las pausas no suman. ")
+              .Append("Una tarea finalizada no se edita ni se reabre: el sello permite detectar si el archivo se cambió después.</div>\n");
             sb.Append("</div>\n</body>\n</html>\n");
             return sb.ToString();
         }

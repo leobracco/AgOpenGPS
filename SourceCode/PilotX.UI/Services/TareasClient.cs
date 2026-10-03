@@ -5,6 +5,8 @@
 //   · POST /api/tareas/crear     {cultivo, tipo_trabajo, notas}
 //   · POST /api/tareas/pausar | reanudar | cerrar
 //   · POST /api/tareas/exportar  {id, destino}
+//   · POST /api/lotes/exportar-isoxml {destino, version} (el lote a ISO-XML;
+//     va acá porque comparte el canal largo de los exports al pendrive)
 // Más el teclado nativo de PilotX: POST /api/teclado/abrir|cerrar.
 //
 // null = el motor no contestó (o contestó algo impresentable); el panel lo
@@ -39,6 +41,12 @@ public sealed class TareaVistaDto
     [JsonPropertyName("area_texto")]       public string? AreaTexto { get; set; }
     [JsonPropertyName("duracion_texto")]   public string? DuracionTexto { get; set; }
     [JsonPropertyName("archivo_sugerido")] public string? ArchivoSugerido { get; set; }
+    [JsonPropertyName("integridad")]       public string? Integridad { get; set; }
+    [JsonPropertyName("integridad_texto")] public string? IntegridadTexto { get; set; }
+    [JsonPropertyName("sello_corto")]      public string? SelloCorto { get; set; }
+    [JsonPropertyName("implemento_texto")] public string? ImplementoTexto { get; set; }
+    [JsonPropertyName("vehiculo")]         public string? Vehiculo { get; set; }
+    [JsonPropertyName("operario")]         public string? Operario { get; set; }
 }
 
 public sealed class TareasEstadoDto
@@ -62,6 +70,19 @@ public sealed class TareaExportDto
     [JsonPropertyName("carpeta")]   public string? Carpeta { get; set; }
     [JsonPropertyName("archivos")]  public List<string>? Archivos { get; set; }
     [JsonPropertyName("poligonos")] public int Poligonos { get; set; }
+}
+
+public sealed class IsoXmlExportDto
+{
+    [JsonPropertyName("ok")]       public bool Ok { get; set; }
+    [JsonPropertyName("error")]    public string? Error { get; set; }
+    [JsonPropertyName("archivo")]  public string? Archivo { get; set; }
+    [JsonPropertyName("carpeta")]  public string? Carpeta { get; set; }
+    [JsonPropertyName("apartada")] public string? Apartada { get; set; }
+    [JsonPropertyName("version")]  public string? Version { get; set; }
+    [JsonPropertyName("linderos")] public int Linderos { get; set; }
+    [JsonPropertyName("guias")]    public int Guias { get; set; }
+    [JsonPropertyName("cabecera")] public bool Cabecera { get; set; }
 }
 
 public sealed class TareasClient
@@ -88,12 +109,13 @@ public sealed class TareasClient
         catch { return null; }
     }
 
-    public Task<TareasEstadoDto?> CrearAsync(string tipo, string cultivo, string notas)
+    public Task<TareasEstadoDto?> CrearAsync(string tipo, string cultivo, string notas, string operario = "")
         => PostAsync<TareasEstadoDto>(_http, "api/tareas/crear", JsonSerializer.Serialize(new Dictionary<string, string>
         {
             ["tipo_trabajo"] = tipo ?? "",
             ["cultivo"] = cultivo ?? "",
             ["notas"] = notas ?? "",
+            ["operario"] = operario ?? "",
         }));
 
     public Task<TareasEstadoDto?> PausarAsync()   => PostAsync<TareasEstadoDto>(_http, "api/tareas/pausar", "{}");
@@ -105,6 +127,14 @@ public sealed class TareasClient
         {
             ["id"] = id ?? "",
             ["destino"] = destino ?? "",
+        }));
+
+    /// <summary>Lote abierto → TASKDATA\TASKDATA.XML (ISO-XML) en el destino.</summary>
+    public Task<IsoXmlExportDto?> ExportarLoteIsoXmlAsync(string destino, string version = "4")
+        => PostAsync<IsoXmlExportDto>(_httpLargo, "api/lotes/exportar-isoxml", JsonSerializer.Serialize(new Dictionary<string, string>
+        {
+            ["destino"] = destino ?? "",
+            ["version"] = version ?? "4",
         }));
 
     /// <summary>Teclado nativo de PilotX (nunca osk.exe). Catch mudo: sin

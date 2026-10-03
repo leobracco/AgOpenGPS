@@ -717,10 +717,15 @@ public partial class MainWindow : Window
         }
         _loteHost = this.FindControl<LotePanel>("LoteHost");
         if (_loteHost != null)
+        {
             _loteHost.Cerrado += () =>
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
+            // "Cerrar lote" del menú de lote: si hay una tarea abierta, la
+            // pregunta la hace la card de Tarea (mismo camino que la barra).
+            _loteHost.AntesDeCerrarLote = PreguntarPorTareaAntesDeCerrarAsync;
+        }
 
         // Dirección nativa (17vo port): panel chico sobre el mapa vivo con
         // TODO el FormSteer (6 tabs). La página HTML queda solo para el Hub
@@ -813,6 +818,8 @@ public partial class MainWindow : Window
         if (_tareasHost != null)
         {
             _tareasHost.Aviso += MostrarToast;
+            // El operario ya eligió qué hacer con la tarea: ahora sí, el lote.
+            _tareasHost.CerrarLotePedido += CerrarLoteDirectoAsync;
             _tareasHost.Cerrado += () =>
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
@@ -6843,6 +6850,9 @@ public partial class MainWindow : Window
             // Tarea de trabajo del lote abierto: card nativa (TareasPanel).
             case "tarea":
                 AbrirTareas(); return true;
+            // Export del lote abierto a ISO-XML (TASKDATA) para otra pantalla.
+            case "lote_isoxml":
+                _ = ExportarLoteIsoXmlAsync(); return true;
 
             // Borrar pintado: el guard del motor (secciones apagadas) devolvía
             // false MUDO — el operario tocaba el botón con secciones activas y
@@ -7031,6 +7041,30 @@ public partial class MainWindow : Window
         // Plegar primero: el cierre puede tardar (guarda cobertura y lote) y el
         // menú no tiene por qué quedarse abierto esperando.
         if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+        // Con una tarea abierta NO se cierra de una: la card de Tarea pregunta
+        // (Finalizar / Dejar abierta / Cancelar) y es ella la que pide el cierre.
+        if (await PreguntarPorTareaAntesDeCerrarAsync()) return;
+        await CerrarLoteDirectoAsync();
+    }
+
+    /// <summary>
+    /// true = hay una tarea abierta en el lote y se abrió la card de Tarea con
+    /// la pregunta de cierre (el que llamó NO cierra el lote). false = no hay
+    /// tarea abierta, o el motor no contesta: se cierra como siempre (una
+    /// pregunta que no se puede hacer no puede trabar el cierre del lote).
+    /// </summary>
+    private async Task<bool> PreguntarPorTareaAntesDeCerrarAsync()
+    {
+        _tareasClient ??= new TareasClient(DeriveOrigin(App.TargetUrl));
+        var e = await _tareasClient.EstadoAsync().ConfigureAwait(true);
+        if (e == null || !e.HayLote || e.Abierta == null || _tareasHost == null) return false;
+        AbrirTareas();
+        _tareasHost.PedirCierreLote();
+        return true;
+    }
+
+    private async Task CerrarLoteDirectoAsync()
+    {
         try
         {
             var http = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
@@ -7043,6 +7077,48 @@ public partial class MainWindow : Window
         {
             Console.Error.WriteLine("[Lote] no se pudo cerrar: " + ex.Message);
         }
+    }
+
+    /// <summary>
+    /// LOTE › Exportar ISO-XML: el lote abierto (lindero, cabecera, guías AB y
+    /// curvas) a TASKDATA\TASKDATA.XML v4.3 en el pendrive que elija el
+    /// operario. Si ya había una TASKDATA ahí, el motor la aparta (no la pisa).
+    /// </summary>
+    private async Task ExportarLoteIsoXmlAsync()
+    {
+        if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+        _tareasClient ??= new TareasClient(DeriveOrigin(App.TargetUrl));
+        var estado = await _tareasClient.EstadoAsync().ConfigureAwait(true);
+        if (estado == null) { MostrarToast(PilotX.Cockpit.Bars.Traductor.T("Sin conexión con PilotX.") + "  (AGP-NET-201)"); return; }
+        if (!estado.HayLote) { MostrarToast(PilotX.Cockpit.Bars.Traductor.T("Abrí el lote que querés exportar.")); return; }
+
+        string destino;
+        if (ExploradorArchivos.CardDisponible)
+        {
+            // Se sugiere "TASKDATA": la carpeta TASKDATA se crea al lado de lo
+            // que elija (en la raíz del pendrive es lo que buscan las pantallas).
+            string? ruta = await ExploradorArchivos.GuardarAsync(
+                PilotX.Cockpit.Bars.Traductor.T("Exportar lote ISO-XML"), "TASKDATA", ".XML").ConfigureAwait(true);
+            if (ruta == null) return;   // canceló
+            destino = ruta;
+        }
+        else
+        {
+            string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (string.IsNullOrEmpty(docs)) docs = System.IO.Path.GetTempPath();
+            destino = System.IO.Path.Combine(docs, "PilotX", "ISO-XML", estado.Lote ?? "Lote");
+        }
+
+        MostrarToast(PilotX.Cockpit.Bars.Traductor.T("Exportando el lote a ISO-XML…"));
+        var r = await _tareasClient.ExportarLoteIsoXmlAsync(destino, "4").ConfigureAwait(true);
+        if (r == null) { MostrarToast(PilotX.Cockpit.Bars.Traductor.T("Sin conexión con PilotX.") + "  (AGP-NET-201)"); return; }
+        if (!r.Ok) { MostrarToast(PilotX.Cockpit.Bars.Traductor.T(r.Error ?? "No se pudo exportar el lote."), 6); return; }
+        string msg = PilotX.Cockpit.Bars.Traductor.T("Lote exportado (ISO-XML) en") + " " + r.Carpeta
+                   + " — " + r.Linderos + " " + PilotX.Cockpit.Bars.Traductor.T("linderos") + ", "
+                   + r.Guias + " " + PilotX.Cockpit.Bars.Traductor.T("guías");
+        if (!string.IsNullOrEmpty(r.Apartada))
+            msg += ". " + PilotX.Cockpit.Bars.Traductor.T("La TASKDATA que había quedó en") + " " + r.Apartada;
+        MostrarToast(msg, 8);
     }
 
     // ---- Botón CoreX ------------------------------------------------------

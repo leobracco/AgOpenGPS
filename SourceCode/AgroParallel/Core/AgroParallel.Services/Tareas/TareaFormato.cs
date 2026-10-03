@@ -78,5 +78,37 @@ namespace AgroParallel.Services.Tareas
                 default: return "";
             }
         }
+
+        /// <summary>"Pulverizadora 28 · 28 m · 7 secciones" desde el snapshot;
+        /// "" sin snapshot. Las partes que falten se saltean.</summary>
+        public static string Implemento(TareaSnapshot s)
+        {
+            if (s == null) return "";
+            var partes = new System.Collections.Generic.List<string>();
+            if (!string.IsNullOrWhiteSpace(s.Implemento)) partes.Add(s.Implemento.Trim());
+            if (s.AnchoM > 0) partes.Add(Numero(s.AnchoM, "#,##0.##") + " m");
+            if (s.Secciones > 0) partes.Add(s.Secciones.ToString(CultureInfo.InvariantCulture) + (s.Secciones == 1 ? " sección" : " secciones"));
+            return string.Join(" · ", partes);
+        }
+
+        /// <summary>"1,5 · 1,5 · 3 m" — anchos de sección; "" si no hay.</summary>
+        public static string AnchosSecciones(TareaSnapshot s)
+        {
+            if (s?.AnchosSeccionesM == null || s.AnchosSeccionesM.Count == 0) return "";
+            var partes = new string[s.AnchosSeccionesM.Count];
+            for (int i = 0; i < partes.Length; i++) partes[i] = Numero(s.AnchosSeccionesM[i], "#,##0.##");
+            return string.Join(" · ", partes) + " m";
+        }
+
+        /// <summary>"Glifosato: 100 L/ha · calibración 100 pulsos/L (nodo Barra)".</summary>
+        public static string FlowX(TareaSnapshotFlowX p)
+        {
+            if (p == null) return "";
+            string nombre = string.IsNullOrWhiteSpace(p.Producto) ? "Producto" : p.Producto.Trim();
+            string txt = nombre + ": " + (p.DosisLha > 0 ? Numero(p.DosisLha, "#,##0.##") + " L/ha" : "sin dosis");
+            if (p.MeterCal > 0) txt += " · calibración " + Numero(p.MeterCal, "#,##0.##") + " pulsos/L";
+            if (!string.IsNullOrWhiteSpace(p.Nodo)) txt += " (nodo " + p.Nodo.Trim() + ")";
+            return txt;
+        }
     }
 }

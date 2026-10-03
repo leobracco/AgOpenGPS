@@ -7,6 +7,9 @@
 //     │                  │
 //     └──cerrar──▶ cerrada ◀──cerrar──┘
 //
+// "cerrada" (al operario: FINALIZADA) es terminal: no hay transición que salga
+// de ahí, y al entrar se sella (TareaSello) para detectar ediciones a mano.
+//
 // Una transición inválida devuelve false + motivo y NO toca la tarea.
 // ============================================================================
 
@@ -23,7 +26,8 @@ namespace AgroParallel.Services.Tareas
         private const double ToleranciaM2 = 0.5;
 
         public static Tarea Crear(string id, string lote, string cultivo, string tipoTrabajo,
-                                  string notas, InsumoDto insumo, DateTime ahora, double areaLoteM2)
+                                  string notas, InsumoDto insumo, DateTime ahora, double areaLoteM2,
+                                  TareaSnapshot snapshot = null)
         {
             var t = new Tarea
             {
@@ -62,7 +66,47 @@ namespace AgroParallel.Services.Tareas
                         : "";
                 }
             }
+            t.Snapshot = PrepararSnapshot(snapshot, t.TipoTrabajo, insumo, ahora);
             return t;
+        }
+
+        /// <summary>
+        /// Deja el snapshot listo para guardar en la tarea: copia propia (lo que
+        /// arma el host no puede quedar compartido con la tarea), hora de toma,
+        /// tipo del insumo, y sin FlowX en siembra/cosecha (FlowX es dosis
+        /// líquida: listarlo en una siembra haría creer que se aplicó). null si
+        /// el host no dio snapshot.
+        /// </summary>
+        public static TareaSnapshot PrepararSnapshot(TareaSnapshot s, string tipoTrabajo, InsumoDto insumo, DateTime ahora)
+        {
+            if (s == null) return null;
+            var c = new TareaSnapshot
+            {
+                Tomado = ahora,
+                Vehiculo = (s.Vehiculo ?? "").Trim(),
+                Implemento = (s.Implemento ?? "").Trim(),
+                AnchoM = Sano(s.AnchoM),
+                Secciones = Math.Max(0, s.Secciones),
+                InsumoTipo = (insumo?.Tipo ?? s.InsumoTipo ?? "").Trim(),
+                Operario = (s.Operario ?? "").Trim(),
+            };
+            if (s.AnchosSeccionesM != null)
+                foreach (var a in s.AnchosSeccionesM) c.AnchosSeccionesM.Add(Sano(a));
+            string tipo = TipoTrabajo.Normalizar(tipoTrabajo);
+            bool liquidoPosible = tipo != TipoTrabajo.Siembra && tipo != TipoTrabajo.Cosecha;
+            if (liquidoPosible && s.FlowX != null)
+                foreach (var p in s.FlowX)
+                {
+                    if (p == null) continue;
+                    c.FlowX.Add(new TareaSnapshotFlowX
+                    {
+                        Nodo = (p.Nodo ?? "").Trim(),
+                        Producto = (p.Producto ?? "").Trim(),
+                        DosisLha = Sano(p.DosisLha),
+                        MeterCal = Sano(p.MeterCal),
+                    });
+                }
+            return c;
         }
 
         /// <summary>
@@ -102,7 +146,7 @@ namespace AgroParallel.Services.Tareas
             if (t == null) { error = "No hay tarea."; return false; }
             if (t.Estado != EstadoTarea.Activa)
             {
-                error = t.Estado == EstadoTarea.Pausada ? "La tarea ya está en pausa." : "La tarea está cerrada.";
+                error = t.Estado == EstadoTarea.Pausada ? "La tarea ya está en pausa." : "La tarea está finalizada: no se modifica.";
                 return false;
             }
             CerrarTramo(t, ahora, areaLoteM2);
@@ -116,7 +160,7 @@ namespace AgroParallel.Services.Tareas
             if (t == null) { error = "No hay tarea."; return false; }
             if (t.Estado != EstadoTarea.Pausada)
             {
-                error = t.Estado == EstadoTarea.Activa ? "La tarea ya está en curso." : "La tarea está cerrada.";
+                error = t.Estado == EstadoTarea.Activa ? "La tarea ya está en curso." : "La tarea está finalizada: no se reabre.";
                 return false;
             }
             t.AreaBaseM2 = Sano(areaLoteM2);
@@ -130,10 +174,12 @@ namespace AgroParallel.Services.Tareas
         public static bool Cerrar(Tarea t, DateTime ahora, double areaLoteM2, out string error)
         {
             if (t == null) { error = "No hay tarea."; return false; }
-            if (t.Estado == EstadoTarea.Cerrada) { error = "La tarea ya está cerrada."; return false; }
+            if (t.Estado == EstadoTarea.Cerrada) { error = "La tarea ya está finalizada."; return false; }
             if (t.Estado == EstadoTarea.Activa) CerrarTramo(t, ahora, areaLoteM2);
             t.Estado = EstadoTarea.Cerrada;
             t.Fin = ahora;
+            // Finalizada = inmutable: se sella con todo lo que quedó (ver TareaSello).
+            TareaSello.Sellar(t);
             error = null;
             return true;
         }

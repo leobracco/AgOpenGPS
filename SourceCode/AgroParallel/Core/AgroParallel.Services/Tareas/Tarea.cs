@@ -85,7 +85,10 @@ namespace AgroParallel.Services.Tareas
             {
                 case Activa: return "En curso";
                 case Pausada: return "En pausa";
-                case Cerrada: return "Cerrada";
+                // En el archivo sigue siendo "cerrada" (compatibilidad con los
+                // Tareas.json que ya existen); al operario se le dice
+                // "Finalizada": quedó sellada y no se edita ni se reabre.
+                case Cerrada: return "Finalizada";
                 default: return estado ?? "";
             }
         }
@@ -130,6 +133,63 @@ namespace AgroParallel.Services.Tareas
         /// <summary>Última área del lote vista con la tarea activa. Sirve para no
         /// perder lo trabajado si el contador del lote vuelve a 0.</summary>
         [JsonPropertyName("ultima_area_vista_m2")] public double UltimaAreaVistaM2 { get; set; }
+
+        // ---- trazabilidad (campos NUEVOS, opcionales) ------------------------
+        // Un Tareas.json viejo no los trae y se lee igual (null). Se omiten al
+        // escribir si están vacíos, así una tarea vieja no cambia de forma.
+
+        /// <summary>Copia de con QUÉ se trabajó, tomada al INICIAR la tarea
+        /// (implemento, perfil de vehículo, FlowX, operario). Ver TareaSnapshot.</summary>
+        [JsonPropertyName("snapshot")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public TareaSnapshot Snapshot { get; set; }
+
+        /// <summary>SHA-256 (hex) del contenido de la tarea al FINALIZARLA. Con
+        /// sello la tarea es inmutable: si alguien edita el archivo a mano, el
+        /// sello deja de coincidir y el informe lo dice. Ver TareaSello.</summary>
+        [JsonPropertyName("sello")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string Sello { get; set; }
+
+        /// <summary>Versión de la forma canónica con que se calculó el sello.</summary>
+        [JsonPropertyName("sello_v")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? SelloVersion { get; set; }
+    }
+
+    /// <summary>
+    /// Foto de la configuración al INICIAR la tarea. Copia y no referencia, por
+    /// la misma razón que el insumo: si mañana cambian el implemento, el perfil
+    /// o la dosis de FlowX, el registro de ESTA aplicación tiene que seguir
+    /// diciendo con qué se hizo (trazabilidad de pulverizaciones).
+    /// </summary>
+    public sealed class TareaSnapshot
+    {
+        [JsonPropertyName("tomado")] public DateTime Tomado { get; set; }
+        /// <summary>Perfil de vehículo activo (nombre del archivo de perfil).</summary>
+        [JsonPropertyName("vehiculo")] public string Vehiculo { get; set; } = "";
+        /// <summary>Nombre del implemento activo (catálogo de implementos).</summary>
+        [JsonPropertyName("implemento")] public string Implemento { get; set; } = "";
+        /// <summary>Ancho de trabajo del implemento, en metros.</summary>
+        [JsonPropertyName("ancho_m")] public double AnchoM { get; set; }
+        [JsonPropertyName("secciones")] public int Secciones { get; set; }
+        [JsonPropertyName("anchos_secciones_m")] public List<double> AnchosSeccionesM { get; set; } = new List<double>();
+        /// <summary>"semilla" | "fertilizante" | "fitosanitario" | "" — del insumo activo.</summary>
+        [JsonPropertyName("insumo_tipo")] public string InsumoTipo { get; set; } = "";
+        /// <summary>Productos de FlowX (dosificación líquida) configurados al
+        /// iniciar. Solo en trabajos que pueden ser líquidos (no siembra/cosecha).</summary>
+        [JsonPropertyName("flowx")] public List<TareaSnapshotFlowX> FlowX { get; set; } = new List<TareaSnapshotFlowX>();
+        /// <summary>Quién manejó / aplicó, si el operario lo cargó. "" si no.</summary>
+        [JsonPropertyName("operario")] public string Operario { get; set; } = "";
+    }
+
+    public sealed class TareaSnapshotFlowX
+    {
+        [JsonPropertyName("nodo")] public string Nodo { get; set; } = "";
+        [JsonPropertyName("producto")] public string Producto { get; set; } = "";
+        [JsonPropertyName("dosis_lha")] public double DosisLha { get; set; }
+        /// <summary>Calibración del caudalímetro, pulsos por litro.</summary>
+        [JsonPropertyName("meter_cal")] public double MeterCal { get; set; }
     }
 
     /// <summary>Contenido de Tareas.json.</summary>

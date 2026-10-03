@@ -349,7 +349,11 @@ namespace AgOpenGPS
                         var w = _host.AppModelField.LocalPlane.ConvertGeoCoordToWgs84(
                             new AgOpenGPS.Core.Models.GeoCoord(n, e));
                         return new[] { w.Latitude, w.Longitude };
-                    });
+                    },
+                    // Snapshot al INICIAR la tarea: con qué se trabajó
+                    // (trazabilidad de la aplicación; la tarea finalizada
+                    // queda sellada con esto adentro).
+                    snapshot: () => ArmarSnapshotTarea(implemento, flowxCfg));
                 // Cerrar el lote con la tarea en curso la deja en pausa (el
                 // lote sigue abierto en el momento del evento).
                 _host.AntesDeCerrarLote += _tareas.AntesDeCerrarLote;
@@ -362,6 +366,10 @@ namespace AgOpenGPS
             {
                 Console.Error.WriteLine("[Engine] Tareas: " + ex.Message);
             }
+
+            // Export del lote abierto a ISO-XML (TASKDATA.XML) para llevar a
+            // otra pantalla (John Deere, CNH…). Lindero + cabecera + guías.
+            _web.ExportarIsoXml = (destino, version) => ExportarLoteIsoXml(lotes, destino, version);
 
             _web.Start();
 
@@ -643,6 +651,118 @@ namespace AgOpenGPS
                     Console.Error.WriteLine("[Engine] OrbitXSync retry: " + ex.Message);
                 }
             }, null, 30000, 30000);
+        }
+
+        /// <summary>
+        /// Foto de la configuración para una tarea que arranca: perfil de
+        /// vehículo, implemento (nombre del catálogo + ancho y secciones REALES
+        /// del motor, que son las que pintan) y FlowX. El operario lo pone la
+        /// pantalla. Cada parte por separado: si una falla, las otras quedan.
+        /// </summary>
+        private AgroParallel.Services.Tareas.TareaSnapshot ArmarSnapshotTarea(
+            ImplementoService implemento, FlowXConfigService flowxCfg)
+        {
+            var s = new AgroParallel.Services.Tareas.TareaSnapshot();
+            try { s.Vehiculo = AgOpenGPS.RegistrySettings.vehicleFileName ?? ""; } catch { }
+            try { s.Implemento = implemento?.GetImplemento()?.Nombre ?? ""; } catch { }
+            try
+            {
+                var tool = _host.Tool;
+                if (tool != null)
+                {
+                    s.AnchoM = tool.width;
+                    s.Secciones = Math.Max(0, Math.Min(tool.numOfSections, _host.Sections.Length));
+                    for (int i = 0; i < s.Secciones; i++)
+                    {
+                        var sec = _host.Sections[i];
+                        if (sec == null) continue;
+                        s.AnchosSeccionesM.Add(Math.Round(Math.Abs(sec.positionRight - sec.positionLeft), 3));
+                    }
+                }
+            }
+            catch (Exception ex) { Console.Error.WriteLine("[Engine] snapshot tarea (implemento): " + ex.Message); }
+            try
+            {
+                var fx = flowxCfg?.Load();
+                if (fx != null && fx.Enabled && fx.Nodos != null)
+                    foreach (var n in fx.Nodos)
+                    {
+                        // El bridge de FlowX hoy actúa SOLO el producto 0 de cada
+                        // nodo (Fase 1): es el único que se aplica de verdad.
+                        if (n == null || !n.Habilitado || n.Productos == null || n.Productos.Count == 0) continue;
+                        var p = n.Productos[0];
+                        s.FlowX.Add(new AgroParallel.Services.Tareas.TareaSnapshotFlowX
+                        {
+                            Nodo = string.IsNullOrWhiteSpace(n.Nombre) ? (n.Uid ?? "") : n.Nombre,
+                            Producto = p?.Nombre ?? "",
+                            DosisLha = p?.DosisLha ?? 0,
+                            MeterCal = p?.MeterCal ?? 0,
+                        });
+                    }
+            }
+            catch (Exception ex) { Console.Error.WriteLine("[Engine] snapshot tarea (FlowX): " + ex.Message); }
+            return s;
+        }
+
+        /// <summary>
+        /// Lote abierto → TASKDATA\TASKDATA.XML en el destino (pendrive). Copia
+        /// las listas antes de escribir: el motor puede estar tocando guías o
+        /// lindero desde otro hilo y el export no puede ver una lista a medias.
+        /// </summary>
+        private AgroParallel.Models.IsoXmlExportResultadoDto ExportarLoteIsoXml(
+            EngineLotesService lotes, string destino, string version)
+        {
+            try
+            {
+                string dir = lotes.GetCurrentFieldDirectory();
+                if (string.IsNullOrEmpty(dir) || !_host.IsJobStarted)
+                    return new AgroParallel.Models.IsoXmlExportResultadoDto { Error = "Abrí el lote que querés exportar." };
+
+                var bnds = new System.Collections.Generic.List<AgOpenGPS.CBoundaryList>();
+                foreach (var b in _host.Bnd.bndList.ToArray())
+                {
+                    if (b == null) continue;
+                    var c = new AgOpenGPS.CBoundaryList { isVirtualTurnBoundary = b.isVirtualTurnBoundary };
+                    c.fenceLine.AddRange(b.fenceLine.ToArray());
+                    c.hdLine.AddRange(b.hdLine.ToArray());
+                    bnds.Add(c);
+                }
+                var trks = new System.Collections.Generic.List<AgOpenGPS.CTrk>();
+                foreach (var t in _host.Trk.gArr.ToArray())
+                    if (t != null) trks.Add(new AgOpenGPS.CTrk(t));
+
+                var v = string.Equals((version ?? "").Trim(), "3", StringComparison.Ordinal)
+                    ? AgOpenGPS.Protocols.ISOBUS.IsoXmlFieldExporter.IsoVersion.V3
+                    : AgOpenGPS.Protocols.ISOBUS.IsoXmlFieldExporter.IsoVersion.V4;
+                string nombre = Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                var r = AgOpenGPS.Protocols.ISOBUS.IsoXmlFieldExporter.Exportar(
+                    destino, nombre, bnds, trks, _host.AppModelField.LocalPlane, v, VersionPilotX());
+                Console.WriteLine(r.Ok
+                    ? "[Engine] Lote '" + nombre + "' exportado a ISO-XML v" + r.Version + ": " + r.Archivo
+                    : "[Engine] Export ISO-XML falló: " + r.Error);
+                return r;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] Export ISO-XML: " + ex.Message);
+                return new AgroParallel.Models.IsoXmlExportResultadoDto { Error = "No se pudo exportar: " + ex.Message };
+            }
+        }
+
+        private static string VersionPilotX()
+        {
+            try
+            {
+                var asm = System.Reflection.Assembly.GetEntryAssembly();
+                var attr = asm?.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false);
+                string v = attr != null && attr.Length > 0
+                    ? ((System.Reflection.AssemblyInformationalVersionAttribute)attr[0]).InformationalVersion
+                    : asm?.GetName().Version?.ToString();
+                if (string.IsNullOrEmpty(v)) return "0";
+                int mas = v.IndexOf('+');   // sin el hash de git
+                return mas > 0 ? v.Substring(0, mas) : v;
+            }
+            catch { return "0"; }
         }
 
         public void Stop()

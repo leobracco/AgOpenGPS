@@ -13,7 +13,13 @@
 //     que cerrar la anterior.
 //   · Cerrar el lote PAUSA la tarea activa (AntesDeCerrarLote): sin lote
 //     abierto no hay contador de área que mirar, y el área no puede quedar
-//     corriendo contra el lote siguiente.
+//     corriendo contra el lote siguiente. La pantalla de cabina PREGUNTA antes
+//     (Finalizar / Dejar abierta) y si eligen finalizar llama a Cerrar() antes
+//     de cerrar el lote; la pausa es el camino por defecto para todo lo demás
+//     (Hub remoto, abrir otro lote, apagar).
+//   · Al crear se guarda un SNAPSHOT de la configuración (delegado del host:
+//     implemento, perfil, FlowX) + el operario del pedido. Al cerrar
+//     (= FINALIZAR) la tarea se sella (TareaSello) y queda inmutable.
 //   · Exportar solo tareas CERRADAS (el informe es definitivo) y con el lote
 //     abierto. La cobertura exportada es la del lote AL MOMENTO de exportar:
 //     PilotX guarda una sola cobertura por lote (Sections.txt) y no sabe qué
@@ -36,6 +42,8 @@ namespace AgroParallel.Services.Tareas
         public string Cultivo { get; set; }
         public string TipoTrabajo { get; set; }
         public string Notas { get; set; }
+        /// <summary>Quién maneja/aplica (opcional). Queda en el snapshot.</summary>
+        public string Operario { get; set; }
     }
 
     /// <summary>Una tarea lista para mostrar: los textos ya vienen formateados
@@ -58,6 +66,17 @@ namespace AgroParallel.Services.Tareas
         public string DuracionTexto { get; set; }
         /// <summary>Nombre de archivo sugerido para el export (sin extensión).</summary>
         public string ArchivoSugerido { get; set; }
+
+        // ---- trazabilidad ----------------------------------------------------
+        /// <summary>IntegridadTarea: abierta | sin_sello | ok | alterada.</summary>
+        public string Integridad { get; set; }
+        public string IntegridadTexto { get; set; }
+        /// <summary>Primeros 12 caracteres del sello (para mostrar); "" sin sello.</summary>
+        public string SelloCorto { get; set; }
+        /// <summary>"Sembradora 12 m · 8 secciones" — del snapshot al iniciar.</summary>
+        public string ImplementoTexto { get; set; }
+        public string Vehiculo { get; set; }
+        public string Operario { get; set; }
     }
 
     public sealed class TareasEstado
@@ -97,6 +116,7 @@ namespace AgroParallel.Services.Tareas
         private readonly Func<CoverageSnapshot> _cobertura;
         private readonly Func<double, double, double[]> _aLatLon;
         private readonly Func<DateTime> _reloj;
+        private readonly Func<TareaSnapshot> _snapshot;
         private readonly object _lock = new object();
 
         // Cache del Tareas.json del lote abierto: UltimaAreaVistaM2 vive acá
@@ -107,7 +127,7 @@ namespace AgroParallel.Services.Tareas
 
         public TareasService(Func<string> loteDir, Func<double> areaTrabajadaM2, Func<InsumoDto> insumoActivo,
                              Func<CoverageSnapshot> cobertura, Func<double, double, double[]> aLatLon,
-                             Func<DateTime> reloj = null)
+                             Func<DateTime> reloj = null, Func<TareaSnapshot> snapshot = null)
         {
             _loteDir = loteDir ?? throw new ArgumentNullException(nameof(loteDir));
             _areaM2 = areaTrabajadaM2 ?? throw new ArgumentNullException(nameof(areaTrabajadaM2));
@@ -115,6 +135,7 @@ namespace AgroParallel.Services.Tareas
             _cobertura = cobertura;
             _aLatLon = aLatLon;
             _reloj = reloj ?? (() => DateTime.Now);
+            _snapshot = snapshot;
         }
 
         // =====================================================================
@@ -142,13 +163,25 @@ namespace AgroParallel.Services.Tareas
                 if (dir == null) return SinLote("Abrí un lote para empezar una tarea.");
                 var a = Archivo(dir);
                 if (TareaReglas.Abierta(a.Tareas) != null)
-                    return Armar(dir, a, "Ya hay una tarea abierta en este lote: cerrala antes de empezar otra.");
+                    return Armar(dir, a, "Ya hay una tarea abierta en este lote: finalizala antes de empezar otra.");
 
                 DateTime ahora = _reloj();
                 InsumoDto insumo = null;
                 try { insumo = _insumo(); } catch { }
+                // Snapshot de la configuración AL INICIAR. Si el host no puede
+                // armarlo (o tira), la tarea arranca igual: el operario está
+                // trabajando; el informe dirá que no hay datos de configuración.
+                TareaSnapshot snap = null;
+                try { snap = _snapshot?.Invoke(); }
+                catch (Exception ex) { AgpLog.Warn("Tareas", "snapshot", ex); }
+                string operario = (pedido?.Operario ?? "").Trim();
+                if (operario.Length > 0)
+                {
+                    if (snap == null) snap = new TareaSnapshot();
+                    snap.Operario = operario;
+                }
                 var t = TareaReglas.Crear(NuevoId(a, ahora), NombreLote(dir), pedido?.Cultivo,
-                                          pedido?.TipoTrabajo, pedido?.Notas, insumo, ahora, Area());
+                                          pedido?.TipoTrabajo, pedido?.Notas, insumo, ahora, Area(), snap);
                 a.Tareas.Add(t);
                 string err = Persistir(dir, a);
                 if (err != null) { a.Tareas.Remove(t); return Armar(dir, a, err); }
@@ -238,7 +271,12 @@ namespace AgroParallel.Services.Tareas
                 Tarea t = null;
                 foreach (var x in a.Tareas) if (x.Id == id) { t = x; break; }
                 if (t == null) { r.Error = "No se encontró la tarea en este lote."; return r; }
-                if (t.Estado != EstadoTarea.Cerrada) { r.Error = "Cerrá la tarea antes de exportarla."; return r; }
+                if (t.Estado != EstadoTarea.Cerrada) { r.Error = "Finalizá la tarea antes de exportarla."; return r; }
+                // Una tarea alterada SE EXPORTA igual (es el registro que hay),
+                // pero el informe lo dice en grande: no se esconde.
+                string integridad = TareaSello.Verificar(t);
+                if (integridad == IntegridadTarea.Alterada)
+                    AgpLog.Warn("Tareas", "Tarea " + t.Id + " exportada con el sello ALTERADO");
 
                 try
                 {
@@ -275,7 +313,7 @@ namespace AgroParallel.Services.Tareas
                     catch (Exception ex) { AgpLog.Warn("Tareas", "resumen VistaX", ex); vx = null; csvVx = null; }
 
                     string informe = TareaInforme.ArmarHtml(t, _reloj(), poligonos > 0 ? Path.GetFileName(shp) : null,
-                        vx, csvVx != null ? Path.GetFileName(csvVx) : null);
+                        vx, csvVx != null ? Path.GetFileName(csvVx) : null, integridad);
                     File.WriteAllText(html, informe, new UTF8Encoding(false));
 
                     r.Ok = true;
@@ -405,8 +443,15 @@ namespace AgroParallel.Services.Tareas
         private static TareaVista Vista(Tarea t, double areaLote, DateTime ahora)
         {
             double m2 = TareaReglas.AreaTrabajadaM2(t, areaLote);
+            string integridad = TareaSello.Verificar(t);
             return new TareaVista
             {
+                Integridad = integridad,
+                IntegridadTexto = IntegridadTarea.Etiqueta(integridad),
+                SelloCorto = string.IsNullOrEmpty(t.Sello) ? "" : t.Sello.Substring(0, Math.Min(12, t.Sello.Length)),
+                ImplementoTexto = TareaFormato.Implemento(t.Snapshot),
+                Vehiculo = t.Snapshot?.Vehiculo ?? "",
+                Operario = t.Snapshot?.Operario ?? "",
                 Id = t.Id,
                 Estado = t.Estado,
                 EstadoTexto = EstadoTarea.Etiqueta(t.Estado),

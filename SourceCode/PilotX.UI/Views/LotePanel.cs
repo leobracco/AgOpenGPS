@@ -62,6 +62,9 @@ public sealed class LotePanel : Border
 
     /// <summary>El panel se cerró (por acción o por la X).</summary>
     public event Action? Cerrado;
+    /// <summary>Antes de "Cerrar lote": devuelve true si otro (MainWindow,
+    /// por una tarea abierta) se hace cargo y el lote NO se cierra acá.</summary>
+    public Func<Task<bool>>? AntesDeCerrarLote { get; set; }
 
     private sealed class LoteDto
     {
@@ -283,6 +286,11 @@ public sealed class LotePanel : Border
         });
         btnCerrarLote = BotonMenu("Cerrar lote", "FileClose.png", false, async () =>
         {
+            // Con una tarea abierta, MainWindow abre la card de Tarea con la
+            // pregunta (Finalizar / Dejar abierta / Cancelar) y es ella la que
+            // cierra el lote: acá no se cierra nada.
+            var antes = AntesDeCerrarLote;
+            if (antes != null && await antes()) return;
             await PostAsync("/api/lotes/close");
             Cerrar();
         });
