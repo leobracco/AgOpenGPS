@@ -273,6 +273,13 @@ namespace AgOpenGPS.Properties
         // de fábrica hasta validarlo en lote: decide por dónde pasa la máquina.
         // Salida de emergencia en el Engine: --sin-guiado-implemento.
         public int setAS_guiadoImplemento = 0;
+        // Manejo libre: velocidad FALSA que va en el PGN 254 (ver
+        // CAutoSteerUpdater.VelocidadManejoLibreX10). true = 0,5 km/h; false =
+        // los 8 km/h históricos de AOG. PRENDIDO de fábrica: 0,5 alcanza para
+        // que la placa mueva (> 0,2) y no dispara la autocorrección del cero
+        // del Keya-como-WAS (> 1,2) ni manda 8 km/h por el pulso de velocidad
+        // con el tractor parado. No decide dónde se aplica producto.
+        public bool setAS_freeDriveVelocidadBaja = true;
         public HarvesterBrand setBrand_HBrand = HarvesterBrand.AgOpenGPS;
         public ArticulatedBrand setBrand_WDBrand = ArticulatedBrand.AgOpenGPS;
         public double setIMU_fusionWeight2 = 0.06;

@@ -7,6 +7,7 @@
 //   · no se deja prender con el tractor andando;
 //   · no se deja prender si el host no sabe informar velocidad ("no sé" tiene
 //     que fallar cerrado).
+// También la velocidad falsa del PGN 254 en manejo libre (ver abajo).
 // El tercer candado —el watchdog que lo apaga solo en cada PGN— vive en
 // CAutoSteerUpdater y se valida en cabina: necesita el host entero.
 // ============================================================================
@@ -260,6 +261,46 @@ namespace AgOpenGPS.Core.Tests
             Assert.That(r.Speed, Is.EqualTo(12.5));
             Assert.That(r.SpeedLimit, Is.EqualTo(7.0));
             Assert.That(r.MaxAngle, Is.EqualTo(30.0));
+        }
+
+        // ---- Velocidad falsa que sale en el PGN 254 con el manejo libre ----
+        //
+        // El firmware AiO (CoreX\...\AIO_v4_CoreX_Web\src\Autosteer.ino) lee
+        // esa velocidad como si fuera la real:
+        //   · gpsSpeed < 0,2 km/h  -> steerAngleError = 0: el motor NO mueve;
+        //   · gpsSpeed > 1,2 km/h  -> con Keya como WAS corrige el cero contra
+        //     el GPS (wheelAngleGPS), y con el tractor parado eso corre el cero;
+        //   · además sale por el pin de pulso de velocidad (tone a 36,1 Hz por km/h).
+        // Los 8 km/h históricos de AOG caen en la zona mala. 0,5 km/h mueve el
+        // motor y no dispara la autocorrección.
+
+        [Test]
+        public void VelocidadFalsa_Baja_EsMedioKmh()
+        {
+            Assert.That(CAutoSteerUpdater.VelocidadManejoLibreX10(baja: true), Is.EqualTo(5),
+                "0,5 km/h en décimas");
+        }
+
+        [Test]
+        public void VelocidadFalsa_Clasica_SiguenSiendoLos8DeAOG()
+        {
+            Assert.That(CAutoSteerUpdater.VelocidadManejoLibreX10(baja: false), Is.EqualTo(80));
+        }
+
+        [Test]
+        public void VelocidadFalsa_Baja_MueveElMotorYNoCorreElCeroDelKeya()
+        {
+            double kmh = CAutoSteerUpdater.VelocidadManejoLibreX10(baja: true) * 0.1;
+
+            Assert.That(kmh, Is.GreaterThanOrEqualTo(0.2), "con < 0,2 km/h la placa no mueve la rueda");
+            Assert.That(kmh, Is.LessThanOrEqualTo(1.2), "con > 1,2 km/h el Keya corrige el cero contra el GPS");
+            Assert.That(kmh, Is.LessThanOrEqualTo(1.0), "con > 1 km/h el firmware recalcula wheelAngleGPS");
+        }
+
+        [Test]
+        public void VelocidadFalsa_DeFabrica_VaLaBaja()
+        {
+            Assert.That(new AgOpenGPS.Properties.Settings().setAS_freeDriveVelocidadBaja, Is.True);
         }
     }
 }

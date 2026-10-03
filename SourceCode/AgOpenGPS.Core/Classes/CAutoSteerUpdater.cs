@@ -48,6 +48,21 @@ namespace AgOpenGPS
         /// </summary>
         public SteerCal.IAsistenteDireccionMotor AsistenteDireccion { get; set; }
 
+        // ---- Manejo libre: velocidad falsa del PGN 254 ----
+
+        /// <summary>
+        /// Velocidad (en décimas de km/h) que va en el PGN 254 con el manejo
+        /// libre prendido. El tractor está parado, pero el firmware AiO con
+        /// &lt; 0,2 km/h no mueve la rueda, así que hay que mandarle algo.
+        /// AOG mandaba 8 km/h: con Keya como WAS el firmware corrige el cero
+        /// contra el GPS por encima de 1,2 km/h (con el tractor parado eso lo
+        /// corre) y además esa velocidad sale por el pin de pulso de velocidad.
+        /// baja=true (setAS_freeDriveVelocidadBaja, de fábrica) manda 0,5 km/h:
+        /// mueve el motor y no toca ninguna de las dos cosas. baja=false vuelve
+        /// a los 8 km/h de siempre (salida de emergencia).
+        /// </summary>
+        public static int VelocidadManejoLibreX10(bool baja) => baja ? 5 : 80;
+
         private long ultimoTickImplemento;
         private bool ultimoEstadoImplemento;
 
@@ -360,9 +375,11 @@ namespace AgOpenGPS
             }
             else //Drive button is on
             {
-                //fill up the auto steer array with free drive values
-                p_254.pgn[p_254.speedHi] = unchecked((byte)((int)(80) >> 8));
-                p_254.pgn[p_254.speedLo] = unchecked((byte)((int)(80)));
+                // Velocidad falsa del manejo libre (ver VelocidadManejoLibreX10).
+                int velFalsa10 = VelocidadManejoLibreX10(
+                    AgOpenGPS.Properties.Settings.Default.setAS_freeDriveVelocidadBaja);
+                p_254.pgn[p_254.speedHi] = unchecked((byte)(velFalsa10 >> 8));
+                p_254.pgn[p_254.speedLo] = unchecked((byte)velFalsa10);
 
                 //turn on status to operate
                 p_254.pgn[p_254.status] = 1;
