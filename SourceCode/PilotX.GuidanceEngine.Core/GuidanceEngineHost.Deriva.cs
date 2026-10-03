@@ -66,16 +66,15 @@ namespace AgOpenGPS
                     || Math.Abs(cm) > LimiteCorrimientoCm)
                     return true;
                 GeoDelta d = DerivaActual;
-                AplicarDeriva(norte ? new GeoDelta(cm / 100.0, d.EastingDelta)
-                                    : new GeoDelta(d.NorthingDelta, cm / 100.0));
-                ok = true;
+                ok = AplicarDerivaManual(norte ? new GeoDelta(cm / 100.0, d.EastingDelta)
+                                               : new GeoDelta(d.NorthingDelta, cm / 100.0));
                 return true;
             }
             switch (cmd)
             {
                 case "shift_zero":
-                    AplicarDeriva(new GeoDelta(0, 0));
-                    ok = true; return true;
+                    ok = AplicarDerivaManual(new GeoDelta(0, 0));
+                    return true;
                 case "offsets_on":
                     mantenerCorrimiento = true;
                     ok = true; return true;
@@ -88,6 +87,25 @@ namespace AgOpenGPS
                     ok = VolverAReferencia(); return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Corrimiento a mano (±cm, "Poner en cero"). Con el piloto enganchado
+        /// solo deja saltos chicos (CorrimientoManual): un salto grande corre la
+        /// línea bajo el piloto y es un volantazo. El motivo queda en
+        /// referenciaMensaje para que la pantalla lo diga.
+        /// </summary>
+        private bool AplicarDerivaManual(GeoDelta nueva)
+        {
+            GeoDelta vieja = DerivaActual;
+            string motivo = CorrimientoManual.PorQueNoSePuede(
+                nueva.NorthingDelta - vieja.NorthingDelta,
+                nueva.EastingDelta - vieja.EastingDelta,
+                isBtnAutoSteerOn);
+            if (motivo != null) return ResultadoReferencia(false, motivo);
+
+            AplicarDeriva(nueva);
+            return true;
         }
 
         /// <summary>Hay fix vivo (mismo criterio de 3 s que el state provider).</summary>

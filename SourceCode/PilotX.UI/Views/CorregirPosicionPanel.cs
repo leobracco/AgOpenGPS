@@ -701,8 +701,29 @@ public sealed class CorregirPosicionPanel : Border
         }
 
         // Rechazado por el motor: el número YA se movió en pantalla y la máquina
-        // no se movió. Decirlo, que es justo lo que la página se comía.
+        // no se movió. Se vuelve a leer el estado real (los números vuelven a
+        // la posición verdadera) y se dice POR QUÉ: el motor deja el motivo en
+        // ref_mensaje (ej. "Desenganchá el piloto…" en un salto grande).
         SetPill("comando rechazado", Warn);
+        string motivo = "";
+        try
+        {
+            var d = await client.GetAsync(ct).ConfigureAwait(true);
+            if (d != null && !_cerrada)
+            {
+                AplicarEstado(d, conMensaje: false);
+                motivo = d.RefMensaje ?? "";
+                Render();
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+        catch { /* sin estado: queda el aviso genérico */ }
+
+        if (!string.IsNullOrEmpty(motivo) && motivo.StartsWith("Desenganchá", StringComparison.Ordinal))
+        {
+            Aviso?.Invoke(Traductor.T(motivo));
+            return;
+        }
         if (_avisoRechazo) return;
         _avisoRechazo = true;
         Aviso?.Invoke(Traductor.T(
