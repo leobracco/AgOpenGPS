@@ -12,6 +12,31 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.88] — 2026-10-03
+
+Lo que cambia el guiado sigue APAGADO de fábrica: con los ajustes por defecto
+la máquina guía igual que en la 1.0.87.
+
+### Added
+
+- **Planimetría: registro de alturas del lote** (Configuración › GPS / IMU ›
+  Elevación, apagado). Con RTK fijo graba un punto por metro, con la altura de
+  la antena llevada al suelo, y lo sube a OrbitX, donde el lote muestra la
+  pestaña Altimetría (curvas de nivel, pendientes, bajos). Sin RTK fijo no
+  graba.
+- **Cero automático del WAS** (Dirección › Sensor, apagado): mide el cero del
+  sensor de ángulo andando derecho con el piloto y lo PROPONE; se aplica solo
+  si el operario toca Aplicar, con Deshacer.
+- **Bloqueo de saltos en Corregir posición** (Dirección › Pantalla, apagado):
+  con el piloto enganchado no deja "Poner en cero" ni saltos de más de 50 cm.
+
+### Fixed
+
+- **RTK que se caía al volver internet**: las correcciones hacia la placa
+  salían de golpe y la ahogaban; ahora salen dosificadas.
+
+---
+
 ## [1.0.87] — 2026-10-01
 
 Tanda de funciones tomadas de la competencia (Sensor T-Wave, Ag Leader,
