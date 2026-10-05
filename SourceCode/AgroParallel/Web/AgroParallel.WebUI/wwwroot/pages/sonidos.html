@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sonidos · Agro Parallel</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .sn-fila {
+      display:flex; align-items:center; gap:var(--agp-sp-3); flex-wrap:wrap;
+      padding:var(--agp-sp-3);
+      border:var(--agp-border-w) solid var(--agp-border);
+      border-radius:var(--agp-radius-md);
+      background:var(--agp-bg-soft);
+      margin-bottom:var(--agp-sp-2);
+    }
+    .sn-fila.off { opacity:.55; }
+    .sn-nombre { min-width:190px; font-weight:var(--agp-fw-bold,600); }
+    .sn-nombre small { display:block; font-weight:normal; color:var(--agp-text-muted);
+                       font-size:var(--agp-fs-xs); }
+    .sn-fila select { min-width:150px; }
+    .sn-num { width:76px; }
+    .sn-mini { font-size:var(--agp-fs-xs); color:var(--agp-text-muted); }
+    .sn-activa {
+      padding:var(--agp-sp-2) var(--agp-sp-3);
+      border-left:4px solid var(--agp-state-warn);
+      background:var(--agp-bg-soft); border-radius:var(--agp-radius-sm);
+      margin-bottom:var(--agp-sp-1); font-size:var(--agp-fs-sm);
+    }
+    #btnMute.on { background:var(--agp-state-bad); color:#fff; border-color:var(--agp-state-bad); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="configuracion"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Sonidos</h1>
+        <div class="subtitle">Qué avisa la cabina, con qué sonido y cuándo</div>
+      </div>
+      <button class="btn" id="btnMute">🔇 Silenciar todo</button>
+    </div>
+
+    <div class="card">
+      <div id="snActivas"><p class="sn-mini">Sin alarmas activas.</p></div>
+    </div>
+
+    <div class="card" style="margin-top:var(--agp-sp-3)">
+      <h3>Eventos</h3>
+      <div id="snLista"></div>
+      <div class="btn-row" style="margin-top:var(--agp-sp-3)">
+        <button class="btn primary" id="btnGuardar">Guardar</button>
+        <button class="btn" id="btnSubir">Subir sonido propio (.wav)</button>
+        <input type="file" id="snFile" accept=".wav,audio/wav" style="display:none" />
+        <span class="send-msg" id="snMsg"></span>
+      </div>
+      <p class="sn-mini" style="margin-top:var(--agp-sp-2)">
+        Umbral: a partir de qué desvío se considera alarma (solo dosis).
+        Sostenido: cuántos segundos debe mantenerse antes de sonar.
+        Repetir: si sigue activa, vuelve a sonar cada tantos segundos (0 = una sola vez).
+      </p>
+    </div>
+  </main>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sonidos.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

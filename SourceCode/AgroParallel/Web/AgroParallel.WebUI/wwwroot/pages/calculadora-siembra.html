@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculadora de siembra · Agro Parallel</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Cuentas de siembra de gruesa. Método INTA de evaluación a campo
+       (doc "Cálculos distanciamiento entre semillas de gruesa"). */
+    .cs-tabs { display:flex; flex-wrap:wrap; gap:var(--agp-sp-2); margin-bottom:var(--agp-sp-4) }
+    .cs-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:var(--agp-sp-3) }
+    .cs-out { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+              gap:var(--agp-sp-3); margin-top:var(--agp-sp-4);
+              padding-top:var(--agp-sp-3); border-top:1px solid var(--agp-border) }
+    .cs-kpi { display:flex; flex-direction:column; gap:2px }
+    .cs-kpi .k { font-size:var(--agp-fs-xs); text-transform:uppercase; letter-spacing:.06em;
+                 color:var(--agp-text-muted) }
+    .cs-kpi .v { font-size:var(--agp-fs-lg); font-variant-numeric:tabular-nums; color:var(--agp-text) }
+    .cs-kpi .v small { font-size:var(--agp-fs-sm); color:var(--agp-text-muted); font-weight:normal }
+    .cs-kpi.ok .v { color:var(--agp-state-ok) }
+    .cs-kpi.warn .v { color:var(--agp-state-warn) }
+    .cs-kpi.bad .v { color:var(--agp-state-bad) }
+    .cs-nota { margin-top:var(--agp-sp-3); font-size:var(--agp-fs-xs); color:var(--agp-text-muted);
+               line-height:1.45 }
+    .cs-eventos { width:100%; min-height:96px; font-family:var(--agp-font-mono);
+                  font-size:var(--agp-fs-sm) }
+    .cs-lock { font-size:var(--agp-fs-xs); color:var(--agp-text-muted); margin-top:var(--agp-sp-1) }
+    table.cs-tabla { width:100%; border-collapse:collapse; margin-top:var(--agp-sp-3) }
+    table.cs-tabla th, table.cs-tabla td { padding:var(--agp-sp-2); border-bottom:1px solid var(--agp-border);
+                                           text-align:right; font-size:var(--agp-fs-sm);
+                                           font-variant-numeric:tabular-nums }
+    table.cs-tabla th:first-child, table.cs-tabla td:first-child { text-align:left }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="calculadora-siembra"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Calculadora de siembra</h1>
+        <div class="subtitle">Densidad, distanciamiento y evaluación de la siembra de gruesa</div>
+      </div>
+      <span id="csImpl" class="pill idle"><span class="dot"></span> <span id="csImplTxt">—</span></span>
+    </div>
+
+    <div class="cs-tabs">
+      <button type="button" class="btn primary" data-cs-tab="densidad">Densidad y distanciamiento</button>
+      <button type="button" class="btn" data-cs-tab="campo">Evaluación a campo</button>
+      <button type="button" class="btn" data-cs-tab="pms">kg/ha ↔ sem/ha</button>
+      <button type="button" class="btn" data-cs-tab="motor">Motor: sem/vuelta y rpm</button>
+    </div>
+
+    <!-- ===== 1. DENSIDAD ↔ SEM/M ↔ DISTANCIAMIENTO ===== -->
+    <section id="csDensidad">
+      <div class="card">
+        <h3>Qué sé</h3>
+        <div class="cs-grid">
+          <div class="field"><label for="dEsp">Distancia entre hileras (m)</label>
+            <input type="number" id="dEsp" step="0.01" min="0.05" max="3" value="0.52"></div>
+          <div class="field"><label for="dDens">Densidad objetivo (sem/ha)</label>
+            <input type="number" id="dDens" step="1000" min="0" value="70000"></div>
+          <div class="field"><label for="dSemM">Semillas por metro de surco</label>
+            <input type="number" id="dSemM" step="0.1" min="0" value=""></div>
+          <div class="field"><label for="dDist">Distanciamiento entre semillas (cm)</label>
+            <input type="number" id="dDist" step="0.1" min="0" value=""></div>
+        </div>
+        <div class="cs-lock">Completá <strong>uno solo</strong> de los tres últimos: los otros dos se calculan.
+          El último que tocás manda.</div>
+
+        <div class="cs-out">
+          <div class="cs-kpi"><span class="k">Semillas por metro</span><span class="v" id="oSemM">—</span></div>
+          <div class="cs-kpi"><span class="k">Densidad</span><span class="v" id="oDens">—</span></div>
+          <div class="cs-kpi"><span class="k">Distanciamiento</span><span class="v" id="oDist">—</span></div>
+          <div class="cs-kpi"><span class="k">Metros de surco por ha</span><span class="v" id="oMetros">—</span></div>
+        </div>
+        <div class="cs-out">
+          <div class="cs-kpi"><span class="k">Falla si supera</span><span class="v" id="oFalla">—</span></div>
+          <div class="cs-kpi"><span class="k">Duplicación si baja de</span><span class="v" id="oDup">—</span></div>
+          <div class="cs-kpi"><span class="k">Tolerancia ±25%</span><span class="v" id="oTol">—</span></div>
+        </div>
+        <div class="cs-nota">
+          Metros lineales de surco en una hectárea = 10.000 m² / distancia entre hileras.
+          Densidad = semillas por metro × esos metros. Falla = separación mayor a 1,5 veces
+          la de referencia; duplicación = menor a 0,5 veces.
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 2. EVALUACIÓN A CAMPO ===== -->
+    <section id="csCampo" style="display:none">
+      <div class="card">
+        <h3>Distanciamientos medidos</h3>
+        <div class="cs-grid">
+          <div class="field"><label for="cDref">Distanciamiento de referencia (cm)</label>
+            <input type="number" id="cDref" step="0.1" min="0" value=""></div>
+          <div class="field"><label for="cMetros">Metros de surco evaluados</label>
+            <input type="number" id="cMetros" step="0.1" min="0" value="14.3"></div>
+          <div class="field"><label for="cEsp">Distancia entre hileras (m)</label>
+            <input type="number" id="cEsp" step="0.01" min="0.05" value="0.52"></div>
+        </div>
+        <div class="field" style="margin-top:var(--agp-sp-3)">
+          <label for="cEventos">Separaciones entre semillas, en cm (separadas por espacio, coma o renglón)</label>
+          <textarea id="cEventos" class="cs-eventos" placeholder="20.5 19.8 21.2 33.4 10.0 ..."></textarea>
+        </div>
+        <div class="btn-row" style="margin-top:var(--agp-sp-3)">
+          <button class="btn primary" id="cCalc">Calcular</button>
+          <button class="btn" id="cLimpiar">Limpiar</button>
+          <span class="send-msg" id="cMsg"></span>
+        </div>
+
+        <div class="cs-out">
+          <div class="cs-kpi"><span class="k">Eventos totales</span><span class="v" id="eTot">—</span></div>
+          <div class="cs-kpi"><span class="k">Bien sembradas</span><span class="v" id="eOk">—</span></div>
+          <div class="cs-kpi"><span class="k">Fallas</span><span class="v" id="eFallas">—</span></div>
+          <div class="cs-kpi"><span class="k">Duplicaciones</span><span class="v" id="eDup">—</span></div>
+        </div>
+        <div class="cs-out">
+          <div class="cs-kpi"><span class="k">Eventos corregidos</span><span class="v" id="eCorr">—</span></div>
+          <div class="cs-kpi"><span class="k">Densidad real</span><span class="v" id="eDreal">—</span></div>
+          <div class="cs-kpi"><span class="k">Densidad corregida</span><span class="v" id="eDcorr">—</span></div>
+          <div class="cs-kpi"><span class="k">Dentro de ±5% de la referencia</span><span class="v" id="eEnRango">—</span></div>
+        </div>
+        <div class="cs-out">
+          <div class="cs-kpi"><span class="k">Población en tolerancia</span><span class="v" id="ePobl">—</span></div>
+          <div class="cs-kpi"><span class="k">Desvío de las bien sembradas</span><span class="v" id="eDesv">—</span></div>
+          <div class="cs-kpi"><span class="k">% de fallas</span><span class="v" id="ePctF">—</span></div>
+          <div class="cs-kpi"><span class="k">% de duplicaciones</span><span class="v" id="ePctD">—</span></div>
+        </div>
+        <div class="cs-nota">
+          Falla doble: separación entre 2,5 y 3,5 veces la referencia (cuenta como dos).
+          Eventos corregidos = totales + fallas + fallas dobles × 2 − duplicaciones.
+          Población en tolerancia = eventos entre 0,75 y 1,25 de la referencia, sobre las bien sembradas.
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 3. kg/ha ↔ sem/ha ===== -->
+    <section id="csPms" style="display:none">
+      <div class="card">
+        <h3>Convertir con el peso de mil semillas</h3>
+        <div class="cs-grid">
+          <div class="field"><label for="pPms">Peso de mil semillas (g)</label>
+            <input type="number" id="pPms" step="1" min="1" value="350"></div>
+          <div class="field"><label for="pKg">Kilos por hectárea</label>
+            <input type="number" id="pKg" step="0.1" min="0" value="25"></div>
+          <div class="field"><label for="pSem">Semillas por hectárea</label>
+            <input type="number" id="pSem" step="1000" min="0" value=""></div>
+          <div class="field"><label for="pPg">Poder germinativo (%)</label>
+            <input type="number" id="pPg" step="1" min="1" max="100" value="100"></div>
+        </div>
+        <div class="cs-lock">Completá kilos o semillas: el otro se calcula.</div>
+        <div class="cs-out">
+          <div class="cs-kpi"><span class="k">Semillas por hectárea</span><span class="v" id="oPSem">—</span></div>
+          <div class="cs-kpi"><span class="k">Kilos por hectárea</span><span class="v" id="oPKg">—</span></div>
+          <div class="cs-kpi"><span class="k">Plantas logradas por ha</span><span class="v" id="oPLog">—</span></div>
+        </div>
+        <div class="cs-nota">
+          Semillas por hectárea = kg/ha × 1.000.000 / peso de mil semillas.
+          Las plantas logradas aplican el poder germinativo — es lo que hay que comparar
+          contra la densidad objetivo del cultivo.
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 4. MOTOR ===== -->
+    <section id="csMotor" style="display:none">
+      <div class="card">
+        <h3>Qué le vamos a pedir al motor</h3>
+        <div class="cs-grid">
+          <div class="field"><label for="mMotor">Motor</label><select id="mMotor"></select></div>
+          <div class="field"><label for="mSemM">Semillas por metro (objetivo)</label>
+            <input type="number" id="mSemM" step="0.1" min="0" value="6"></div>
+          <div class="field"><label for="mVel">Velocidad de trabajo (km/h)</label>
+            <input type="number" id="mVel" step="0.5" min="0.5" max="30" value="7"></div>
+          <div class="field"><label for="mSurcos">Surcos que alimenta</label>
+            <input type="number" id="mSurcos" step="1" min="1" max="60" value="1"></div>
+          <div class="field"><label for="mSemVuelta">Semillas por vuelta del dosificador</label>
+            <input type="number" id="mSemVuelta" step="1" min="1" value="24"></div>
+          <div class="field"><label for="mPpr">Pulsos por vuelta del sensor</label>
+            <input type="number" id="mPpr" step="1" min="1" value="600"></div>
+          <div class="field"><label for="mMaxHz">Tope medido del motor (Hz)</label>
+            <input type="number" id="mMaxHz" step="1" min="0" value="670"></div>
+        </div>
+        <div class="cs-out">
+          <div class="cs-kpi"><span class="k">Semillas por segundo</span><span class="v" id="oMSemS">—</span></div>
+          <div class="cs-kpi"><span class="k">Vueltas del dosificador</span><span class="v" id="oMRpm">—</span></div>
+          <div class="cs-kpi"><span class="k">Pulsos del sensor</span><span class="v" id="oMHz">—</span></div>
+          <div class="cs-kpi"><span class="k">Uso del motor</span><span class="v" id="oMUso">—</span></div>
+        </div>
+        <div class="cs-out">
+          <div class="cs-kpi"><span class="k">Velocidad máxima con esta dosis</span><span class="v" id="oMVelMax">—</span></div>
+        </div>
+        <div class="cs-nota">
+          Elegí un motor y se completan sus datos guardados. Conviene trabajar por debajo
+          del 85% del tope: el PID necesita margen para corregir cuando la velocidad sube.
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/calculadora-siembra.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

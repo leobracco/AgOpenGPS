@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CoreX</title>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <link rel="stylesheet" href="/corex.css">
+</head>
+<body>
+  <div class="cx-shell">
+
+    <aside class="cx-sidebar">
+      <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
+      <div class="cx-mini">CoreX · Agro Parallel</div>
+      <a class="cx-side-item active" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
+      <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
+      <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <!-- Radio salió 2026-08-18: /config/radio, /config/pass y /radio/comando
+           contestan "no-disponible-en-integrado" desde que CoreX dejó de ser
+           proceso propio. No quedaba nada vivo en esa página. -->
+      <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
+      <!-- Módulos salió 2026-08-18: sus toggles pegaban a /config/modulos, que
+           contesta "no-disponible-en-integrado". Solo quedaban los puntos de
+           estado (de /api/corex/status); el estado de Steer/Machine/IMU se ve
+           igual desde PilotX. -->
+      <a class="cx-side-item" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
+      <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
+      <!-- Perfil salió 2026-08-18: en modo integrado el Engine contesta
+           "no-disponible-en-integrado" a /config/perfiles, /config/avanzado,
+           /reiniciar y /apagar, así que los 6 controles de esa página no
+           hacían nada — y Guardar encima decía "Guardado" porque miraba el
+           200 del HTTP y no el ok del cuerpo. Los perfiles del vehículo se
+           gestionan en PilotX: SISTEMA › Perfiles del vehículo. -->
+      <!-- El link de vuelta ↩️ PilotX salió 2026-08-18: apuntaba a
+           http://127.0.0.1:5180/ y cargaba el Hub HTML viejo adentro de la
+           card de CoreX. Se sale con el ✕ de la card. -->
+    </aside>
+
+    <div class="cx-content">
+      <div class="cx-head">
+        <div>
+          <h2>CoreX</h2>
+          <p>Vista compacta del estado del sistema</p>
+        </div>
+        <div class="cx-pills">
+          <span class="cx-pill"><span id="hdrVersion">—</span></span>
+          <span class="cx-pill">perfil&nbsp;<span id="hdrProfile">—</span></span>
+        </div>
+      </div>
+
+      <div class="cx-grid">
+
+        <section class="cx-panel" id="cardGps">
+          <h3><span class="dot" id="dotGps"></span>GPS</h3>
+          <div class="kv"><span class="k">Latitud</span><span class="v" id="gpsLat">—</span></div>
+          <div class="kv"><span class="k">Longitud</span><span class="v" id="gpsLon">—</span></div>
+        </section>
+
+        <section class="cx-panel" id="cardNtrip">
+          <h3><span class="dot" id="dotNtrip"></span>NTRIP</h3>
+          <div class="kv"><span class="k">Estado</span><span class="v" id="ntripEstado">—</span></div>
+          <div class="kv"><span class="k">Recibido</span><span class="v" id="ntripKb">—</span></div>
+          <div class="kv"><span class="k">Caster</span><span class="v" id="ntripCaster">—</span></div>
+          <div class="kv"><span class="k">RTCM</span><span class="v" id="ntripRtcm">—</span></div>
+          <div class="cx-actions">
+            <button class="cx-btn green wide" id="btnNtrip">Iniciar / Detener</button>
+          </div>
+        </section>
+
+        <section class="cx-panel" id="cardMqtt">
+          <h3><span class="dot" id="dotMqtt"></span>MQTT broker</h3>
+          <div class="kv"><span class="k">Puerto</span><span class="v" id="mqttPort">—</span></div>
+          <div class="kv"><span class="k">Clientes</span><span class="v" id="mqttClients">—</span></div>
+          <div class="kv"><span class="k">Mensajes</span><span class="v" id="mqttMsgs">—</span></div>
+          <div class="kv"><span class="k">Uptime</span><span class="v" id="mqttUptime">—</span></div>
+          <div class="cx-actions">
+            <button class="cx-btn wide" id="btnMqtt">Encender / Apagar</button>
+          </div>
+          <div class="topics" id="mqttTopics"></div>
+        </section>
+
+        <section class="cx-panel" id="cardModulos">
+          <h3>Módulos</h3>
+          <div class="kv">
+            <span class="k"><span class="dot" id="dotSteer"></span>Dirección (Steer)</span>
+            <span class="v" id="modSteer">—</span>
+          </div>
+          <div class="kv">
+            <span class="k"><span class="dot" id="dotMachine"></span>Máquina</span>
+            <span class="v" id="modMachine">—</span>
+          </div>
+          <div class="kv">
+            <span class="k"><span class="dot" id="dotImu"></span>IMU</span>
+            <span class="v" id="modImu">—</span>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/modal.js"></script>
+  <script src="/js/corex.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "id": "",
+  "nombre": "default",
+  "setup": {
+    "densidad_objetivo": 0,
+    "tolerancia_desvio": 0,
+    "distancia_entre_surcos": 0.191,
+    "factor_k_default": 0,
+    "objetivos_tren": {},
+    "total_surcos": 96,
+    "secciones_aog": 7,
+    "ancho_implemento": 31.85,
+    "max_densidad_sensor": 20,
+    "insumo_activo_id": "",
+    "torres": 14,
+    "surcos_por_torre": 1,
+    "vista_modo_default": "surcos"
+  },
+  "trenes": [
+    {
+      "id": 1,
+      "nombre": "Ferti",
+      "surcos": 96
+    },
+    {
+      "id": 2,
+      "nombre": "Tren 2",
+      "surcos": 0
+    }
+  ],
+  "mapeo_sensores": []
+}

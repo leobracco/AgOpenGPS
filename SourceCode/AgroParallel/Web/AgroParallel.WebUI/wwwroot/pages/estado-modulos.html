@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estado módulos · PilotX</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <style>
+    /* Overlay chico SIEMPRE VISIBLE sobre el mapa nativo (WebView2 embebido,
+       ver EstadoModulosOverlayControl.cs) — sin sidebar, sin page-head,
+       "desnudo". Columna vertical de 5 íconos (uno por módulo), color = su
+       propio estado (no un dot aparte): verde=OK, rojo=falla,
+       NEGRO=desconectado (pedido explícito, no el gris "idle" de las pills
+       normales del Hub). Los glifos son símbolos Unicode "de texto" (bloque
+       Miscellaneous Symbols/Dingbats, sin presentación emoji por default)
+       para que `color` en CSS realmente los pinte — un emoji a color
+       ignoraría el color que le pongas.
+       #bar es display:inline-flex a propósito (NO el <body>): así se achica
+       solo al contenido real en vez de estirarse al tamaño que tenga el
+       control en ese momento — el JS mide #bar (getBoundingClientRect, no
+       body.scrollWidth que da el viewport actual y es circular) y le pide
+       al host que redimensione el control 1:1, ver estado-modulos.js.
+       Fondo sólido chico en vez de transparente: un WebView2 "transparente"
+       sobre un GLControl hermano (el mapa OpenGL) no compositea de verdad
+       en este stack — probado, daba un bloque blanco feo sin forma. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: fit-content; height: fit-content; }
+    body { display: inline-block; }
+    #bar {
+      display: inline-flex; flex-direction: column; align-items: center;
+      gap: 4px;
+      padding: 5px;
+      background: var(--agp-surface, #fff);
+      border: var(--agp-border-w, 1px) solid var(--agp-border, #DDE3DD);
+      border-radius: var(--agp-radius-sm, 4px);
+      cursor: move;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    .mitem {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--agp-bg-soft, #F0F2EF);
+      color: #111; /* negro = desconectado, default hasta que llegue el primer estado */
+      transition: color .15s ease;
+    }
+    .mitem .ico { font-size: 17px; line-height: 1; font-family: "Segoe UI Symbol", "Segoe UI", sans-serif; }
+    .mitem.ok  { color: var(--agp-state-ok, #2E7D32); }
+    .mitem.bad { color: var(--agp-state-bad, #C62828); }
+    .mitem.idle { color: #111; }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <div class="mitem idle" id="pillCorex" title="CoreX"><span class="ico">⌬</span></div>
+    <div class="mitem idle" id="pillMotor" title="Motor"><span class="ico">⎈</span></div>
+    <div class="mitem idle" id="pillGps" title="GPS"><span class="ico">⌖</span></div>
+    <div class="mitem idle" id="pillImu" title="IMU"><span class="ico">⟳</span></div>
+    <div class="mitem idle" id="pillMachine" title="Machine"><span class="ico">⛭</span></div>
+  </div>
+  <script src="../js/estado-modulos.js?v=3"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

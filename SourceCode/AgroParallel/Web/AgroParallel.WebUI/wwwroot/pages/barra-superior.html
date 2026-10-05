@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="es" class="widget-mode">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Barra superior · PilotX</title>
+  <style>
+
+    :root{
+      --green:#4ABA3E;
+      --green-dark:#2A8F31;
+      --green-soft:#EAF6E7;
+      --ink:#101612;
+      --text:#101612;
+      --muted:#6F786F;
+      --line:#D9E0D9;
+      --line-strong:#C8D1C8;
+      --surface:#FFFFFF;
+      --surface-soft:#F7F9F7;
+      --danger:#D65C55;
+      --shadow:0 2px 8px rgba(16,22,18,.08);
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    /* Sin padding ni border-radius propio: la barra llena la ventana del
+       widget y las esquinas redondeadas las recorta el compositor de
+       Windows 11 (DWMWA_WINDOW_CORNER_PREFERENCE en el host WinForms). */
+    body{
+      background:#FFFFFF;
+      font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+      padding:0;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      color:var(--ink);
+    }
+
+    .bar{
+      flex:1 1 auto;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      padding:0 8px;
+      background:#FFFFFF;
+      border:1px solid var(--line);
+      color:var(--ink);
+      -webkit-user-select:none;
+      user-select:none;
+    }
+
+    /* Logo */
+    .logo{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding-right:8px;
+      flex:0 0 auto;
+    }
+    .logo svg{
+      width:30px;
+      height:30px;
+      filter:drop-shadow(0 2px 4px rgba(74,186,62,.18));
+    }
+    .logo .txt{
+      font:800 11px/1.05 "Segoe UI",sans-serif;
+      letter-spacing:.075em;
+      color:var(--ink);
+    }
+    .logo .txt em{
+      display:block;
+      margin-top:3px;
+      color:var(--green);
+      font-style:normal;
+      font-weight:900;
+    }
+
+    /* Tabs */
+    .tabs{
+      display:flex;
+      gap:4px;
+      flex:0 0 auto;
+    }
+    .tab{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      height:40px;
+      padding:0 12px;
+      border:1px solid var(--line);
+      border-radius:11px;
+      background:#FFFFFF;
+      color:var(--ink);
+      font:750 10px/1 "Segoe UI",sans-serif;
+      letter-spacing:.045em;
+      cursor:pointer;
+      touch-action:manipulation;
+      transition:.15s ease;
+      box-shadow:0 1px 2px rgba(16,22,18,.04);
+    }
+    .tab:hover{
+      background:var(--surface-soft);
+      border-color:var(--line-strong);
+    }
+    .tab:active{transform:translateY(1px)}
+    .tab.flash{
+      border-color:var(--green);
+      box-shadow:0 0 0 2px rgba(74,186,62,.16);
+    }
+    .tab.active{
+      background:var(--green-soft);
+      border-color:#C9E4C5;
+      color:var(--green-dark);
+      box-shadow:inset 0 -3px 0 var(--green);
+    }
+    .tab.disabled{
+      opacity:.42;
+      pointer-events:none;
+    }
+    .tab .dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:#AAB3AA;
+    }
+    .tab .dot.stat-ok{
+      background:var(--green);
+      box-shadow:0 0 7px rgba(74,186,62,.48);
+    }
+    .tab .dot.stat-mid{background:#E0A94A}
+    .tab .dot.stat-low{background:#D5C84C}
+    .tab .dot.stat-bad{background:#D9655E}
+
+    .spacer{
+      flex:1 1 auto;
+      min-width:5px;
+    }
+
+    /* Línea actual */
+    .linebadge{
+      flex:0 0 auto;
+      display:flex;
+      align-items:center;
+      gap:3px;
+      height:40px;
+      padding:0 5px;
+      border:1px solid var(--line);
+      border-radius:13px;
+      background:#FFFFFF;
+      box-shadow:0 1px 3px rgba(16,22,18,.05);
+    }
+    .linebadge .arrow{
+      width:34px;
+      height:32px;
+      border:0;
+      border-radius:9px;
+      background:transparent;
+      color:#566057;
+      font:800 18px/1 "Segoe UI",sans-serif;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+    .linebadge .arrow:hover{
+      background:#F2F5F2;
+      color:var(--green-dark);
+    }
+    .linebadge .arrow:active{transform:translateY(1px)}
+    .linebadge .arrow.flash{background:var(--green-soft)}
+    .linebadge .num{
+      min-width:56px;
+      height:32px;
+      padding:0 10px;
+      border-radius:9px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      font:850 17px/1 "Segoe UI",sans-serif;
+      color:#FFFFFF;
+      background:linear-gradient(180deg,#55C646,#3DAF35);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.35);
+    }
+    .linebadge .num small{
+      margin-left:2px;
+      color:#FFFFFF;
+      font-size:11px;
+      font-weight:800;
+    }
+    .linebadge.off .num{
+      background:#E6EBE6;
+      color:#879087;
+      box-shadow:none;
+    }
+    .linebadge.off .arrow{color:#9AA39A}
+
+    /* Telemetría */
+    .tele{
+      flex:0 0 auto;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      min-width:62px;
+      height:40px;
+      padding:2px 8px;
+      text-align:center;
+      background:#FFFFFF;
+      border:1px solid var(--line);
+      border-radius:10px;
+    }
+    .tele .val{
+      font:850 15px/1.05 "Segoe UI",sans-serif;
+      color:var(--ink);
+      white-space:nowrap;
+    }
+    .tele .lbl{
+      font:700 8px/1 "Segoe UI",sans-serif;
+      color:#747D75;
+      margin-top:3px;
+      letter-spacing:.055em;
+    }
+    .tele .val.stat-ok{color:var(--green)}
+    .tele .val.stat-mid{color:#D09A32}
+    .tele .val.stat-low{color:#C0B43E}
+    .tele .val.stat-bad{color:#D55B54}
+    .tsep{display:none}
+
+    /* Botones ventana */
+    .winbtns{
+      display:flex;
+      gap:4px;
+      flex:0 0 auto;
+      margin-left:2px;
+    }
+    .wbtn{
+      width:36px;
+      height:40px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#FFFFFF;
+      color:#59635A;
+      font:800 14px/1 "Segoe UI",sans-serif;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+    .wbtn:hover{
+      background:#F5F7F5;
+      border-color:var(--line-strong);
+    }
+    .wbtn:active{transform:translateY(1px)}
+    .wbtn.flash{border-color:var(--green)}
+    .wbtn.close{
+      color:#C84E48;
+      border-color:#E5C3C0;
+      background:#FFF7F6;
+    }
+    .wbtn.close:hover{background:#FDEBE9}
+
+    /* Menú sistema */
+    body.menu-open .bar{display:none}
+    .menu{
+      flex:1 1 auto;
+      padding:10px;
+      border:1px solid var(--line);
+      background:#FFFFFF;
+      overflow-y:auto;
+    }
+    .mlist{
+      display:flex;
+      flex-direction:column;
+      gap:7px;
+    }
+    .mlist[hidden],.menu[hidden]{display:none}
+    .mitem{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:46px;
+      padding:7px 14px;
+      border:1px solid var(--line);
+      border-radius:11px;
+      background:#FFFFFF;
+      color:var(--ink);
+      font:650 14px/1.2 "Segoe UI",sans-serif;
+      text-align:left;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+    .mitem:hover{
+      background:#F7F9F7;
+      border-color:var(--line-strong);
+    }
+    .mitem:active{transform:translateY(1px)}
+    .mitem .arrow{
+      margin-left:auto;
+      color:#899289;
+      font-weight:800;
+    }
+    .mitem.back{
+      background:#F4F7F4;
+      color:#4E584F;
+    }
+    .mitem.danger{
+      border-color:#E8C6C3;
+      color:#C65049;
+      background:#FFF8F7;
+    }
+    .mitem .state{
+      margin-left:auto;
+      font-size:12px;
+      color:#899289;
+    }
+    .mitem .state.on{
+      color:var(--green-dark);
+      font-weight:800;
+    }
+    .mlang{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:7px;
+    }
+    .mlang .mitem.back{grid-column:1/-1}
+
+    @media(max-width:1280px){
+      .logo .txt{display:none}
+      .tab{padding:0 9px}
+      .tele{min-width:56px;padding-inline:5px}
+    }
+
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <!-- logo Agro Parallel (hoja + wordmark, como el mockup) -->
+    <div class="logo">
+      <svg viewBox="0 0 28 28" fill="none" aria-hidden="true">
+        <path d="M4 25L9.2 3h9.6L24 25h-5.3l-1.5-6.2H10.8L9.3 25H4Z" fill="#4ABA3E"/>
+        <path d="M12.7 8.2h2.6l1 4.3h-4.6l1-4.3Z" fill="#FFFFFF"/>
+        <path d="M13.2 13.5h1.6v9.2h-1.6zM9.9 16.1h1.5l-2 6.6H7.8l2.1-6.6ZM16.6 16.1h1.5l2.1 6.6h-1.6l-2-6.6Z" fill="#FFFFFF"/>
+      </svg>
+      <span class="txt">AGRO<em>PARALLEL</em></span>
+    </div>
+
+    <!-- tabs: TRABAJO (menú de lote), GPS (datos GPS, punto = fix),
+         LOTE (datos del lote), SISTEMA (menú perfil/idioma/sim/kiosco) -->
+    <div class="tabs">
+      <button type="button" class="tab" data-cmd="lote_menu" title="Trabajo: abrir/cerrar lote">TRABAJO</button>
+      <button type="button" class="tab" id="btnGps" data-cmd="datos_gps" title="Datos GPS">
+        <span class="dot" id="dotGps"></span>GPS</button>
+      <button type="button" class="tab" id="btnLote" data-cmd="lote_datos" title="Datos del lote">LOTE</button>
+      <button type="button" class="tab" id="btnMenu" title="Sistema: perfil, idioma, simulador…">SISTEMA</button>
+    </div>
+
+    <div class="spacer"></div>
+
+    <!-- línea de guía actual: ‹ anterior · nº · siguiente › -->
+    <div class="linebadge off" id="lineBadge" title="Línea de guía actual">
+      <button type="button" class="arrow" data-cmd="track_prev" aria-label="Línea anterior">‹</button>
+      <span class="num" id="lineVal">—</span>
+      <button type="button" class="arrow" data-cmd="track_next" aria-label="Línea siguiente">›</button>
+    </div>
+
+    <div class="spacer"></div>
+
+    <!-- telemetría en vivo (GET /api/aog/state @1s) -->
+    <div class="tele" title="Velocidad">
+      <span class="val" id="speedVal">0,0</span>
+      <span class="lbl">km/h</span>
+    </div>
+    <div class="tsep"></div>
+    <div class="tele" title="Tipo de señal GPS">
+      <span class="val" id="senalVal">—</span>
+      <span class="lbl">SEÑAL</span>
+    </div>
+    <div class="tsep"></div>
+    <div class="tele" title="Hora">
+      <span class="val" id="fechaVal">—</span>
+      <span class="lbl" id="fechaLbl">TIEMPO</span>
+    </div>
+    <div class="tsep"></div>
+    <div class="tele" title="Hectáreas trabajadas">
+      <span class="val" id="haHechasVal">0,00</span>
+      <span class="lbl">HA</span>
+    </div>
+
+    <div class="winbtns">
+      <button type="button" class="wbtn" data-cmd="minimizar" title="Minimizar">–</button>
+      <button type="button" class="wbtn" data-cmd="maximizar" title="Maximizar">☐</button>
+      <button type="button" class="wbtn close" data-cmd="apagar" title="Cerrar PilotX">✕</button>
+    </div>
+  </div>
+
+  <!-- Desplegable SISTEMA (oculto hasta tocar la tab) -->
+  <div class="menu" id="menuPanel" hidden>
+    <!-- nivel raíz -->
+    <div class="mlist" id="mlistRoot">
+      <button type="button" class="mitem back" id="btnCerrarMenu">✕ Cerrar menú</button>
+      <button type="button" class="mitem" data-cmd="perfil_gestion">Perfiles del vehículo</button>
+      <button type="button" class="mitem" data-sub="idioma">Idioma<span class="arrow">›</span></button>
+      <button type="button" class="mitem" data-cmd="simulador" data-keep="1">Simulador
+        <span class="state" id="simState">—</span></button>
+      <button type="button" class="mitem" data-cmd="sim_coords">Coordenadas del simulador</button>
+      <button type="button" class="mitem" data-cmd="kiosco">Modo kiosco (pantalla completa)</button>
+      <button type="button" class="mitem danger" data-cmd="reset_all">Restablecer TODO</button>
+      <button type="button" class="mitem" data-cmd="ayuda">Ayuda</button>
+    </div>
+
+    <!-- Idioma: misma lista y mismos códigos que el menú nativo -->
+    <div class="mlist mlang" id="mlistIdioma" hidden>
+      <button type="button" class="mitem back" data-back="1">‹ Volver</button>
+      <button type="button" class="mitem" data-cmd="idioma_es">Español</button>
+      <button type="button" class="mitem" data-cmd="idioma_en">English</button>
+      <button type="button" class="mitem" data-cmd="idioma_pt">Português</button>
+      <button type="button" class="mitem" data-cmd="idioma_fr">Français</button>
+      <button type="button" class="mitem" data-cmd="idioma_de">Deutsch</button>
+      <button type="button" class="mitem" data-cmd="idioma_it">Italiano</button>
+      <button type="button" class="mitem" data-cmd="idioma_nl">Nederlands</button>
+      <button type="button" class="mitem" data-cmd="idioma_da">Dansk</button>
+      <button type="button" class="mitem" data-cmd="idioma_no">Norsk</button>
+      <button type="button" class="mitem" data-cmd="idioma_sv">Svenska</button>
+      <button type="button" class="mitem" data-cmd="idioma_fi">Suomalainen</button>
+      <button type="button" class="mitem" data-cmd="idioma_et">Eesti</button>
+      <button type="button" class="mitem" data-cmd="idioma_lv">Latviski</button>
+      <button type="button" class="mitem" data-cmd="idioma_lt">Lietuvių</button>
+      <button type="button" class="mitem" data-cmd="idioma_pl">Polski</button>
+      <button type="button" class="mitem" data-cmd="idioma_cs">Čeština</button>
+      <button type="button" class="mitem" data-cmd="idioma_sk">Slovenčina</button>
+      <button type="button" class="mitem" data-cmd="idioma_hu">Magyar</button>
+      <button type="button" class="mitem" data-cmd="idioma_ro">Română</button>
+      <button type="button" class="mitem" data-cmd="idioma_hr">Hrvatski</button>
+      <button type="button" class="mitem" data-cmd="idioma_sr">Srpski</button>
+      <button type="button" class="mitem" data-cmd="idioma_ru">Русский</button>
+      <button type="button" class="mitem" data-cmd="idioma_uk">Yкраїнська</button>
+      <button type="button" class="mitem" data-cmd="idioma_tr">Türkçe</button>
+      <button type="button" class="mitem" data-cmd="idioma_zh-CHS">中国人</button>
+      <button type="button" class="mitem" data-cmd="idioma_ja">日本語</button>
+      <button type="button" class="mitem" data-cmd="idioma_ko">한국인</button>
+    </div>
+  </div>
+
+  <script src="../js/barra-superior.js?v=5"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

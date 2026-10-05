@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90" viewBox="0 0 120 90" fill="none" stroke="#535E54" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M5 82 H115" stroke="#C5CFC5"></path>
+  <path d="M8 30 Q8 26 14 26 H46 V54 H8 Z" fill="#FFFFFF"></path>
+  <path d="M92 28 H108 Q112 28 112 34 V54 H92 Z" fill="#FFFFFF"></path>
+  <path d="M58 44 H94 V54 H58 Z" fill="#FFFFFF"></path>
+  <path d="M58 14 H92 V46 H58 Z" fill="#FFFFFF"></path>
+  <path d="M55 8 H93 Q96 8 96 11 V14 H52 V11 Q52 8 55 8 Z" fill="#FFFFFF"></path>
+  <path d="M63 19 H87 V38 H63 Z"></path>
+  <path d="M70 25 L78 33"></path>
+  <path d="M74 25 L70 28"></path>
+  <path d="M13 32 V44"></path>
+  <path d="M18 32 V44"></path>
+  <path d="M23 32 V44"></path>
+  <path d="M84 3 V8"></path>
+  <path d="M98 36 H108"></path>
+  <path d="M98 42 H108"></path>
+  <circle cx="24" cy="64" r="16" fill="#FFFFFF"></circle>
+  <path d="M37.8 64.0 L40.0 64.0"></path>
+  <path d="M36.9 68.7 L39.0 69.5"></path>
+  <path d="M34.5 72.8 L36.3 74.3"></path>
+  <path d="M30.9 75.9 L32.0 77.9"></path>
+  <path d="M26.4 77.6 L26.8 79.8"></path>
+  <path d="M21.6 77.6 L21.2 79.8"></path>
+  <path d="M17.1 75.9 L16.0 77.9"></path>
+  <path d="M13.5 72.8 L11.7 74.3"></path>
+  <path d="M11.1 68.7 L9.0 69.5"></path>
+  <path d="M10.2 64.0 L8.0 64.0"></path>
+  <path d="M11.1 59.3 L9.0 58.5"></path>
+  <path d="M13.5 55.2 L11.7 53.7"></path>
+  <path d="M17.1 52.1 L16.0 50.1"></path>
+  <path d="M21.6 50.4 L21.2 48.2"></path>
+  <path d="M26.4 50.4 L26.8 48.2"></path>
+  <path d="M30.9 52.1 L32.0 50.1"></path>
+  <path d="M34.5 55.2 L36.3 53.7"></path>
+  <path d="M36.9 59.3 L39.0 58.5"></path>
+  <circle cx="24" cy="64" r="13.8"></circle>
+  <circle cx="24" cy="64" r="7.7" fill="#FFFFFF"></circle>
+  <circle cx="24" cy="64" r="2.6"></circle>
+  <circle cx="98" cy="64" r="16" fill="#FFFFFF"></circle>
+  <path d="M111.8 64.0 L114.0 64.0"></path>
+  <path d="M110.9 68.7 L113.0 69.5"></path>
+  <path d="M108.5 72.8 L110.3 74.3"></path>
+  <path d="M104.9 75.9 L106.0 77.9"></path>
+  <path d="M100.4 77.6 L100.8 79.8"></path>
+  <path d="M95.6 77.6 L95.2 79.8"></path>
+  <path d="M91.1 75.9 L90.0 77.9"></path>
+  <path d="M87.5 72.8 L85.7 74.3"></path>
+  <path d="M85.1 68.7 L83.0 69.5"></path>
+  <path d="M84.2 64.0 L82.0 64.0"></path>
+  <path d="M85.1 59.3 L83.0 58.5"></path>
+  <path d="M87.5 55.2 L85.7 53.7"></path>
+  <path d="M91.1 52.1 L90.0 50.1"></path>
+  <path d="M95.6 50.4 L95.2 48.2"></path>
+  <path d="M100.4 50.4 L100.8 48.2"></path>
+  <path d="M104.9 52.1 L106.0 50.1"></path>
+  <path d="M108.5 55.2 L110.3 53.7"></path>
+  <path d="M110.9 59.3 L113.0 58.5"></path>
+  <circle cx="98" cy="64" r="13.8"></circle>
+  <circle cx="98" cy="64" r="7.7" fill="#FFFFFF"></circle>
+  <circle cx="98" cy="64" r="2.6"></circle>
+  <path d="M46 46 H56 V56 H46 Z" fill="#FFFFFF"></path>
+  <circle cx="51" cy="51" r="5" fill="#FFFFFF" stroke="#4ABA3E"></circle>
+</svg>

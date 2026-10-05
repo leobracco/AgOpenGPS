@@ -16,7 +16,25 @@ namespace AgOpenGPS.Core.DrawLib
         {
             _bitmap = bitmap;
             // To avoid crashes during start-upup (when no OpenGL context has been created yet),
-            // delay creation of texture to the first call to Bind() 
+            // delay creation of texture to the first call to Bind()
+        }
+
+        // Decodifica PNG crudo (byte[], modelo portable) a Bitmap acá, en la
+        // capa GL — así los modelos/streamers no dependen de System.Drawing.
+        public Texture2D(byte[] pngBytes) : this(DecodePng(pngBytes))
+        {
+        }
+
+        private static Bitmap DecodePng(byte[] pngBytes)
+        {
+            if (pngBytes == null) return null;
+            using (var ms = new System.IO.MemoryStream(pngBytes))
+            using (var image = Image.FromStream(ms))
+            {
+                // Copia a un Bitmap propio para no depender del stream (GDI+
+                // exige el stream vivo mientras viva la imagen original).
+                return new Bitmap(image);
+            }
         }
 
         public void Bind()

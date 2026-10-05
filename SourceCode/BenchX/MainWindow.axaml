@@ -1,0 +1,471 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:BenchX"
+        x:Class="BenchX.MainWindow"
+        x:DataType="local:MainViewModel"
+        Title="BenchX — Agro Parallel"
+        Width="1180" Height="760" MinWidth="980" MinHeight="640"
+        Background="{StaticResource FondoApp}">
+
+  <ScrollViewer>
+    <Grid ColumnDefinitions="7*,5*" Margin="16">
+
+      <!-- ============ Columna izquierda: Vehículo + GPS ============ -->
+      <StackPanel Grid.Column="0" Spacing="12">
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="titulo" Text="VEHÍCULO SIMULADO"/>
+            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto">
+
+              <Button Grid.Row="0" Grid.Column="0" Click="CeroVelocidad_Click"
+                      Background="Transparent" Padding="0" HorizontalAlignment="Left">
+                <StackPanel>
+                  <TextBlock Classes="valor" Text="{Binding VelocidadTexto}"/>
+                  <TextBlock Classes="dato" Text="{Binding MSegTexto}"/>
+                </StackPanel>
+              </Button>
+              <Slider Grid.Row="0" Grid.Column="1" Minimum="-20" Maximum="50"
+                      Value="{Binding VelocidadKmh}" TickFrequency="5" VerticalAlignment="Center"
+                      DoubleTapped="SliderVelocidad_DoubleTapped"/>
+
+              <Button Grid.Row="1" Grid.Column="0" Click="CeroAngulo_Click" Margin="0,6,0,0"
+                      Background="Transparent" Padding="0" HorizontalAlignment="Left">
+                <StackPanel>
+                  <TextBlock Classes="valor" Text="{Binding AnguloTexto}"/>
+                  <TextBlock Classes="dato" Text="Dirección (WAS)"/>
+                </StackPanel>
+              </Button>
+              <Slider Grid.Row="1" Grid.Column="1" Minimum="-60" Maximum="60" Margin="0,6,0,0"
+                      Value="{Binding AnguloDireccion}" TickFrequency="10" VerticalAlignment="Center"
+                      DoubleTapped="SliderAngulo_DoubleTapped"/>
+
+              <Button Grid.Row="2" Grid.Column="0" Click="CeroRoll_Click" Margin="0,6,0,0"
+                      Background="Transparent" Padding="0" HorizontalAlignment="Left">
+                <StackPanel>
+                  <TextBlock Classes="valor" Text="{Binding RollTexto}"/>
+                  <TextBlock Classes="dato" Text="Roll"/>
+                </StackPanel>
+              </Button>
+              <Slider Grid.Row="2" Grid.Column="1" Minimum="-20" Maximum="20" Margin="0,6,0,0"
+                      Value="{Binding Roll}" TickFrequency="5" VerticalAlignment="Center"
+                      DoubleTapped="SliderRoll_DoubleTapped"/>
+
+              <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                          Orientation="Horizontal" Spacing="24" Margin="0,14,0,0">
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Rumbo"/>
+                  <TextBlock Classes="datoValor" Text="{Binding RumboTexto}"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Latitud"/>
+                  <TextBlock Classes="datoValor" Text="{Binding LatActualTexto}"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Longitud"/>
+                  <TextBlock Classes="datoValor" Text="{Binding LonActualTexto}"/>
+                </StackPanel>
+              </StackPanel>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,12,0,0">
+              <ToggleSwitch OnContent="Switch trabajo" OffContent="Switch trabajo"
+                            IsChecked="{Binding SwitchTrabajo}"/>
+              <ToggleSwitch OnContent="Switch dirección" OffContent="Switch dirección"
+                            IsChecked="{Binding SwitchDireccion}"/>
+              <Button Content="Botón dirección (remoto)" Click="BotonDireccion_Click"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="titulo" Text="FÍSICA REALISTA (CALIBRACIÓN E IMPLEMENTO)"/>
+              <CheckBox Grid.Column="1" Content="Física realista" IsChecked="{Binding FisicaRealista}"/>
+            </Grid>
+            <TextBlock Classes="dato" TextWrapping="Wrap"
+                       Text="Placa AiO con firmware Keya: la ECU cierra el lazo contra un WAS analógico y el motor Keya mueve la rueda con umbral, retardo y tope. El tractor gira como bicicleta y arrastra el implemento. Apagado, BenchX es el de siempre (motor perfecto)."/>
+
+            <StackPanel IsVisible="{Binding FisicaRealista}" Margin="0,10,0,0">
+              <StackPanel.Styles>
+                <Style Selector="NumericUpDown">
+                  <Setter Property="Width" Value="130"/>
+                  <Setter Property="Margin" Value="0,2,12,2"/>
+                </Style>
+                <Style Selector="CheckBox">
+                  <Setter Property="Margin" Value="0,0,14,0"/>
+                </Style>
+              </StackPanel.Styles>
+
+              <!-- Lecturas -->
+              <WrapPanel>
+                <StackPanel Margin="0,0,20,6">
+                  <TextBlock Classes="dato" Text="Rueda real"/>
+                  <TextBlock Classes="datoValor" Text="{Binding AnguloRealTexto}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,20,6">
+                  <TextBlock Classes="dato" Text="Lee el WAS (va a PilotX)"/>
+                  <TextBlock Classes="datoValor" Text="{Binding AnguloWasTexto}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,20,6">
+                  <TextBlock Classes="dato" Text="PWM de la ECU"/>
+                  <TextBlock Classes="datoValor" Text="{Binding PwmTexto}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,20,6">
+                  <TextBlock Classes="dato" Text="Corriente (lectura ECU)"/>
+                  <TextBlock Classes="datoValor" Text="{Binding CorrienteTexto}"/>
+                </StackPanel>
+              </WrapPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="dato" VerticalAlignment="Center" Text="Cortes de la ECU"/>
+                <Border Classes="badge" Classes.activo="{Binding HayCorte}">
+                  <TextBlock Text="{Binding CorteTexto}"/>
+                </Border>
+              </StackPanel>
+
+              <!-- Vehículo y motor -->
+              <TextBlock Classes="dato" FontWeight="SemiBold" Margin="0,12,0,2" Text="Tractor y motor"/>
+              <WrapPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Entre ejes (m)"/>
+                  <NumericUpDown Value="{Binding DistanciaEntreEjesM}" Minimum="0.5" Maximum="10" Increment="0.1" FormatString="0.00"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Antena adelante del eje (m)"/>
+                  <NumericUpDown Value="{Binding AntenaAdelanteM}" Minimum="-5" Maximum="5" Increment="0.1" FormatString="0.00"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="PWM mínimo real"/>
+                  <NumericUpDown Value="{Binding PwmMinimoReal}" Minimum="0" Maximum="254" Increment="1" FormatString="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Vel. máx. motor (°/s)"/>
+                  <NumericUpDown Value="{Binding VelocidadMotorGradosS}" Minimum="0" Maximum="200" Increment="5" FormatString="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Retardo motor (ms)"/>
+                  <NumericUpDown Value="{Binding RetardoMotorMs}" Minimum="0" Maximum="2000" Increment="10" FormatString="0"/>
+                </StackPanel>
+              </WrapPanel>
+              <WrapPanel Margin="0,4,0,0">
+                <CheckBox Content="Motor invertido" IsChecked="{Binding MotorInvertido}"/>
+                <ToggleButton Content="Operario agarra el volante" IsChecked="{Binding AgarrarVolante}" Margin="0,0,12,0"/>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Classes="dato" VerticalAlignment="Center" Text="Pico de corriente"/>
+                  <NumericUpDown Value="{Binding PicoCorriente}" Minimum="0" Maximum="255" Increment="10" FormatString="0"/>
+                </StackPanel>
+              </WrapPanel>
+
+              <!-- Errores del WAS -->
+              <TextBlock Classes="dato" FontWeight="SemiBold" Margin="0,12,0,2" Text="WAS real (errores para calibrar)"/>
+              <WrapPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Cuentas/grado del sensor"/>
+                  <NumericUpDown Value="{Binding WasCuentasPorGrado}" Minimum="1" Maximum="500" Increment="1" FormatString="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Offset (°)"/>
+                  <NumericUpDown Value="{Binding WasOffsetGrados}" Minimum="-20" Maximum="20" Increment="0.5" FormatString="0.0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Ganancia (± %)"/>
+                  <NumericUpDown Value="{Binding WasGananciaPct}" Minimum="-90" Maximum="300" Increment="5" FormatString="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Ackermann izq. (%)"/>
+                  <NumericUpDown Value="{Binding WasAckermannPct}" Minimum="10" Maximum="300" Increment="5" FormatString="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Ruido (°)"/>
+                  <NumericUpDown Value="{Binding WasRuidoGrados}" Minimum="0" Maximum="5" Increment="0.05" FormatString="0.00"/>
+                </StackPanel>
+              </WrapPanel>
+              <CheckBox Content="WAS invertido" IsChecked="{Binding WasInvertido}" Margin="0,4,0,0"/>
+
+              <!-- Implemento -->
+              <TextBlock Classes="dato" FontWeight="SemiBold" Margin="0,12,0,2" Text="Implemento"/>
+              <WrapPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Tipo"/>
+                  <ComboBox SelectedIndex="{Binding ImplementoIndice}" Width="150" Margin="0,2,12,2">
+                    <ComboBoxItem Content="Ninguno"/>
+                    <ComboBoxItem Content="De arrastre"/>
+                    <ComboBoxItem Content="De 3 puntos"/>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Enganche (m, − atrás)"/>
+                  <NumericUpDown Value="{Binding EngancheM}" Minimum="-10" Maximum="10" Increment="0.1" FormatString="0.00"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Barra de tiro (m)"/>
+                  <NumericUpDown Value="{Binding LargoBarraM}" Minimum="0.5" Maximum="30" Increment="0.5" FormatString="0.0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Deriva ladera (m, + der.)"/>
+                  <NumericUpDown Value="{Binding DerivaLateralM}" Minimum="-3" Maximum="3" Increment="0.05" FormatString="0.00"/>
+                </StackPanel>
+              </WrapPanel>
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" Margin="0,6,0,0">
+                <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Content="Fijar línea acá" Click="FijarLinea_Click" Margin="0,0,0,6"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Text="Desvío tractor"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Classes="datoValor" Margin="16,0,0,0" Text="{Binding DesvioTractorTexto}"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Desvío implemento"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding DesvioImplementoTexto}"/>
+              </Grid>
+              <TextBlock Classes="dato" TextWrapping="Wrap" Margin="0,6,0,0"
+                         Text="La línea es una recta por el eje trasero con el rumbo actual: fijala al empezar una pasada recta con el piloto puesto. Los parámetros de tractor, enganche y barra tienen que coincidir con los de PilotX."/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="titulo" Text="GPS — SENTENCIAS NMEA"/>
+            <WrapPanel>
+              <WrapPanel.Styles>
+                <Style Selector="CheckBox">
+                  <Setter Property="Margin" Value="0,0,14,4"/>
+                </Style>
+              </WrapPanel.Styles>
+              <CheckBox Content="PANDA" IsChecked="{Binding Nda}"/>
+              <CheckBox Content="PAOGI" IsChecked="{Binding Ogi}"/>
+              <CheckBox Content="GGA" IsChecked="{Binding Gga}"/>
+              <CheckBox Content="VTG" IsChecked="{Binding Vtg}"/>
+              <CheckBox Content="RMC" IsChecked="{Binding Rmc}"/>
+              <CheckBox Content="HDT" IsChecked="{Binding Hdt}"/>
+              <CheckBox Content="AVR" IsChecked="{Binding Avr}"/>
+              <CheckBox Content="KSXT" IsChecked="{Binding Ksxt}"/>
+            </WrapPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
+              <StackPanel>
+                <TextBlock Classes="dato" Text="Latitud de arranque"/>
+                <TextBox Width="170" Text="{Binding LatInicial}"/>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="dato" Text="Longitud de arranque"/>
+                <TextBox Width="170" Text="{Binding LonInicial}"/>
+              </StackPanel>
+              <Button Content="Guardar posición" VerticalAlignment="Bottom" Click="GuardarPosicion_Click"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="titulo" Text="RED"/>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="IPs locales"/>
+              <TextBlock Grid.Row="0" Grid.Column="1" Classes="datoValor" Margin="16,0,0,0" Text="{Binding IpsLocales}"/>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Destino"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="datoValor" Margin="16,4,0,0" Text="{Binding SubredTexto}"/>
+              <TextBlock Grid.Row="2" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Recibidos / Enviados"/>
+              <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,4,0,0">
+                <TextBlock Classes="datoValor" Text="{Binding RxTexto}"/>
+                <TextBlock Classes="dato" Text="/"/>
+                <TextBlock Classes="datoValor" Text="{Binding TxTexto}"/>
+              </StackPanel>
+              <TextBlock Grid.Row="3" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Scan de PilotX"/>
+              <Border Grid.Row="3" Grid.Column="1" Classes="badge" Classes.activo="{Binding ScanRespondido}"
+                      Margin="16,4,0,0" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding ScanTexto}"/>
+              </Border>
+            </Grid>
+            <TextBlock Classes="dato" Margin="0,10,0,2" Text="Módulos que emula BenchX"/>
+            <WrapPanel>
+              <WrapPanel.Styles>
+                <Style Selector="ToggleSwitch">
+                  <Setter Property="Margin" Value="0,0,16,0"/>
+                </Style>
+              </WrapPanel.Styles>
+              <ToggleSwitch OnContent="GPS" OffContent="GPS" IsChecked="{Binding EmularGps}"/>
+              <ToggleSwitch OnContent="WAS" OffContent="WAS" IsChecked="{Binding EmularWas}"/>
+              <ToggleSwitch OnContent="Motor" OffContent="Motor" IsChecked="{Binding EmularMotor}"/>
+              <ToggleSwitch OnContent="Máquina" OffContent="Máquina" IsChecked="{Binding EmularMaquina}"/>
+              <ToggleSwitch OnContent="IMU" OffContent="IMU" IsChecked="{Binding EmularImu}"/>
+              <ToggleSwitch OnContent="RTK fijo + relieve" OffContent="RTK fijo + relieve" IsChecked="{Binding RtkRelieve}"
+                            ToolTip.Tip="GGA con calidad 4 y altitud de lomas simuladas (±2 m): para probar el registro de alturas de PilotX"/>
+            </WrapPanel>
+            <TextBlock Classes="dato" TextWrapping="Wrap"
+                       Text="Apagá lo que maneje la ECU real del banco. WAS = contestar como módulo de dirección (PGN 253 y switches). Motor = que el tractor simulado siga solo la orden del piloto. IMU apagado también corta el rumbo/roll que viaja en el PANDA."/>
+            <Border Background="{StaticResource Alerta}" CornerRadius="6" Padding="10,6"
+                    Margin="0,8,0,0" IsVisible="{Binding !RedOk}">
+              <TextBlock Foreground="White" TextWrapping="Wrap" Text="{Binding ErrorRed}"/>
+            </Border>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- ============ Columna derecha: Dirección + Máquina ============ -->
+      <StackPanel Grid.Column="1" Spacing="12" Margin="12,0,0,0">
+
+        <Border Classes="card">
+          <StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="titulo" Text="DIRECCIÓN (AUTOSTEER)"/>
+              <Border Grid.Column="1" Classes="badge" Classes.activo="{Binding GuiadoActivo}">
+                <TextBlock Text="{Binding GuiadoTexto}"/>
+              </Border>
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="Setpoint PilotX"/>
+              <TextBlock Grid.Row="0" Grid.Column="1" Classes="datoValor" Margin="16,0,0,0" Text="{Binding SetPointTexto}"/>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Velocidad según PilotX"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding VelPilotXTexto}"/>
+              <TextBlock Grid.Row="2" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Kp"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding KpTexto}"/>
+              <TextBlock Grid.Row="3" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="PWM alto / bajo / mín"/>
+              <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,3,0,0">
+                <TextBlock Classes="datoValor" Text="{Binding HighPwmTexto}"/>
+                <TextBlock Classes="dato" Text="/"/>
+                <TextBlock Classes="datoValor" Text="{Binding LowPwmTexto}"/>
+                <TextBlock Classes="dato" Text="/"/>
+                <TextBlock Classes="datoValor" Text="{Binding MinPwmTexto}"/>
+              </StackPanel>
+              <TextBlock Grid.Row="4" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Cuentas WAS / offset"/>
+              <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,3,0,0">
+                <TextBlock Classes="datoValor" Text="{Binding CountsTexto}"/>
+                <TextBlock Classes="dato" Text="/"/>
+                <TextBlock Classes="datoValor" Text="{Binding OffsetTexto}"/>
+              </StackPanel>
+              <TextBlock Grid.Row="5" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Ackerman"/>
+              <TextBlock Grid.Row="5" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding AckermanTexto}"/>
+              <TextBlock Grid.Row="6" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Config"/>
+              <TextBlock Grid.Row="6" Grid.Column="1" Classes="dato" TextWrapping="Wrap" Margin="16,3,0,0" Text="{Binding FlagsTexto}"/>
+            </Grid>
+            <StackPanel Margin="0,10,0,0">
+              <TextBlock Classes="dato" Text="Relés de dirección (1–16)"/>
+              <TextBlock Classes="puntos" Text="{Binding RelesDireccion}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="titulo" Text="MÁQUINA / SECCIONES"/>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="Relés máquina (1–16)"/>
+              <TextBlock Grid.Row="0" Grid.Column="1" Classes="puntos" Margin="16,0,0,0" Text="{Binding RelesMaquina}"/>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="U-turn"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding UTurnTexto}"/>
+              <TextBlock Grid.Row="2" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Hidráulico"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding HydLiftTexto}"/>
+              <TextBlock Grid.Row="3" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Tram"/>
+              <TextBlock Grid.Row="3" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding TramTexto}"/>
+              <TextBlock Grid.Row="4" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Velocidad módulo"/>
+              <TextBlock Grid.Row="4" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding VelMaquinaTexto}"/>
+            </Grid>
+            <TextBlock Classes="dato" Text="Zonas (1–8)" Margin="0,10,0,2"/>
+            <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+              <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="dato" Text="1"/><TextBlock Classes="puntos" Text="{Binding Zona1}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="24,0,0,0">
+                <TextBlock Classes="dato" Text="2"/><TextBlock Classes="puntos" Text="{Binding Zona2}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
+                <TextBlock Classes="dato" Text="3"/><TextBlock Classes="puntos" Text="{Binding Zona3}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="24,2,0,0">
+                <TextBlock Classes="dato" Text="4"/><TextBlock Classes="puntos" Text="{Binding Zona4}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
+                <TextBlock Classes="dato" Text="5"/><TextBlock Classes="puntos" Text="{Binding Zona5}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="24,2,0,0">
+                <TextBlock Classes="dato" Text="6"/><TextBlock Classes="puntos" Text="{Binding Zona6}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
+                <TextBlock Classes="dato" Text="7"/><TextBlock Classes="puntos" Text="{Binding Zona7}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="24,2,0,0">
+                <TextBlock Classes="dato" Text="8"/><TextBlock Classes="puntos" Text="{Binding Zona8}"/>
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="titulo" Text="DEMO AUTOMÁTICA (EXPO)"/>
+              <ToggleSwitch Grid.Column="1" OnContent="andando" OffContent="apagada" IsChecked="{Binding DemoActivo}"/>
+            </Grid>
+            <TextBlock Classes="dato" TextWrapping="Wrap" Text="{Binding DemoResumenTexto}"/>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,8,0,0">
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="PilotX"/>
+              <Border Grid.Row="0" Grid.Column="1" Classes="badge" Classes.activo="{Binding DemoPilotXListo}" Margin="16,0,0,0" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding DemoPilotXTexto}"/>
+              </Border>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Tractor"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="datoValor" Margin="16,4,0,0" Text="{Binding DemoEstadoTexto}"/>
+            </Grid>
+            <TextBlock Classes="dato" TextWrapping="Wrap" Margin="0,8,0,0"
+                       Text="Abre el lote, activa la prescripción, pone secciones en automático y maneja solo: vueltas de cabecera y pasadas con giro en U. Para reiniciar la demo, borrar la cobertura en PilotX. Con --demo arranca minimizado."/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="titulo" Text="NODOS EMULADOS (MQTT)"/>
+            <TextBlock Classes="dato" TextWrapping="Wrap" Text="{Binding BrokerTexto}"/>
+            <WrapPanel Margin="0,8,0,0">
+              <WrapPanel.Styles>
+                <Style Selector="ToggleSwitch">
+                  <Setter Property="Margin" Value="0,0,16,0"/>
+                </Style>
+              </WrapPanel.Styles>
+              <ToggleSwitch OnContent="QuantiX" OffContent="QuantiX" IsChecked="{Binding EmularQuantiX}"/>
+              <ToggleSwitch OnContent="VistaX" OffContent="VistaX" IsChecked="{Binding EmularVistaX}"/>
+            </WrapPanel>
+            <!-- VistaX firmware 3.1: intervalos entre semillas (dt) con estadística conocida -->
+            <CheckBox Margin="0,8,0,0" Content="VistaX firmware 3.1 (dobles, fallas y CV)" IsChecked="{Binding VxFirmware31}"/>
+            <WrapPanel IsVisible="{Binding VxFirmware31}" Margin="0,4,0,0">
+              <WrapPanel.Styles>
+                <Style Selector="NumericUpDown">
+                  <Setter Property="Width" Value="130"/>
+                  <Setter Property="Margin" Value="0,2,12,2"/>
+                </Style>
+              </WrapPanel.Styles>
+              <StackPanel>
+                <TextBlock Classes="dato" Text="Dobles (%)"/>
+                <NumericUpDown Value="{Binding VxDoblesPct}" Minimum="0" Maximum="50" Increment="0.5" FormatString="0.0"/>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="dato" Text="Fallas (%)"/>
+                <NumericUpDown Value="{Binding VxFallasPct}" Minimum="0" Maximum="50" Increment="0.5" FormatString="0.0"/>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="dato" Text="CV de los simples (%)"/>
+                <NumericUpDown Value="{Binding VxCvPct}" Minimum="0" Maximum="28" Increment="1" FormatString="0"/>
+              </StackPanel>
+            </WrapPanel>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="QuantiX"/>
+              <Border Grid.Row="0" Grid.Column="1" Classes="badge" Classes.activo="{Binding QxConectado}" Margin="16,0,0,0" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding QxEstadoTexto}"/>
+              </Border>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="VistaX"/>
+              <Border Grid.Row="1" Grid.Column="1" Classes="badge" Classes.activo="{Binding VxConectado}" Margin="16,4,0,0" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding VxEstadoTexto}"/>
+              </Border>
+              <TextBlock Grid.Row="2" Grid.Column="0" Classes="dato" Margin="0,6,0,0" Text="Motores (real/objetivo)"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Classes="datoValor" TextWrapping="Wrap" Margin="16,6,0,0" Text="{Binding MotoresTexto}"/>
+              <TextBlock Grid.Row="3" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Semillas/s por surco"/>
+              <TextBlock Grid.Row="3" Grid.Column="1" Classes="datoValor" TextWrapping="Wrap" Margin="16,4,0,0" Text="{Binding SemillasTexto}"/>
+              <TextBlock Grid.Row="4" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Tráfico"/>
+              <TextBlock Grid.Row="4" Grid.Column="1" Classes="dato" Margin="16,4,0,0" Text="{Binding NodosStatsTexto}"/>
+            </Grid>
+            <TextBlock Classes="dato" TextWrapping="Wrap" Margin="0,8,0,0"
+                       Text="El QuantiX obedece los targets del bridge de PilotX y contesta como una placa V0.4 de 7 motores; el VistaX publica las semillas por segundo que salen de esos motores. Con firmware 3.1 manda además el intervalo entre cada semilla (dt, cada 250 ms) con los dobles, fallas y CV de arriba: PilotX tiene que mostrar esos mismos números en el panel de VistaX. Apagalos si en el banco hay nodos reales con el mismo trabajo."/>
+            <Border Background="{StaticResource Alerta}" CornerRadius="6" Padding="10,6"
+                    Margin="0,8,0,0" IsVisible="{Binding NodosConError}">
+              <TextBlock Foreground="White" TextWrapping="Wrap" Text="{Binding NodosErrorTexto}"/>
+            </Border>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Grid>
+  </ScrollViewer>
+</Window>

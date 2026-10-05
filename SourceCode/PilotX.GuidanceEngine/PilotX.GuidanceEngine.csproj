@@ -1,0 +1,114 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PilotX.GuidanceEngine - bloque 14 (proceso Ãºnico). El .exe de consola:
+    entry point (Program.cs) + el lado "CoreX" (CoreXEngineHost.cs,
+    Net9SerialPortService.cs, con su PackageReference a System.IO.Ports).
+
+    El loop de guiado en sÃ­ (GuidanceEngineHost*.cs â€” orquesta los mismos
+    CPositionUpdater/CHeadingUpdater/CAutoSteerUpdater/CYouTurnUpdater/
+    CSectionCalculator/CSettingsSender de AgOpenGPS.Core, bloque 9) vive
+    separado en PilotX.GuidanceEngine.Core: PilotX.Android lo referencia
+    directo para los servicios reales de guiado/lotes del Hub, sin poder
+    arrastrar System.IO.Ports (net9.0-android no lo restaura, ver el
+    comentario de cabecera de PilotX.GuidanceEngine.Core.csproj).
+
+    Deliberadamente net9.0 (NO -windows): nada acÃ¡ deberÃ­a necesitar
+    Windows Forms ni OpenGL â€” si algÃºn dÃ­a no compila en net9.0 puro es
+    seÃ±al de que algo no estÃ¡ realmente desacoplado.
+
+    Habla con CoreX por el mismo protocolo UDP loopback que usa FormGPS
+    (recibe PGN de posiciÃ³n en :15555, contesta PGN a CoreX en
+    127.255.255.255:17777) â€” asÃ­ se puede correr contra un CoreX/ModSim
+    real sin tocarlos.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <RootNamespace>PilotX.GuidanceEngine</RootNamespace>
+    <AssemblyName>PilotX.GuidanceEngine</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PilotX.GuidanceEngine.Core\PilotX.GuidanceEngine.Core.csproj" />
+    <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
+    <!-- MqttBrokerService/UdpBridgeService/NtripClientService/PgnFrameParser/
+         ISerialPortService (bloque 8/14) â€” ya portables (netstandard2.0). -->
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+    <!-- AgpWebHost + controllers (netstandard2.0, EmbedIO): con el flag webhost
+         el engine headless sirve la API /api/aog igual que FormGPS, para que
+         PilotX.Desktop renderice el mapa contra el motor sin WinForms. -->
+    <ProjectReference Include="..\AgroParallel\Web\AgroParallel.WebHost\AgroParallel.WebHost.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- System.IO.Ports no viene con el SDK base en net9.0 "puro" (sin
+         -windows): CoreXEngineHost lo necesita para los 6 puertos serie
+         reales (GPS/GPS2/RTCM/IMU/Steer/Machine). -->
+    <PackageReference Include="System.IO.Ports" Version="9.0.0" />
+    <!-- EngineSistemaService: brillo de pantalla vÃ­a WMI (root\WMI,
+         WmiMonitorBrightness) â€” fallback si el monitor no soporta DDC/CI. -->
+    <PackageReference Include="System.Management" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Piezas portables de CoreX (ex AgIO, borrado 2026-08-14): viven en
+         CoreX.Shared\ como archivos sueltos linkeados â€” sin proyecto propio
+         para no sumar un assembly mÃ¡s por tres clases. -->
+    <Compile Include="..\CoreX.Shared\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
+    <Compile Include="..\CoreX.Shared\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
+    <Compile Include="..\CoreX.Shared\CGLM.cs" Link="AgIO\CGLM.cs" />
+    <!-- Panel CoreX integrado (:5181): el snapshot y su controller de status
+         son puros (no tocan FormLoop), se comparten con CoreX.exe para que
+         /api/corex/status sirva el MISMO wire en los dos modos. -->
+    <Compile Include="..\CoreX.Shared\CoreXState.cs" Link="AgIO\CoreXState.cs" />
+    <Compile Include="..\CoreX.Shared\CoreXStatusController.cs" Link="AgIO\CoreXStatusController.cs" />
+    <!-- Mapeo TramSnapshot->DTO: MISMO archivo que compila AgOpenGPS.csproj,
+         para que las dos pantallas de tramlines dibujen igual. -->
+    <Compile Include="..\AgroParallel\Adapters\TramLineMapper.cs" Link="AgroParallel\TramLineMapper.cs" />
+    <!-- Capa de prescripcion (.shp): geometria + dosis por posicion. La usa
+         el motor para QuantiX/FlowX y para servir /api/aog/shape al mapa. -->
+    <Compile Include="..\AgroParallel\Adapters\ShapefileLayer.cs" Link="AgroParallel\ShapefileLayer.cs" />
+    <Compile Include="..\AgroParallel\Common\EarClipper.cs" Link="AgroParallel\EarClipper.cs" />
+    <!-- Config de direcciÃ³n (ISteerConfigService): mapeo settingsâ†”DTO + PGN
+         252/251. Mismo archivo que compila AgOpenGPS.csproj (FormGPS) para no
+         duplicar el port del FormSteer nativo en dos lados. -->
+    <Compile Include="..\AgroParallel\Adapters\SteerConfigService.cs" Link="AgroParallel\SteerConfigService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Dashboard CoreX (:5181): estÃ¡ticos del panel integrado. Viajan junto
+         al exe (bin y publish) â€” ResolveWwwrootCorex los busca primero ahÃ­. -->
+    <Content Include="wwwroot-corex\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+
+    <!-- Estaticos COMPARTIDOS con el Hub (:5180). wwwroot-corex es un static
+         folder aparte, asi que sin esto los HTML de CoreX piden /theme.css,
+         /layout.css y /js/keyboard.js y se comen un 404:
+           · theme.css  -> tokens agp-* Y los estilos del modal
+                           (.agp-modal-backdrop / .agp-modal). Sin el, TODOS
+                           los dialogos de CoreX salen sin estilo.
+           · layout.css -> base que corex.css asume cargada antes (por eso
+                           corex.css vuelve el body a display:block).
+           · keyboard.js-> teclado tactil propio. Sin el no se puede escribir
+                           en radio.html ni en perfil.html.
+         Se enlazan, NO se duplican en el repo: una sola fuente de verdad en
+         AgroParallel.WebUI\wwwroot. Ver corex.css (cabecera). -->
+    <Content Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\theme.css"
+             Link="wwwroot-corex\theme.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\layout.css"
+             Link="wwwroot-corex\layout.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\js\keyboard.js"
+             Link="wwwroot-corex\js\keyboard.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

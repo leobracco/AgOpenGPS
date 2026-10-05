@@ -1,0 +1,40 @@
+{
+  "titulo": "AGP \u2022 Widget",
+  "pasoBrillo": 5,
+  "apps": [
+    {
+      "nombre": "Piloto",
+      "path": "C:\\PilotX\\Desktop\\PilotX.Desktop.exe",
+      "args": "",
+      "admin": false,
+      "icon": true,
+      "iconFile": "piloto"
+    }
+  ],
+  "ui": {
+    "width": 420,
+    "height": 90,
+    "rightMargin": 12,
+    "topMargin": 12,
+    "customAnchor": false,
+    "x": 0,
+    "y": 0,
+    "opacity": 0.98,
+    "topMost": true,
+    "backColor": "#141414",
+    "foreColor": "#FFFFFF",
+    "accentColor": "#2F2F2F",
+    "titleFont": 9.5,
+    "valueFont": 18,
+    "buttonFont": 9.5,
+    "btnW": 44,
+    "btnH": 28,
+    "appBtnH": 26,
+    "showBrightness": true,
+    "showShutdown": true,
+    "showApps": true
+  },
+  "wifi": {
+    "enabled": true
+  }
+}

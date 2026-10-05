@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Configuración · PilotX</title>
+  <!-- theme.css SOLO por los tokens --agp-* (la paleta local de abajo mapea a
+       ellos). El layout de esta página es propio y no usa layout.css. -->
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Configuración del vehículo/implemento — réplica HTML de FormConfig.
+       Navegación por menú lateral (como el original: tabs ocultas + botonera).
+       Deep-link: ?tab=vconfig | vdimensions | vantenna | summary | …
+       Guardado: réplica del Leave nativo — al salir de una sección con cambios
+       se postea a /api/aog/config/{seccion}. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* Paleta local MAPEADA a los tokens del design system (theme.css se
+       importa abajo): así esta página y las embebidas (QuantiX, Sonidos,
+       Lab PID…) son UNA sola estética, sin reescribir los ~30 usos de
+       --verde/--gris/--borde que ya había. Unificación pedida 2026-08-02. */
+    :root {
+      --verde: var(--agp-accent, #4ABA3E);
+      --fondo: var(--agp-bg, #F5F7F4);
+      --carta: var(--agp-surface, #ffffff);
+      --borde: var(--agp-border, #C5CFC5);
+      --texto: var(--agp-text, #101612);
+      --gris: var(--agp-text-muted, #535E54);
+      --rojo: var(--agp-state-bad, #c0392b);
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--agp-font-sans, "Segoe UI", Roboto, system-ui, sans-serif);
+      background: var(--fondo); color: var(--texto);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #layout { flex: 1; min-height: 0; display: flex; }
+
+    /* ---- menú lateral ---- */
+    #menu {
+      width: 190px; flex: none; overflow-y: auto;
+      background: var(--carta); border-right: 1px solid var(--borde);
+      padding: 8px 6px; display: flex; flex-direction: column; gap: 2px;
+    }
+    /* Los títulos de grupo son el acordeón: tocás uno y se abre solo ese.
+       Antes el menú listaba los ~40 accesos de corrido y para llegar a
+       Mantenimiento había que scrollear todo. */
+    #menu .grupo {
+      font: 700 11px "Segoe UI", Roboto, sans-serif; color: var(--gris);
+      text-transform: uppercase; letter-spacing: 0.4px;
+      padding: 10px 8px 10px;
+      display: flex; align-items: center; gap: 6px;
+      min-height: 38px;                  /* tocable con guante */
+      border-radius: 8px;
+      cursor: pointer; touch-action: manipulation;
+      -webkit-user-select: none; user-select: none;
+      border-top: 1px solid var(--borde);
+    }
+    #menu .grupo:first-of-type { border-top: 0; }
+    #menu .grupo:active { background: #e6ede5; }
+    #menu .grupo.abierto { color: var(--texto); }
+    /* Chevron: apunta a la derecha cerrado, abajo abierto. */
+    #menu .grupo::after {
+      content: ''; margin-left: auto; flex: none;
+      width: 6px; height: 6px;
+      border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg); transform-origin: center;
+      transition: transform 0.15s ease;
+      opacity: 0.7;
+    }
+    #menu .grupo.abierto::after { transform: rotate(45deg); }
+    #menu .grupo-cuerpo { display: none; flex-direction: column; gap: 2px; }
+    #menu .grupo-cuerpo.abierto { display: flex; }
+    #menu button {
+      display: flex; align-items: center; gap: 8px;
+      min-height: 42px; padding: 4px 8px; width: 100%;
+      border: 0; border-radius: 8px; background: transparent;
+      font: 600 13px "Segoe UI", Roboto, sans-serif; color: var(--texto);
+      text-align: left; cursor: pointer; touch-action: manipulation;
+      -webkit-user-select: none; user-select: none;
+    }
+    #menu button img { width: 26px; height: 26px; object-fit: contain; flex: none; }
+    #menu button .ico-emoji { width: 26px; font-size: 20px; text-align: center; flex: none; line-height: 1; }
+    #menu button.sel { background: #eaf6e8; box-shadow: inset 3px 0 0 var(--verde); }
+    #menu button:active { background: #e6ede5; }
+
+    /* ---- panel principal ---- */
+    #main { flex: 1; min-width: 0; overflow-y: auto; padding: 12px; }
+    section[data-tab] { display: none; }
+    section[data-tab].activa { display: block; }
+    /* con un módulo embebido, el área principal va sin padding para que el
+       iframe llene y no scrollee doble */
+    #main:has(section[data-tab="modulo"].activa) { padding: 0; overflow: hidden; }
+    .carta {
+      background: var(--carta); border: 1px solid var(--borde);
+      border-radius: 12px; padding: 14px; margin-bottom: 12px;
+    }
+    .carta h2 { font-size: 15px; margin-bottom: 10px; }
+    .nota { font-size: 12px; color: var(--gris); }
+
+    /* ---- footer común (réplica del footer de FormConfig) ---- */
+    #footer {
+      flex: none; display: flex; align-items: center; gap: 14px;
+      padding: 8px 12px; background: var(--carta);
+      border-top: 1px solid var(--borde); font-size: 13px;
+    }
+    #footer .dato b { color: var(--verde); }
+    #estado { flex: 1; text-align: right; font-size: 13px; color: var(--gris); }
+    #estado.err { color: var(--rojo); font-weight: 600; }
+    #estado.ok { color: #2e8b25; font-weight: 600; }
+
+    /* botón Guardar flotante con estados (neutro / .dirty / .ok) */
+    #btnGuardarFloat {
+      position: fixed; right: 22px; bottom: 56px; z-index: 50;
+      width: 96px; padding: 8px 6px 6px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      border: 1px solid var(--borde, #C5CFC5); border-radius: 16px;
+      background: var(--panel, #F5F7F4);
+      box-shadow: 0 4px 14px rgba(16, 22, 18, 0.18);
+      cursor: pointer; font: inherit;
+    }
+    #btnGuardarFloat:active { transform: scale(0.96); }
+    #btnGuardarFloat img { width: 56px; height: 56px; filter: grayscale(1); opacity: 0.45; }
+    #btnGuardarCap { font-size: 12px; color: var(--gris, #535E54); }
+
+    /* hay cambios sin guardar: ícono pleno + pulso + aviso */
+    #btnGuardarFloat.dirty { border-color: var(--verde, #4ABA3E); animation: pulsoGuardar 1.2s ease-in-out infinite; }
+    #btnGuardarFloat.dirty img { filter: none; opacity: 1; }
+    #btnGuardarFloat.dirty #btnGuardarCap { color: var(--verde, #4ABA3E); font-weight: 700; }
+    @keyframes pulsoGuardar {
+      0%, 100% { box-shadow: 0 4px 14px rgba(16, 22, 18, 0.18); }
+      50% { box-shadow: 0 0 0 6px rgba(74, 186, 62, 0.35); }
+    }
+
+    /* recién guardado: tilde verde (el JS cambia la imagen a OK64) */
+    #btnGuardarFloat.ok { border-color: var(--verde, #4ABA3E); }
+    #btnGuardarFloat.ok img { filter: none; opacity: 1; }
+    #btnGuardarFloat.ok #btnGuardarCap { color: #2e8b25; font-weight: 700; }
+
+    /* ---- summary ---- */
+    .sumgrid {
+      display: grid; grid-template-columns: auto 1fr; gap: 8px 16px;
+      font-size: 14px; align-items: center;
+    }
+    .sumgrid .k { color: var(--gris); font-weight: 600; }
+    .sumgrid .v { font-weight: 700; font-size: 16px; }
+
+    /* ---- radios con imagen (tipo vehículo / marcas / antena) ---- */
+    .radios { display: flex; flex-wrap: wrap; gap: 8px; }
+    .radioimg {
+      border: 2px solid var(--borde); border-radius: 10px; background: #fff;
+      padding: 6px; cursor: pointer; touch-action: manipulation;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      -webkit-user-select: none; user-select: none;
+    }
+    .radioimg img { object-fit: contain; pointer-events: none; }
+    .radioimg.sel { border-color: var(--verde); background: #eaf6e8; }
+    .radioimg .cap { font: 600 11px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .radioimg.tipo img { width: 110px; height: 72px; }
+    .radioimg.marca img { width: 56px; height: 56px; }
+    .radioimg.ant img { width: 64px; height: 70px; }
+
+    /* ---- preview vehículo con opacidad ---- */
+    #vprevWrap {
+      width: 220px; height: 220px; border: 1px solid var(--borde); border-radius: 10px;
+      background: url('../img/config/VehicleOpacity.png') center / cover;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    #vprev { max-width: 90%; max-height: 90%; }
+    .opacidadFila { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .opacidadFila button {
+      width: 56px; height: 56px; border: 1px solid var(--borde); border-radius: 10px;
+      background: #fff; cursor: pointer; touch-action: manipulation;
+    }
+    .opacidadFila button img { width: 40px; height: 40px; }
+    #lblOpacidad { font: 700 18px "Segoe UI", Roboto, sans-serif; min-width: 64px; text-align: center; }
+
+    /* ---- inputs numéricos estilo NUD ---- */
+    .nudfila { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .nudfila label { font: 600 14px "Segoe UI", Roboto, sans-serif; min-width: 150px; }
+    .nud {
+      width: 130px; min-height: 52px; text-align: center;
+      font: 700 22px "Segoe UI", Roboto, sans-serif;
+      border: 1px solid var(--borde); border-radius: 10px; background: aliceblue;
+    }
+    .nud.invalido { border-color: var(--rojo); background: #fdf0ee; }
+    .unidad { font: 600 14px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .diagrama { max-width: 100%; max-height: 340px; object-fit: contain; display: block; margin: 0 auto 12px; }
+    .dosCol { display: flex; gap: 14px; flex-wrap: wrap; }
+    .dosCol > div { flex: 1; min-width: 280px; }
+
+    .chkimg {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
+      border: 2px solid var(--borde); border-radius: 10px; background: #fff;
+      padding: 6px; cursor: pointer; -webkit-user-select: none; user-select: none;
+    }
+    .chkimg img { width: 64px; height: 64px; object-fit: contain; pointer-events: none; }
+    .chkimg.sel { border-color: var(--verde); background: #eaf6e8; }
+
+    .pendiente { padding: 30px; text-align: center; color: var(--gris); font-size: 14px; }
+
+    /* ---- tanda 2: implemento ---- */
+    .radioimg.estilo img { width: 200px; height: 98px; }
+    .radioimg.dircol img { width: 110px; height: 145px; }
+    .btnZero {
+      width: 56px; height: 56px; border: 1px solid var(--borde); border-radius: 10px;
+      background: #fff; cursor: pointer; touch-action: manipulation; flex: none;
+    }
+    .btnZero img { width: 40px; height: 40px; object-fit: contain; }
+    /* Botón de texto genérico (trenes de siembra) — mismo lenguaje que btnZero */
+    .btn {
+      min-height: 44px; padding: 0 16px; border: 1px solid var(--borde);
+      border-radius: 10px; background: #fff; cursor: pointer;
+      touch-action: manipulation; font: 600 14px "Segoe UI", Roboto, sans-serif;
+      color: var(--gris);
+    }
+    .timingCols { display: flex; gap: 14px; flex-wrap: wrap; }
+    .timingCol {
+      flex: 1; min-width: 200px; display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+    }
+    .timingCol img { width: 200px; height: 253px; object-fit: contain; }
+
+    /* ---- tanda 3: secciones / switches / relay / máquina ---- */
+    .secGrilla {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 8px;
+    }
+    .secGrilla .celda { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .secGrilla .celda .cap { font: 600 12px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .secGrilla .nud { width: 100%; min-height: 44px; font-size: 18px; }
+    .secGrilla .nud:disabled { background: #eef1ee; color: var(--gris); }
+    select.nud { appearance: auto; padding: 0 4px; font-size: 18px; }
+    .relayGrilla {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 8px;
+    }
+    .relayGrilla .celda { display: flex; align-items: center; gap: 6px; }
+    .relayGrilla .celda .cap { font: 600 12px "Segoe UI", Roboto, sans-serif; color: var(--gris); min-width: 44px; }
+    .relayGrilla select.nud { flex: 1; min-height: 44px; font-size: 14px; width: auto; }
+    .togglesGrid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    .togglesGrid .chkimg img { height: 64px; }
+    input[type="range"] { min-height: 44px; accent-color: var(--verde, #4ABA3E); }
+    .swCol { display: flex; flex-direction: column; gap: 10px; }
+    .chkimg.sw { flex-direction: row; gap: 10px; padding: 8px 12px; width: 100%; justify-content: flex-start; }
+    .chkimg.sw img { width: 52px; height: 52px; }
+    .chkimg.sw .cap { font-size: 13px; }
+    .chkimg.sw.deshab { opacity: 0.45; pointer-events: none; }
+    .btnEnviar {
+      display: inline-flex; align-items: center; gap: 8px;
+      min-height: 52px; padding: 6px 16px;
+      border: 1px solid var(--borde); border-radius: 10px; background: #fff;
+      font: 700 14px "Segoe UI", Roboto, sans-serif; color: var(--texto);
+      cursor: pointer; touch-action: manipulation;
+    }
+    .btnEnviar img { width: 36px; height: 36px; }
+    .btnEnviar:active { background: #e6ede5; }
+  </style>
+</head>
+<body>
+  <div id="layout">
+    <nav id="menu">
+      <button type="button" data-tab="summary"><img loading="lazy" src="../img/config/Con_VehicleMenu.png" alt="" />Resumen</button>
+      <div class="grupo">Vehículo</div>
+      <button type="button" data-tab="vconfig"><img loading="lazy" src="../img/config/ConS_VehicleConfig.png" alt="" />Tipo y marca</button>
+      <button type="button" data-tab="vdimensions"><img loading="lazy" src="../img/config/RadiusWheelBase.png" alt="" />Dimensiones</button>
+      <button type="button" data-tab="vantenna"><img loading="lazy" src="../img/config/ConS_ImplementAntenna.png" alt="" />Antena</button>
+      <div class="grupo">Implemento</div>
+      <button type="button" data-tab="tconfig"><img loading="lazy" src="../img/config/ConS_ImplementConfig.png" alt="" />Enganche</button>
+      <button type="button" data-tab="thitch"><img loading="lazy" src="../img/config/ConS_ImplementHitch.png" alt="" />Distancias</button>
+      <button type="button" data-tab="tooloffset"><img loading="lazy" src="../img/config/ConS_ImplementOffset.png" alt="" />Offset</button>
+      <button type="button" data-tab="toolpivot"><img loading="lazy" src="../img/config/ConS_ImplementPivot.png" alt="" />Pivote</button>
+      <div class="grupo">Secciones</div>
+      <button type="button" data-tab="tsections"><img loading="lazy" src="../img/config/ConS_ImplementSection.png" alt="" />Secciones</button>
+      <!-- "Anticipación" (ex "Timing", grupo Implemento — 2026-09): la clave
+           tsettings se mantiene para que ?tab=tsettings y la ayuda sigan andando. -->
+      <button type="button" data-tab="tsettings"><img loading="lazy" src="../img/config/ConS_ImplementSettings.png" alt="" />Anticipación</button>
+      <button type="button" data-tab="tswitches"><img loading="lazy" src="../img/config/ConS_ImplementSwitch.png" alt="" />Switches</button>
+      <!-- "Pines relay" salió del menú (pedido usuario 2026-08-03). La pantalla
+           y su lógica siguen enteras: se llega con ?tab=relay. Para devolverla
+           al menú alcanza con reponer el botón acá. -->
+      <button type="button" data-tab="amachine"><img loading="lazy" src="../img/config/ConS_ModulesMachine.png" alt="" />Máquina</button>
+      <div class="grupo">GPS / IMU</div>
+      <button type="button" data-tab="heading"><img loading="lazy" src="../img/config/ConS_SourcesHeading.png" alt="" />Rumbo</button>
+      <button type="button" data-tab="roll"><img loading="lazy" src="../img/config/ConS_SourcesRoll.png" alt="" />Rolido</button>
+      <div class="grupo">Otros</div>
+      <button type="button" data-tab="uturn"><img loading="lazy" src="../img/config/Con_UTurnMenu.png" alt="" />U-Turn</button>
+      <button type="button" data-tab="tram"><img loading="lazy" src="../img/config/Con_TramMenu.png" alt="" />Tram</button>
+      <button type="button" data-mod="sonidos.html"><span class="ico-emoji">🔔</span>Sonidos</button>
+      <!-- "Display" y "Botones" salieron del menú (pedido usuario 2026-08-03),
+           igual que "Pines relay". Las pantallas y su lógica siguen enteras: se
+           llega con ?tab=display y ?tab=botones. Para devolverlas al menú,
+           reponer sus botones acá. -->
+      <!-- Módulos X-*: se muestran EMBEBIDOS (iframe en modo widget, sin su
+           propia sidebar) dentro de config.html, para no salir de la config
+           ni cambiar de estilo (pedido usuario 2026-07-20).
+           El Hub también vive acá adentro (pedido usuario 2026-07-28): es la
+           única pantalla que prende y apaga los widgets que se ven sobre el
+           mapa, y no tenía ninguna puerta desde que las barras del cockpit
+           reemplazaron a la toolbar que lo abría. -->
+      <div class="grupo">Módulos</div>
+      <button type="button" data-mod="hub.html"><img loading="lazy" src="../img/icons/existing/agp-hub.png" alt="" />Hub</button>
+      <button type="button" data-mod="quantix.html"><img loading="lazy" src="../img/icons/existing/agp-quantix.png" alt="" />QuantiX</button>
+      <button type="button" data-mod="vistax.html"><img loading="lazy" src="../img/icons/existing/agp-vistax.png" alt="" />VistaX</button>
+      <button type="button" data-mod="flowx.html"><img loading="lazy" src="../img/icons/existing/agp-flowx.png" alt="" />FlowX</button>
+      <button type="button" data-mod="sectionx.html"><img loading="lazy" src="../img/icons/existing/agp-sectionx.png" alt="" />SectionX</button>
+      <button type="button" data-mod="linex.html"><img loading="lazy" src="../img/icons/existing/agp-linex.png" alt="" />LineX</button>
+      <button type="button" data-mod="stormx.html"><img loading="lazy" src="../img/icons/existing/agp-stormx.png" alt="" />StormX</button>
+      <!-- Nodos y Cámaras faltaban: eran los dos accesos del Hub que no se
+           habían migrado acá, y sin ellos no hay forma de ver qué nodos
+           aparecieron por MQTT ni de configurar las cámaras. -->
+      <button type="button" data-mod="nodos.html"><img loading="lazy" src="../img/icons/existing/agp-nodos.png" alt="" />Nodos</button>
+      <button type="button" data-mod="camaras.html"><img loading="lazy" src="../img/icons/existing/agp-camaras.png" alt="" />Cámaras</button>
+      <!-- Campo: mismo embebido que Módulos (migrado del Hub 2026-07-20). -->
+      <div class="grupo">Campo</div>
+      <button type="button" data-mod="insumos.html"><img loading="lazy" src="../img/icons/existing/agp-insumos.png" alt="" />Insumos</button>
+      <button type="button" data-mod="mapas.html"><img loading="lazy" src="../img/icons/existing/agp-mapas.png" alt="" />Mapas</button>
+      <button type="button" data-mod="quantix.html?tab=shape"><img loading="lazy" src="../img/icons/existing/agp-prescripciones.png" alt="" />Prescripciones</button>
+      <!-- Herramientas de campo/banco: mismo embebido que Módulos. Una sola
+           ventana para todo (pedido usuario 2026-08-02). -->
+      <div class="grupo">Herramientas</div>
+      <!-- El conteo de semillas NO va acá: es ventana propia, desde
+           Menú izquierdo › Herramientas › Conteo de semillas (2026-08-06). -->
+      <button type="button" data-mod="calculadora-siembra.html"><span class="ico-emoji">🧮</span>Calculadora</button>
+      <button type="button" data-mod="pid-lab.html"><span class="ico-emoji">📈</span>Lab PID</button>
+      <button type="button" data-mod="pwm-diag.html"><span class="ico-emoji">🔧</span>Diagnóstico PWM</button>
+      <!-- Apagar / Reiniciar la PC: acción directa (data-action) con confirmación
+           táctil, reusan POST /api/sistema/power. El set completo (suspender,
+           cerrar app, brillo) sigue en Mantenimiento › Sistema. -->
+      <button type="button" data-action="shutdown" data-confirm="¿Apagar la PC?"><span class="ico-emoji">⏻</span>Apagar</button>
+      <button type="button" data-action="restart" data-confirm="¿Reiniciar la PC?"><span class="ico-emoji">⟳</span>Reiniciar</button>
+      <!-- Cloud: mismo embebido que Módulos (migrado del Hub 2026-07-20). -->
+      <div class="grupo">Cloud</div>
+      <button type="button" data-mod="orbitx.html"><img loading="lazy" src="../img/icons/existing/agp-orbitx.png" alt="" />OrbitX</button>
+      <button type="button" data-mod="firmwares.html"><img loading="lazy" src="../img/icons/existing/agp-firmwares.png" alt="" />Firmwares</button>
+      <button type="button" data-mod="actualizar.html"><img loading="lazy" src="../img/icons/existing/agp-actualizar.png" alt="" />Actualizar</button>
+      <button type="button" data-mod="pwa-qr.html"><img loading="lazy" src="../img/icons/existing/agp-pwa-qr.png" alt="" />Conectar celular</button>
+      <!-- Mantenimiento: Red WiFi (módulo propio, /api/red/wifi) + sistema/eventos/debug. -->
+      <div class="grupo">Mantenimiento</div>
+      <button type="button" data-mod="wifi.html"><span class="ico-emoji">📶</span>Red WiFi</button>
+      <button type="button" data-mod="sistema.html"><img loading="lazy" src="../img/icons/existing/agp-sistema.png" alt="" />Sistema</button>
+      <button type="button" data-mod="eventos.html"><span class="ico-emoji">📜</span>Eventos</button>
+      <button type="button" data-mod="debug.html"><img loading="lazy" src="../img/icons/existing/agp-debug.png" alt="" />Debug</button>
+      <!-- Ayuda entra acá (2026-08-06): el menú SISTEMA de la barra superior
+           la abre como config.html?mod=ayuda.html, parada en este módulo. -->
+      <button type="button" data-mod="ayuda.html"><span class="ico-emoji">❓</span>Ayuda</button>
+    </nav>
+
+    <main id="main">
+      <!-- ================= Resumen ================= -->
+      <section data-tab="summary">
+        <div class="carta">
+          <h2 id="sumPerfil">Perfil: —</h2>
+          <p class="nota" style="margin-bottom:12px">
+            Las configuraciones del vehículo se agrupan en «perfiles» — se crean
+            y cargan desde la página <b>Perfiles</b>.
+          </p>
+          <div class="sumgrid">
+            <span class="k">Unidades:</span>      <span class="v" id="sumUnidades">—</span>
+            <span class="k">Ancho:</span>          <span class="v" id="sumAncho">—</span>
+            <span class="k">Secciones:</span>      <span class="v" id="sumSecciones">—</span>
+            <span class="k">Offset:</span>         <span class="v" id="sumOffset">—</span>
+            <span class="k">Overlap:</span>        <span class="v" id="sumOverlap">—</span>
+            <span class="k">Lookahead:</span>      <span class="v" id="sumLookahead">—</span>
+            <span class="k">Ancho tram:</span>     <span class="v" id="sumTram">—</span>
+            <span class="k">Entre ejes:</span>     <span class="v" id="sumWheelbase">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Vehículo: tipo ================= -->
+      <!-- Reorganizado 2026-08-10: SOLO el tipo — Rígido / Articulado /
+           Cosechadora / Pulverizadora (que por dentro es un rígido). Sin
+           marca ni imagen: el vehículo en el mapa es SIEMPRE el triángulo
+           verde. La elección "pulverizadora" se recuerda localmente (el
+           motor solo conoce 0/1/2). -->
+      <section data-tab="vconfig">
+        <div class="carta">
+          <h2>Tipo de vehículo</h2>
+          <div class="radios" id="vTipos">
+            <!-- Íconos del handoff Agro Parallel 2026-08-10 (SVG, lienzo 120×90).
+                 La pulverizadora tenía uno prestado (límite de velocidad). -->
+            <div class="radioimg tipo" data-tipo="0" data-sub="rigido"><img loading="lazy" src="../img/config/VehicleTractorRigid.svg" alt="" /><span class="cap">Rígido</span></div>
+            <div class="radioimg tipo" data-tipo="2" data-sub="articulado"><img loading="lazy" src="../img/config/VehicleTractorArticulated.svg" alt="" /><span class="cap">Articulado</span></div>
+            <div class="radioimg tipo" data-tipo="1" data-sub="cosechadora"><img loading="lazy" src="../img/config/VehicleHarvester.svg" alt="" /><span class="cap">Cosechadora</span></div>
+            <div class="radioimg tipo" data-tipo="0" data-sub="pulverizadora"><img loading="lazy" src="../img/config/VehicleSprayer.svg" alt="" /><span class="cap">Pulverizadora</span></div>
+          </div>
+          <p class="nota" id="vNotaHarvester" hidden>La cosechadora fuerza el implemento a frontal.</p>
+          <p class="nota" id="vNotaPulv" hidden>La pulverizadora se comporta como un vehículo rígido.</p>
+          <p class="nota">El vehículo se dibuja en el mapa como el triángulo verde.</p>
+        </div>
+      </section>
+
+      <!-- ================= Vehículo: dimensiones ================= -->
+      <section data-tab="vdimensions">
+        <div class="carta">
+          <h2>Dimensiones del vehículo</h2>
+          <img loading="lazy" class="diagrama" id="dimImg" src="../img/config/RadiusWheelBase.png" alt="" />
+          <div class="nudfila">
+            <label for="nudWheelbase">Entre ejes</label>
+            <input class="nud" id="nudWheelbase" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div class="nudfila">
+            <label for="nudTrack">Trocha</label>
+            <input class="nud" id="nudTrack" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div class="nudfila" id="filaHitch">
+            <label for="nudHitch">Distancia del eje rígido al enganche</label>
+            <input class="nud" id="nudHitch" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <p class="nota" id="notaHitchOculto" hidden>
+            La distancia del eje rígido al enganche no aplica con implemento
+            fijo o frontal — se configura en la pestaña Distancias del implemento.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= Vehículo: antena ================= -->
+      <section data-tab="vantenna">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Posición de antena</h2>
+            <img loading="lazy" class="diagrama" id="antImg" src="../img/config/AntennaTractor.png" alt="" />
+          </div>
+          <div class="carta">
+            <div class="nudfila">
+              <label for="nudAntHeight">Altura de antena</label>
+              <input class="nud" id="nudAntHeight" type="text" inputmode="numeric" />
+              <span class="unidad" data-unidad></span>
+            </div>
+            <div class="nudfila">
+              <label for="nudAntPivot">Distancia al pivote</label>
+              <input class="nud" id="nudAntPivot" type="text" inputmode="numeric" />
+              <span class="unidad" data-unidad></span>
+            </div>
+            <h2 style="margin-top:6px">Offset de antena</h2>
+            <div class="nudfila">
+              <label for="nudAntOffset">Offset</label>
+              <input class="nud" id="nudAntOffset" type="text" inputmode="numeric" />
+              <span class="unidad" data-unidad></span>
+            </div>
+            <div class="radios" id="antLados">
+              <div class="radioimg ant" data-lado="izq"><img loading="lazy" src="../img/config/AntennaLeftOffset.png" alt="" /><span class="cap">Izquierda</span></div>
+              <div class="radioimg ant" data-lado="centro"><img loading="lazy" src="../img/config/AntennaNoOffset.png" alt="" /><span class="cap">Centro</span></div>
+              <div class="radioimg ant" data-lado="der"><img loading="lazy" src="../img/config/AntennaRightOffset.png" alt="" /><span class="cap">Derecha</span></div>
+            </div>
+            <p class="nota" style="margin-top:10px">** Antena dual: la posición va a la derecha.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Implemento: estilo de enganche ================= -->
+      <section data-tab="tconfig">
+        <div class="carta">
+          <h2>Estilo de enganche</h2>
+          <!-- réplica tabTConfig: 4 radios imagen; Harvester los oculta -->
+          <div class="radios" id="tcRadios">
+            <div class="radioimg estilo" data-estilo="rear"><img loading="lazy" src="../img/config/ToolChkRear.png" alt="" /><span class="cap">Fijo trasero</span></div>
+            <div class="radioimg estilo" data-estilo="tbt"><img loading="lazy" src="../img/config/ToolChkTBT.png" alt="" /><span class="cap">Tanque intermedio (TBT)</span></div>
+            <div class="radioimg estilo" data-estilo="front"><img loading="lazy" src="../img/config/ToolChkFront.png" alt="" /><span class="cap">Frontal</span></div>
+            <div class="radioimg estilo" data-estilo="trailing"><img loading="lazy" src="../img/config/ToolChkTrailing.png" alt="" /><span class="cap">De arrastre</span></div>
+          </div>
+          <div id="tcHarvester" hidden>
+            <img loading="lazy" class="diagrama" src="../img/config/vehiclePageHarvester.png" alt="" />
+            <p class="nota">La cosechadora usa siempre implemento frontal — no hay nada que elegir.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Implemento: distancias de enganche ================= -->
+      <section data-tab="thitch">
+        <div class="carta">
+          <h2>Distancias de enganche</h2>
+          <img loading="lazy" class="diagrama" id="thImg" src="../img/config/ToolHitchPageTrailing.png" alt="" />
+          <div class="nudfila" id="thFilaDrawbar">
+            <label for="nudDrawbar">Largo de barra</label>
+            <input class="nud" id="nudDrawbar" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div class="nudfila" id="thFilaTrailing">
+            <label for="nudTrailingHitch">Enganche de arrastre</label>
+            <input class="nud" id="nudTrailingHitch" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div class="nudfila" id="thFilaTank">
+            <label for="nudTankHitch">Enganche del tanque</label>
+            <input class="nud" id="nudTankHitch" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Implemento: offset y overlap ================= -->
+      <section data-tab="tooloffset">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Offset del implemento</h2>
+            <div class="nudfila">
+              <button type="button" class="btnZero" id="btnZeroOffset"><img loading="lazy" src="../img/config/SteerZero.png" alt="0" /></button>
+              <input class="nud" id="nudToolOffset" type="text" inputmode="numeric" />
+              <span class="unidad" data-unidad></span>
+            </div>
+            <div class="radios" id="toLados">
+              <div class="radioimg dircol" data-lado="izq"><img loading="lazy" src="../img/config/ToolOffsetNegativeLeft.png" alt="" /><span class="cap">Izquierda</span></div>
+              <div class="radioimg dircol" data-lado="der"><img loading="lazy" src="../img/config/ToolOffsetPositiveRight.png" alt="" /><span class="cap">Derecha</span></div>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Overlap / Gap</h2>
+            <div class="nudfila">
+              <button type="button" class="btnZero" id="btnZeroOverlap"><img loading="lazy" src="../img/config/SteerZero.png" alt="0" /></button>
+              <input class="nud" id="nudToolOverlap" type="text" inputmode="numeric" />
+              <span class="unidad" data-unidad></span>
+            </div>
+            <div class="radios" id="toModos">
+              <div class="radioimg dircol" data-modo="overlap"><img loading="lazy" src="../img/config/ToolOverlap.png" alt="" /><span class="cap">Overlap</span></div>
+              <div class="radioimg dircol" data-modo="gap"><img loading="lazy" src="../img/config/ToolGap.png" alt="" /><span class="cap">Gap</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Implemento: pivote (trailing) ================= -->
+      <section data-tab="toolpivot">
+        <div class="carta">
+          <h2>Distancia rueda / pivote del implemento</h2>
+          <!-- âš ï¸ cruce de imágenes intencional del original: behind usa …OffsetNeg -->
+          <div class="radios" id="tpLados">
+            <div class="radioimg dircol" data-pivote="ahead"><img loading="lazy" src="../img/config/ToolHitchPivotOffsetPos.png" alt="" /><span class="cap">Adelante</span></div>
+            <div class="radioimg dircol" data-pivote="behind"><img loading="lazy" src="../img/config/ToolHitchPivotOffsetNeg.png" alt="" /><span class="cap">Detrás</span></div>
+          </div>
+          <div class="nudfila" style="margin-top:12px">
+            <button type="button" class="btnZero" id="btnZeroPivot"><img loading="lazy" src="../img/config/SteerZero.png" alt="0" /></button>
+            <input class="nud" id="nudPivot" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Secciones: anticipación (ex Implemento › Timing) ================= -->
+      <section data-tab="tsettings">
+        <div class="carta">
+          <h2>Anticipación del corte de secciones</h2>
+          <div class="timingCols">
+            <div class="timingCol">
+              <img loading="lazy" src="../img/config/SectionOnLookAhead.gif" alt="" />
+              <input class="nud" id="nudLookAheadOn" type="text" inputmode="numeric" />
+              <span class="unidad">Encendido (s)</span>
+            </div>
+            <div class="timingCol">
+              <img loading="lazy" src="../img/config/SectionLookAheadOff.gif" alt="" />
+              <input class="nud" id="nudLookAheadOff" type="text" inputmode="numeric" />
+              <span class="unidad">Apagado (s)</span>
+            </div>
+            <div class="timingCol">
+              <img loading="lazy" src="../img/config/SectionLookAheadDelay.gif" alt="" />
+              <input class="nud" id="nudTurnOffDelay" type="text" inputmode="numeric" />
+              <span class="unidad">Retardo de apagado (s)</span>
+            </div>
+          </div>
+          <!-- Nota viva: los segundos traducidos a metros a 8 km/h (se recalcula
+               al tipear, config.js tsPintarMetros). -->
+          <p class="nota" id="tsMetros" style="margin-top:10px; font-weight:600">
+            A 8 km/h: encendido ≈ — m · apagado ≈ — m · retardo ≈ — m.
+            Tope del motor: 20 m para encender, 16 m para apagar.
+          </p>
+          <p class="nota" style="margin-top:6px">
+            Elegí uno: «Apagado» corta ANTES de pisar lo ya sembrado · «Retardo»
+            sigue aplicando un rato DESPUÉS. Al cargar uno, el otro vuelve a 0.
+            El apagado no puede superar 0,8 × encendido.
+          </p>
+        </div>
+      </section>
+      <!-- ================= Secciones (tabTSections) ================= -->
+      <section data-tab="tsections">
+        <!-- Modo simple (2026-09): una sembradora "normal" se carga con tres
+             números — surcos, distancia entre surcos y anticipación — y
+             "Aplicar y guardar" arma la geometría (modo individual, N anchos
+             iguales) + el timing en un solo paso. Todo lo demás queda abajo
+             de "Avanzado" (config.js tabs.tsections / simpleAplicar). -->
+        <div class="carta" id="secCartaSimple">
+          <h2>Sembradora (modo simple)</h2>
+          <div class="nudfila">
+            <label for="nudSimpleSurcos">Surcos</label>
+            <input class="nud" id="nudSimpleSurcos" type="text" inputmode="numeric" />
+            <span class="unidad">1 a 16</span>
+          </div>
+          <div class="nudfila">
+            <label for="nudSimpleDist">Distancia entre surcos</label>
+            <input class="nud" id="nudSimpleDist" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div class="nudfila">
+            <label for="nudSimpleAnt">Anticipación</label>
+            <input class="nud" id="nudSimpleAnt" type="text" inputmode="numeric" />
+            <span class="unidad">s</span>
+          </div>
+          <p class="nota" style="margin-bottom:8px">
+            Arma N secciones iguales y la anticipación de encendido (el apagado
+            queda en la mitad, sin retardo). Para anchos distintos, zonas o
+            trenes, abrí «Avanzado».
+          </p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+            <button type="button" class="btn" id="btnSimpleAplicar" style="color:var(--texto); border-color:var(--verde); font-weight:700">Aplicar y guardar</button>
+            <button type="button" class="btn" id="btnSecAvanzado">Avanzado ▾</button>
+          </div>
+        </div>
+
+        <!-- Todo lo de abajo se muestra/oculta con el botón "Avanzado". -->
+        <div id="secAvanzado">
+        <div class="carta">
+          <h2>Modo de secciones</h2>
+          <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center">
+            <!-- réplica cboxIsUnique: checked = zonas (simétrico) -->
+            <div class="chkimg" id="secModo">
+              <img loading="lazy" id="secModoImg" src="../img/config/ConT_Asymmetric.png" alt="" />
+              <span class="cap" id="secModoCap">Secciones individuales</span>
+            </div>
+            <p class="nota" style="max-width:420px">
+              <b>Individuales:</b> hasta 16 secciones, cada una con su ancho.<br />
+              <b>Simétricas (zonas):</b> hasta 64 secciones del mismo ancho,
+              agrupadas en 2–8 zonas.
+            </p>
+          </div>
+        </div>
+
+        <!-- modo secciones individuales -->
+        <div class="carta" id="secCartaInd">
+          <h2>Secciones individuales</h2>
+          <div class="nudfila">
+            <label for="selNumSections">Cantidad</label>
+            <select class="nud" id="selNumSections" data-no-keyboard></select>
+            <label for="nudDefaultWidth" style="min-width:auto">Ancho por defecto</label>
+            <input class="nud" id="nudDefaultWidth" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <p class="nota" style="margin-bottom:8px">
+            Cambiar la cantidad pisa todos los anchos con el ancho por defecto.
+          </p>
+          <div id="secGrilla" class="secGrilla"></div>
+          <p style="margin-top:10px; font-weight:700">
+            Ancho total: <span id="secTotal">—</span>
+          </p>
+        </div>
+
+        <!-- modo zonas -->
+        <div class="carta" id="secCartaZonas">
+          <h2>Secciones simétricas</h2>
+          <div class="nudfila">
+            <label for="nudNumSectionsMulti">Secciones</label>
+            <input class="nud" id="nudNumSectionsMulti" type="text" inputmode="numeric" />
+            <label for="selZonas" style="min-width:auto">Zonas</label>
+            <select class="nud" id="selZonas" data-no-keyboard>
+              <option>2</option><option>3</option><option>4</option><option>5</option>
+              <option>6</option><option>7</option><option>8</option>
+            </select>
+            <label for="nudWidthMulti" style="min-width:auto">Ancho de sección</label>
+            <input class="nud" id="nudWidthMulti" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div id="zonasGrilla" class="secGrilla"></div>
+          <p style="margin-top:10px; font-weight:700">
+            Ancho total: <span id="secTotalZonas">—</span>
+          </p>
+        </div>
+
+        <!-- Trenes de siembra: qué surco corta con qué tren y a cuántos
+             metros va el trasero. Fuente ÚNICA de esta configuración
+             (config-implemento la muestra pero manda acá). -->
+        <div class="carta" id="cartaTrenes">
+          <h2>Trenes de siembra</h2>
+          <p class="nota">Para máquinas con tren delantero y trasero: cada surco
+          pertenece a un tren, y el trasero corta N metros después, sobre la misma
+          pasada. Con un solo tren esta parte no afecta nada.</p>
+          <div id="trnList"></div>
+          <div style="margin:8px 0">
+            <button type="button" class="btn" id="trnAdd">+ Agregar tren</button>
+          </div>
+          <div id="trnSurcos">
+            <p class="nota" style="margin-bottom:6px">Qué surcos van en cada tren
+            (elegí un tren y tocá los surcos):</p>
+            <div id="trnBrush" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px"></div>
+            <div id="trnStrip" class="secGrilla"></div>
+          </div>
+          <p id="trnMsg" class="nota"></p>
+        </div>
+
+        <div class="carta">
+          <h2>Control de secciones</h2>
+          <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start">
+            <div>
+              <!-- Corte en el lindero (2026-09): el lindero corta SIEMPRE;
+                   is_section_off_when_out solo elige cuándo — apenas asoma una
+                   punta (true) o recién cuando la sección sale entera (false).
+                   Selector de dos opciones, una sola marcada (sec.boundary). -->
+              <p style="margin:0 0 6px; font-weight:700">Corte en el lindero</p>
+              <div id="secBoundary" style="display:flex; gap:10px; flex-wrap:wrap">
+                <div class="chkimg" data-boundary="1">
+                  <img loading="lazy" src="../img/config/SectionOffBoundary.png" alt="" />
+                  <span class="cap">Apenas asoma una punta</span>
+                </div>
+                <div class="chkimg" data-boundary="0">
+                  <img loading="lazy" src="../img/config/SectionOnBoundary.png" alt="" />
+                  <span class="cap">Recién cuando sale entera</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="nudfila">
+                <img loading="lazy" src="../img/config/SectionOffBelow.png" alt="" style="height:44px" />
+                <label for="nudCutoff" style="min-width:auto">Cortar por debajo de</label>
+                <input class="nud" id="nudCutoff" type="text" inputmode="numeric" />
+                <span class="unidad" id="secCutoffUnidad">km/h</span>
+              </div>
+              <div class="nudfila">
+                <label for="nudMinCoverage">Corta al pisar sembrado</label>
+                <input class="nud" id="nudMinCoverage" type="text" inputmode="numeric" />
+                <span class="unidad">% del ancho</span>
+              </div>
+              <p class="nota" style="max-width:420px">
+                90 = corta cuando el 90 % del ancho de la sección ya está
+                sembrado. Menos = corta antes. Entre 50 y 95.
+              </p>
+              <div class="chkimg" id="secSinCorte" style="margin-top:8px">
+                <img loading="lazy" src="../img/config/SectionMasterOff.png" alt="" style="height:44px" />
+                <span class="cap">La máquina no corta por secciones: pintar todo el ancho</span>
+              </div>
+              <p class="nota" style="max-width:420px">
+                Para barras o sembradoras sin válvulas ni embragues por sección. Tildado,
+                mientras el maestro está prendido se pinta todo el ancho y no se corta por
+                solape, lindero ni cabecera: el mapa muestra lo que la máquina aplicó de verdad.
+              </p>
+            </div>
+          </div>
+        </div>
+        </div><!-- /secAvanzado -->
+      </section>
+
+      <!-- ================= Switches (tabTSwitches) ================= -->
+      <section data-tab="tswitches">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Switch de trabajo</h2>
+            <div class="swCol" id="swWork">
+              <div class="chkimg sw" id="swWorkOn"><img loading="lazy" src="../img/config/HydraulicLiftOff.png" alt="" /><span class="cap">Activar</span></div>
+              <div class="chkimg sw" id="swWorkManual"><img loading="lazy" src="../img/config/ManualOff.png" alt="" /><span class="cap">Secciones: Manual</span></div>
+              <div class="chkimg sw" id="swWorkAuto"><img loading="lazy" src="../img/config/SectionMasterOff.png" alt="" /><span class="cap">Secciones: Auto</span></div>
+              <div class="chkimg sw" id="swWorkLow"><img loading="lazy" id="swWorkLowImg" src="../img/config/SwitchActiveOpen.png" alt="" /><span class="cap">Activo con contacto cerrado</span></div>
+              <div class="chkimg sw" id="swWorkToolx"><img loading="lazy" src="../img/config/SwitchOff.png" alt="" /><span class="cap">ToolX (switch inalámbrico)</span></div>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Switch de dirección</h2>
+            <div class="swCol" id="swSteer">
+              <div class="chkimg sw" id="swSteerOn"><img loading="lazy" src="../img/config/AutoSteerOff.png" alt="" /><span class="cap">Activar</span></div>
+              <div class="chkimg sw" id="swSteerManual"><img loading="lazy" src="../img/config/ManualOff.png" alt="" /><span class="cap">Secciones: Manual</span></div>
+              <div class="chkimg sw" id="swSteerAuto"><img loading="lazy" src="../img/config/SectionMasterOff.png" alt="" /><span class="cap">Secciones: Auto</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Pines relay (tabRelay) ================= -->
+      <section data-tab="relay">
+        <div class="carta">
+          <h2>Pines del módulo de máquina</h2>
+          <p class="nota" style="margin-bottom:10px">
+            Los cambios se aplican recién al tocar <b>Enviar + Guardar</b> —
+            salir de la pestaña sin enviar los descarta (igual que el original).
+          </p>
+          <div id="relayGrilla" class="relayGrilla"></div>
+          <div class="nudfila" style="margin-top:14px">
+            <button type="button" class="btnZero" id="btnRelayDefault" title="Config por defecto"><img loading="lazy" src="../img/config/UpArrow64.png" alt="" /></button>
+            <button type="button" class="btnZero" id="btnRelayNone" title="Todos sin función"><img loading="lazy" src="../img/config/back-button.png" alt="" /></button>
+            <button type="button" class="btnEnviar" id="btnRelaySend"><img loading="lazy" src="../img/config/ToolAcceptChange.png" alt="" />Enviar + Guardar</button>
+            <img loading="lazy" id="relayPendiente" src="../img/config/ConSt_Mandatory.png" alt="" style="height:44px" hidden />
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Máquina (tabAMachine) ================= -->
+      <section data-tab="amachine">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Levante hidráulico</h2>
+            <div class="chkimg sw" id="maHydOn" style="margin-bottom:12px">
+              <img loading="lazy" id="maHydOnImg" src="../img/config/SwitchOff.png" alt="" />
+              <span class="cap">Habilitar levante</span>
+            </div>
+            <div class="nudfila">
+              <img loading="lazy" src="../img/config/ConMa_LiftRaiseTime.png" alt="" style="height:44px" />
+              <label for="nudRaiseTime" style="min-width:auto">Tiempo de subida</label>
+              <input class="nud" id="nudRaiseTime" type="text" inputmode="numeric" />
+              <span class="unidad">s</span>
+            </div>
+            <div class="nudfila">
+              <img loading="lazy" src="../img/config/ConMa_LiftLowerTime.png" alt="" style="height:44px" />
+              <label for="nudLowerTime" style="min-width:auto">Tiempo de bajada</label>
+              <input class="nud" id="nudLowerTime" type="text" inputmode="numeric" />
+              <span class="unidad">s</span>
+            </div>
+            <div class="nudfila">
+              <label for="nudHydLookAhead">Anticipación del levante</label>
+              <input class="nud" id="nudHydLookAhead" type="text" inputmode="numeric" />
+              <span class="unidad">s</span>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Módulo</h2>
+            <div class="chkimg sw" id="maInvert" style="margin-bottom:12px">
+              <img loading="lazy" src="../img/config/ConSt_InvertRelay.png" alt="" />
+              <span class="cap">Invertir relés</span>
+            </div>
+            <div class="nudfila">
+              <label for="nudUser1">Usuario 1</label>
+              <input class="nud" id="nudUser1" type="text" inputmode="numeric" />
+            </div>
+            <div class="nudfila">
+              <label for="nudUser2">Usuario 2</label>
+              <input class="nud" id="nudUser2" type="text" inputmode="numeric" />
+            </div>
+            <div class="nudfila">
+              <label for="nudUser3">Usuario 3</label>
+              <input class="nud" id="nudUser3" type="text" inputmode="numeric" />
+            </div>
+            <div class="nudfila">
+              <label for="nudUser4">Usuario 4</label>
+              <input class="nud" id="nudUser4" type="text" inputmode="numeric" />
+            </div>
+          </div>
+        </div>
+        <div class="carta">
+          <div class="nudfila" style="margin-bottom:0">
+            <button type="button" class="btnEnviar" id="btnMachineSend"><img loading="lazy" src="../img/config/ToolAcceptChange.png" alt="" />Enviar + Guardar</button>
+            <img loading="lazy" id="maPendiente" src="../img/config/ConSt_Mandatory.png" alt="" style="height:44px" hidden />
+            <span class="nota">Salir sin enviar descarta los cambios (igual que el original).</span>
+          </div>
+        </div>
+      </section>
+      <!-- ================= Rumbo (tabDHeading) ================= -->
+      <section data-tab="heading">
+        <div class="carta">
+          <h2>Tipo de antena</h2>
+          <div style="display:flex; gap:14px; flex-wrap:wrap">
+            <div class="radioimg dircol" id="rbHeadDual">
+              <img loading="lazy" src="../img/config/Con_SourcesGPSDual.png" alt="" /><span class="cap">Dual</span>
+            </div>
+            <div class="radioimg dircol" id="rbHeadFix">
+              <img loading="lazy" src="../img/config/Con_SourcesGPSSingle.png" alt="" /><span class="cap">Fix</span>
+            </div>
+          </div>
+        </div>
+        <div class="dosCol">
+          <div class="carta" id="hdCartaDual">
+            <h2>Antena dual</h2>
+            <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start">
+              <img loading="lazy" src="../img/config/Con_SourcesHead.png" alt="" style="height:120px" />
+              <div>
+                <div class="nudfila">
+                  <label for="nudDualHeadingOffset">Offset de rumbo</label>
+                  <input class="nud" id="nudDualHeadingOffset" type="text" inputmode="numeric" />
+                  <span class="unidad">°</span>
+                </div>
+                <div class="nudfila">
+                  <label for="nudDualReverseDistance">Distancia de reversa</label>
+                  <input class="nud" id="nudDualReverseDistance" type="text" inputmode="numeric" />
+                  <span class="unidad">m</span>
+                </div>
+                <div class="chkimg sw" id="hdAutoSwitch" style="margin:10px 0">
+                  <img loading="lazy" src="../img/config/Con_SourcesGPSDual.png" alt="" style="height:44px" />
+                  <span class="cap">Auto Dual â†” Fix</span>
+                </div>
+                <div class="nudfila">
+                  <label for="nudAutoSwitchSpeed">Velocidad de conmutación</label>
+                  <input class="nud" id="nudAutoSwitchSpeed" type="text" inputmode="numeric" />
+                  <span class="unidad" id="hdSwitchUnidad">km/h</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="carta" id="hdCartaSingle">
+            <h2>Antena simple (Fix)</h2>
+            <div class="chkimg sw" id="hdMinStep" style="margin-bottom:8px">
+              <img loading="lazy" src="../img/config/ConS_SourceFix.png" alt="" style="height:44px" />
+              <span class="cap" id="hdMinStepCap">Paso mínimo: 5 cm</span>
+            </div>
+            <p class="nota" style="margin-bottom:12px">Distancia de rumbo: <b id="hdStepDist">50 cm</b></p>
+            <div class="nudfila">
+              <span class="unidad">IMU</span>
+              <input type="range" id="hsbarFusion" min="5" max="60" step="1" style="flex:1" data-no-keyboard />
+              <span class="unidad">GPS</span>
+            </div>
+            <p class="nota">Fusión: <b id="lblFusionIMU">70%</b> IMU / <b id="lblFusion">30%</b> GPS
+              &nbsp;(por defecto: 70% IMU)</p>
+            <div class="chkimg sw" id="hdReverse" style="margin-top:10px">
+              <img loading="lazy" src="../img/config/YouTurnReverse.png" alt="" style="height:44px" />
+              <span class="cap">Detección de reversa</span>
+            </div>
+            <div class="chkimg sw" id="hdCurva" style="margin-top:10px">
+              <img loading="lazy" src="../img/config/SectionOnLookAhead.gif" alt="" style="height:44px" />
+              <span class="cap">Compensar velocidad por sección en curva</span>
+            </div>
+            <p class="nota">Prendido: en curva la sección de afuera va más rápido y recibe más dosis.
+              Apagado: todos los motores reciben la misma velocidad y prenden y apagan juntos (una sola
+              posición para todo el implemento); cada motor conserva su dosis. Apagalo si el GPS no
+              compensa terreno y la dosis varía sola.</p>
+          </div>
+        </div>
+        <div class="carta">
+          <h2>Alarmas GPS</h2>
+          <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:center">
+            <div class="nudfila" style="margin-bottom:0">
+              <label for="nudFixJump">Salto de fix</label>
+              <input class="nud" id="nudFixJump" type="text" inputmode="numeric" />
+              <span class="unidad">cm (0 desactiva)</span>
+            </div>
+            <div class="chkimg sw" id="hdRtk">
+              <img loading="lazy" src="../img/config/Con_SourcesRTKAlarm.png" alt="" style="height:44px" />
+              <span class="cap">Alarma RTK</span>
+            </div>
+            <div class="chkimg sw" id="hdRtkKill">
+              <img loading="lazy" src="../img/config/AutoSteerOff.png" alt="" style="height:44px" />
+              <span class="cap">La alarma frena el autoguiado</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Rolido (tabDRoll) ================= -->
+      <section data-tab="roll">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Cero de rolido</h2>
+            <p style="font-size:34px; font-weight:800; margin:6px 0 14px" id="rollZeroLbl">0.00</p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap">
+              <button type="button" class="btnZero" id="btnRollZero" title="Poner el rolido actual como cero"><img loading="lazy" src="../img/config/ConDa_RollSetZero.png" alt="" /></button>
+              <button type="button" class="btnZero" id="btnRollRemove" title="Quitar offset"><img loading="lazy" src="../img/config/ConDa_RemoveOffset.png" alt="" /></button>
+              <button type="button" class="btnZero" id="btnRollUp" title="+0.1°"><img loading="lazy" src="../img/config/UpArrow64.png" alt="" /></button>
+              <button type="button" class="btnZero" id="btnRollDown" title="âˆ’0.1°"><img loading="lazy" src="../img/config/DnArrow64.png" alt="" /></button>
+              <button type="button" class="btnZero" id="btnResetImu" title="Reiniciar IMU"><img loading="lazy" src="../img/config/ConDa_ResetIMU.png" alt="" /></button>
+            </div>
+            <p class="nota" style="margin-top:8px">Cero actual · flechas ±0.1° · el último botón reinicia la IMU.</p>
+            <div class="chkimg sw" id="rollInvert" style="margin-top:12px">
+              <img loading="lazy" src="../img/config/ConDa_InvertRoll.png" alt="" style="height:44px" />
+              <span class="cap">Invertir rolido</span>
+            </div>
+            <div class="nudfila" style="margin-top:14px">
+              <label for="hsbarRollFilter">Filtro</label>
+              <input type="range" id="hsbarRollFilter" min="0" max="98" step="1" style="flex:1" data-no-keyboard />
+              <span class="unidad" id="rollFilterPct">0%</span>
+            </div>
+          </div>
+          <div class="carta">
+            <!-- Tractor visto DE ATRÁS que copia el rolido del IMU en vivo
+                 (pedido 2026-08-10, prueba D9): la convención queda a la
+                 vista — inclinado a la DERECHA = POSITIVO. El giro del dibujo
+                 respeta el toggle "Invertir rolido" para verificarlo al toque. -->
+            <h2>Tractor visto de atrás (en vivo)</h2>
+            <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap">
+              <svg id="rollTractorSvg" width="230" height="120" viewBox="0 0 230 120" style="flex:none">
+                <line x1="8" y1="98" x2="222" y2="98" stroke="#C5CFC5" stroke-width="1.5" stroke-dasharray="5 5"/>
+                <g id="rollTractorG" transform="rotate(0 115 88)">
+                  <rect x="64"  y="60" width="24" height="28" rx="4" fill="#101612"/>
+                  <rect x="142" y="60" width="24" height="28" rx="4" fill="#101612"/>
+                  <rect x="60"  y="50" width="110" height="15" rx="4" fill="#4ABA3E"/>
+                  <rect x="86"  y="16" width="58" height="38" rx="6" fill="#4ABA3E"/>
+                  <rect x="94"  y="22" width="42" height="18" rx="3" fill="#FFFFFF"/>
+                </g>
+              </svg>
+              <div>
+                <div style="font-size:11px; font-weight:700; color:#535E54; text-transform:uppercase; letter-spacing:.4px">Rolido en vivo</div>
+                <div id="rollLiveVal" style="font-size:32px; font-weight:800; font-variant-numeric:tabular-nums">—</div>
+                <div class="nota">− izquierda · derecha +</div>
+              </div>
+            </div>
+            <p class="nota" style="margin-top:8px">Inclinado a la <b>derecha</b> = número <b>positivo</b>. Si el dibujo se inclina al revés de la máquina, activá <b>Invertir rolido</b> (el dibujo lo refleja al toque). Con el tractor en piso nivelado, poné el cero.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= U-Turn (tabUTurn) ================= -->
+      <section data-tab="uturn">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Geometría del giro</h2>
+            <div class="nudfila">
+              <img loading="lazy" src="../img/config/ConU_UturnRadius.png" alt="" style="height:64px" />
+              <label for="nudUturnRadius" style="min-width:auto">Radio</label>
+              <input class="nud" id="nudUturnRadius" type="text" inputmode="numeric" />
+              <span class="unidad" id="utUnidad1">m</span>
+            </div>
+            <div class="nudfila">
+              <img loading="lazy" src="../img/config/ConU_UturnDistance.png" alt="" style="height:64px" />
+              <label for="nudUturnDistance" style="min-width:auto">Distancia al límite</label>
+              <input class="nud" id="nudUturnDistance" type="text" inputmode="numeric" />
+              <span class="unidad" id="utUnidad2">m</span>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Suavizado y extensión</h2>
+            <div class="nudfila">
+              <img loading="lazy" src="../img/config/ConU_UturnSmooth.png" alt="" style="height:64px" />
+              <button type="button" class="btnZero" id="btnSmoothDn"><img loading="lazy" src="../img/config/DnArrow64.png" alt="" /></button>
+              <b id="utSmoothLbl" style="min-width:52px; text-align:center; font-size:22px">14</b>
+              <button type="button" class="btnZero" id="btnSmoothUp"><img loading="lazy" src="../img/config/UpArrow64.png" alt="" /></button>
+            </div>
+            <p class="nota" style="margin-bottom:12px">Suavizado: usar 3 o 4 × radio.</p>
+            <div class="nudfila">
+              <img loading="lazy" src="../img/config/ConU_UturnLength.png" alt="" style="height:64px" />
+              <button type="button" class="btnZero" id="btnExtDn"><img loading="lazy" src="../img/config/DnArrow64.png" alt="" /></button>
+              <b id="utExtLbl" style="min-width:52px; text-align:center; font-size:22px">20 m</b>
+              <button type="button" class="btnZero" id="btnExtUp"><img loading="lazy" src="../img/config/UpArrow64.png" alt="" /></button>
+            </div>
+            <p class="nota">Extensión: usar 2 o 3 × radio.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Tram (tabTram) ================= -->
+      <section data-tab="tram">
+        <div class="carta">
+          <h2>Trochas (tramlines)</h2>
+          <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start">
+            <img loading="lazy" src="../img/config/ConT_TramSpacing.png" alt="" style="height:120px" />
+            <div>
+              <div class="nudfila">
+                <label for="nudTramWidth">Ancho de trocha</label>
+                <input class="nud" id="nudTramWidth" type="text" inputmode="numeric" />
+                <span class="unidad" data-unidad></span>
+              </div>
+              <div class="chkimg sw" id="tramDisplay" style="margin:10px 0">
+                <img loading="lazy" src="../img/config/ConT_TramOverrideDisplay.png" alt="" style="height:44px" />
+                <span class="cap">Mostrar control en pantalla</span>
+              </div>
+              <div class="chkimg sw" id="tramOverride">
+                <img loading="lazy" src="../img/config/ConT_TramOverride.png" alt="" style="height:44px" />
+                <span class="cap">Invertir exterior / interior</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Display (tabDisplay) ================= -->
+      <section data-tab="display">
+        <div class="carta">
+          <h2>Elementos en pantalla</h2>
+          <div class="togglesGrid" id="dispGrilla">
+            <div class="chkimg" data-k="polygons"><img loading="lazy" src="../img/config/ConD_Poligons.png" alt="" /><span class="cap">Polígonos</span></div>
+            <div class="chkimg" data-k="speedo"><img loading="lazy" src="../img/config/ConD_Speedometer.png" alt="" /><span class="cap">Velocímetro</span></div>
+            <div class="chkimg" data-k="keyboard"><img loading="lazy" src="../img/config/ConD_KeyBoard.png" alt="" /><span class="cap">Teclado</span></div>
+            <div class="chkimg" data-k="brightness"><img loading="lazy" src="../img/config/BrightnessUp.png" alt="" /><span class="cap">Brillo</span></div>
+            <div class="chkimg" data-k="svenn_arrow"><img loading="lazy" src="../img/config/SvennArrow.png" alt="" /><span class="cap">Flecha Svenn</span></div>
+            <div class="chkimg" data-k="start_full_screen"><img loading="lazy" src="../img/config/ConD_FullScreenBegin.png" alt="" /><span class="cap">Iniciar pantalla completa</span></div>
+            <div class="chkimg" data-k="log_elevation"><img loading="lazy" src="../img/config/ConD_LogElevation.png" alt="" /><span class="cap">Registrar elevación</span></div>
+            <div class="chkimg" data-k="floor"><img loading="lazy" src="../img/config/ConD_FloorTexture.png" alt="" /><span class="cap">Textura de piso</span></div>
+            <div class="chkimg" data-k="grid"><img loading="lazy" src="../img/config/ConD_Grid.png" alt="" /><span class="cap">Grilla</span></div>
+            <div class="chkimg" data-k="extra_guides"><img loading="lazy" src="../img/config/ConD_ExtraGuides.png" alt="" /><span class="cap">Guías extra</span></div>
+            <div class="chkimg" data-k="direction_markers"><img loading="lazy" src="../img/config/ConD_DirectionMarker.png" alt="" /><span class="cap">Marcas de dirección</span></div>
+            <div class="chkimg" data-k="section_lines"><img loading="lazy" src="../img/config/ConD_SectionHighlights.png" alt="" /><span class="cap">Líneas de sección</span></div>
+            <div class="chkimg" data-k="headland_distance"><img loading="lazy" src="../img/config/HeadlandDistance.png" alt="" /><span class="cap">Distancia a cabecera</span></div>
+            <div class="chkimg" data-k="line_smooth"><img loading="lazy" src="../img/config/ConD_LineSmooth.png" alt="" /><span class="cap">Suavizado de líneas</span></div>
+          </div>
+          <div class="nudfila" style="margin-top:14px">
+            <label for="nudNumGuideLines">Cantidad de líneas guía</label>
+            <input class="nud" id="nudNumGuideLines" type="text" inputmode="numeric" />
+          </div>
+        </div>
+        <div class="carta">
+          <h2>Unidades</h2>
+          <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center">
+            <div class="radioimg dircol" id="rbMetric">
+              <img loading="lazy" src="../img/config/ConD_Metric.png" alt="" /><span class="cap">Métrico</span>
+            </div>
+            <div class="radioimg dircol" id="rbImperial">
+              <img loading="lazy" src="../img/config/ConD_Imperial.png" alt="" /><span class="cap">Imperial</span>
+            </div>
+            <p class="nota" style="max-width:360px">
+              Cambiar las unidades guarda todo y recarga la configuración
+              (igual que el original, que cierra la ventana).
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Botones / features (tabBtns) ================= -->
+      <section data-tab="botones">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Menú de campo</h2>
+            <div class="togglesGrid">
+              <div class="chkimg" data-k="feature_tram"><img loading="lazy" src="../img/config/TramAll.png" alt="" /><span class="cap">Trochas</span></div>
+              <div class="chkimg" data-k="feature_headland"><img loading="lazy" src="../img/config/HeadlandOn.png" alt="" /><span class="cap">Cabeceras</span></div>
+              <div class="chkimg" data-k="feature_boundary"><img loading="lazy" src="../img/config/Boundary.png" alt="" /><span class="cap">Límites</span></div>
+              <div class="chkimg" data-k="feature_rec_path"><img loading="lazy" src="../img/config/RecPath.png" alt="" /><span class="cap">Camino grabado</span></div>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Menú de herramientas</h2>
+            <div class="togglesGrid">
+              <div class="chkimg" data-k="feature_ab_smooth"><img loading="lazy" src="../img/config/ABSmooth.png" alt="" /><span class="cap">Suavizar AB</span></div>
+              <div class="chkimg" data-k="feature_hide_contour"><img loading="lazy" src="../img/config/Trash.png" alt="" /><span class="cap">Borrar contorno</span></div>
+              <div class="chkimg" data-k="feature_webcam"><img loading="lazy" src="../img/config/Webcam.png" alt="" /><span class="cap">Cámara web</span></div>
+              <div class="chkimg" data-k="feature_offset_fix"><img loading="lazy" src="../img/config/YouTurnReverse.png" alt="" /><span class="cap">Corrección de offset</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Menú inferior</h2>
+            <div class="togglesGrid">
+              <div class="chkimg" data-k="feature_uturn"><img loading="lazy" src="../img/config/z_TurnManual.png" alt="" /><span class="cap">U-Turn</span></div>
+              <div class="chkimg" data-k="feature_lateral"><img loading="lazy" src="../img/config/z_LateralManual.png" alt="" /><span class="cap">Lateral</span></div>
+              <div class="chkimg" data-k="feature_nudge"><img loading="lazy" src="../img/config/SnapToPivot.png" alt="" /><span class="cap">Ajuste fino (nudge)</span></div>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Sonidos</h2>
+            <div class="togglesGrid">
+              <div class="chkimg" data-k="sound_steer"><img loading="lazy" src="../img/config/ConF_SteerSound.png" alt="" /><span class="cap">Autoguiado</span></div>
+              <div class="chkimg" data-k="sound_turn"><img loading="lazy" src="../img/config/ConF_TurnSound.png" alt="" /><span class="cap">U-Turn</span></div>
+              <div class="chkimg" data-k="sound_hyd_lift"><img loading="lazy" src="../img/config/ConF_HydLiftSound.png" alt="" /><span class="cap">Levante</span></div>
+              <div class="chkimg" data-k="sound_sections"><img loading="lazy" src="../img/config/ConF_SoundSections.png" alt="" /><span class="cap">Secciones</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="carta">
+          <h2>Sistema</h2>
+          <div class="togglesGrid">
+            <div class="chkimg" data-k="shutdown_no_power"><img loading="lazy" src="../img/config/ChargingNo.png" alt="" /><span class="cap">Apagar sin alimentación</span></div>
+            <div class="chkimg" data-k="auto_start_corex"><img loading="lazy" src="../img/config/AgIO.png" alt="" /><span class="cap">CoreX: inicio automático</span></div>
+            <div class="chkimg" data-k="auto_off_corex"><img loading="lazy" src="../img/config/AgIO.png" alt="" /><span class="cap">CoreX: cierre automático</span></div>
+            <div class="chkimg" data-k="hardware_messages"><img loading="lazy" src="../img/config/HardwareMessage.png" alt="" /><span class="cap">Mensajes de hardware</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Módulo embebido: el iframe carga la página del producto en modo
+           widget (sin su sidebar). El menú de config queda a la izquierda. -->
+      <section data-tab="modulo" style="padding:0; height:100%">
+        <iframe id="modIframe" title="Módulo" style="width:100%; height:100%; border:0; display:block; background:var(--agp-bg)"></iframe>
+      </section>
+    </main>
+  </div>
+
+  <!-- botón Guardar flotante, visible en todas las solapas.
+       Estados: (neutro) sin cambios · .dirty hay cambios sin guardar (pulso
+       verde + aviso) · .ok recién guardado (tilde verde, 1.5s) -->
+  <button type="button" id="btnGuardarFloat" title="Guardar">
+    <img loading="lazy" id="btnGuardarImg" src="../img/config/FileSave.png" alt="Guardar" />
+    <span id="btnGuardarCap">Sin cambios</span>
+  </button>
+
+  <div id="footer">
+    <span class="dato" id="ftPerfil">Perfil: <b>—</b></span>
+    <span class="dato" id="ftAncho">Ancho: <b>—</b></span>
+    <span class="dato" id="ftUnidades">Unidades: <b>—</b></span>
+    <span id="estado"></span>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/config.js?v=4"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

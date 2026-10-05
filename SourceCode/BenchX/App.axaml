@@ -1,0 +1,84 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="BenchX.App"
+             RequestedThemeVariant="Light">
+  <Application.Resources>
+    <SolidColorBrush x:Key="FondoApp">#F5F7F4</SolidColorBrush>
+    <SolidColorBrush x:Key="FondoCard">#FFFFFF</SolidColorBrush>
+    <SolidColorBrush x:Key="BordeCard">#C5CFC5</SolidColorBrush>
+    <SolidColorBrush x:Key="FondoSuave">#E2E7E2</SolidColorBrush>
+    <SolidColorBrush x:Key="Acento">#4ABA3E</SolidColorBrush>
+    <SolidColorBrush x:Key="TextoPrimario">#101612</SolidColorBrush>
+    <SolidColorBrush x:Key="TextoSecundario">#535E54</SolidColorBrush>
+    <SolidColorBrush x:Key="Alerta">#C94F3D</SolidColorBrush>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+
+    <!-- Card: contenedor blanco de cada bloque -->
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource FondoCard}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource BordeCard}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="16"/>
+    </Style>
+
+    <!-- Título de card -->
+    <Style Selector="TextBlock.titulo">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource TextoSecundario}"/>
+      <Setter Property="Margin" Value="0,0,0,10"/>
+    </Style>
+
+    <!-- Valor grande (velocidad, ángulo, etc.) -->
+    <Style Selector="TextBlock.valor">
+      <Setter Property="FontSize" Value="24"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource TextoPrimario}"/>
+    </Style>
+
+    <!-- Etiqueta chica secundaria -->
+    <Style Selector="TextBlock.dato">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Foreground" Value="{StaticResource TextoSecundario}"/>
+    </Style>
+
+    <!-- Valor de dato de solo lectura -->
+    <Style Selector="TextBlock.datoValor">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource TextoPrimario}"/>
+    </Style>
+
+    <!-- Hilera de puntos de relés/zonas -->
+    <Style Selector="TextBlock.puntos">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="Foreground" Value="{StaticResource Acento}"/>
+      <Setter Property="FontFamily" Value="Consolas,monospace"/>
+    </Style>
+
+    <!-- Badge de estado -->
+    <Style Selector="Border.badge">
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="10,4"/>
+      <Setter Property="Background" Value="{StaticResource FondoSuave}"/>
+    </Style>
+    <Style Selector="Border.badge.activo">
+      <Setter Property="Background" Value="{StaticResource Acento}"/>
+    </Style>
+    <Style Selector="Border.badge > TextBlock">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource TextoPrimario}"/>
+    </Style>
+    <Style Selector="Border.badge.activo > TextBlock">
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+
+    <Style Selector="Slider">
+      <Setter Property="Margin" Value="0,2,0,2"/>
+    </Style>
+  </Application.Styles>
+</Application>

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Red WiFi</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ============================================================================
+       RED WIFI — manejo de WiFi PROPIO de PilotX (reemplaza "WiFi de Windows",
+       que abría ms-settings: inservible en kiosko y sin teclado táctil).
+       Lista de redes con señal y estado real + conexión con el teclado de
+       PilotX. API: /api/red/wifi*. Mismo lenguaje visual que banderas.html.
+       ============================================================================ */
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: var(--agp-bg); color: var(--agp-text);
+    }
+    body {
+      font-family: var(--agp-font-sans);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .wf-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: clamp(3px, 1vh, 6px) 10px;
+      background: var(--agp-surface);
+      border-bottom: 1px solid var(--agp-border);
+      flex-shrink: 0;
+    }
+    .wf-head .title { font-weight: var(--agp-fw-bold); font-size: 13px; flex: 1; }
+    .wf-pill {
+      padding: 2px 10px; border-radius: var(--agp-radius-pill);
+      font-size: 10px; font-weight: var(--agp-fw-bold);
+      background: var(--agp-surface-2, var(--agp-bg)); color: var(--agp-text-muted);
+      border: 1px solid var(--agp-border);
+      white-space: nowrap;
+    }
+    .wf-pill.ok { color: var(--agp-state-ok); border-color: var(--agp-state-ok); }
+
+    .btn {
+      min-height: clamp(28px, 6.5vh, 44px);
+      font-family: var(--agp-font-sans); font-size: clamp(11px, 2.2vh, 14px);
+      background: var(--agp-surface); color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      cursor: pointer; padding: 2px 12px;
+    }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .btn.acento { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+
+    .wf-body {
+      flex: 1; overflow-y: auto;
+      padding: clamp(4px, 1.2vh, 8px);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    /* ── Fila de red ── */
+    .wf-red {
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      padding: 6px 10px;
+    }
+    .wf-red-fila {
+      display: flex; align-items: center; gap: 10px;
+      min-height: clamp(30px, 6.5vh, 44px);
+      cursor: pointer;
+    }
+    .wf-red.sel { border-color: var(--agp-border-strong, var(--agp-border)); }
+    .wf-ssid { flex: 1; font-size: clamp(12px, 2.4vh, 15px); font-weight: var(--agp-fw-semibold, 600); }
+    .wf-senal { font-family: var(--agp-font-mono); font-size: 11px; color: var(--agp-text-muted); min-width: 42px; text-align: right; }
+    .wf-lock { font-size: 12px; color: var(--agp-text-dim, var(--agp-text-muted)); }
+    .wf-badge {
+      padding: 1px 8px; border-radius: var(--agp-radius-pill);
+      font-size: 10px; font-weight: var(--agp-fw-bold);
+      color: var(--agp-state-ok); border: 1px solid var(--agp-state-ok);
+      background: transparent;
+    }
+
+    /* Barras de señal (4 niveles) — puro CSS, sin imágenes. */
+    .wf-barras { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; }
+    .wf-barras span { width: 4px; background: var(--agp-border); border-radius: 1px; }
+    .wf-barras span:nth-child(1) { height: 5px; }
+    .wf-barras span:nth-child(2) { height: 8px; }
+    .wf-barras span:nth-child(3) { height: 12px; }
+    .wf-barras span:nth-child(4) { height: 16px; }
+    .wf-barras[data-nivel="1"] span:nth-child(-n+1),
+    .wf-barras[data-nivel="2"] span:nth-child(-n+2),
+    .wf-barras[data-nivel="3"] span:nth-child(-n+3),
+    .wf-barras[data-nivel="4"] span:nth-child(-n+4) { background: var(--agp-accent); }
+
+    /* ── Panel de conexión (expandido bajo la red elegida) ── */
+    .wf-conectar {
+      display: flex; gap: 6px; align-items: center;
+      padding: 6px 0 2px 0;
+      border-top: 1px solid var(--agp-border);
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .wf-conectar input {
+      flex: 1; min-width: 140px;
+      min-height: clamp(28px, 6vh, 40px);
+      font-family: var(--agp-font-sans); font-size: 14px;
+      background: var(--agp-surface); color: var(--agp-text);
+      border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      padding: 2px 8px;
+    }
+    .wf-error {
+      font-size: 11px; color: var(--agp-state-bad);
+      padding: 2px 0; width: 100%;
+    }
+
+    .wf-vacio {
+      text-align: center; color: var(--agp-text-muted);
+      font-size: 12px; padding: 18px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="wf-head">
+    <span class="title">Red WiFi</span>
+    <span class="wf-pill" id="wfEstado">…</span>
+    <button type="button" class="btn" id="wfActualizar">Actualizar</button>
+  </div>
+  <div class="wf-body" id="wfLista">
+    <div class="wf-vacio" id="wfCargando">Buscando redes…</div>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/wifi.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

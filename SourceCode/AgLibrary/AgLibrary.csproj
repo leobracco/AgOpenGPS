@@ -2,13 +2,24 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Multi-target (bloque 5 matriz Android): sin WinForms, portable entero -->
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net48;netstandard2.0</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Accord.Imaging" Version="3.8.0" />
-    <PackageReference Include="Accord.Video.DirectShow" Version="3.8.0" />
     <PackageReference Include="System.Memory" Version="4.6.0" />
+  </ItemGroup>
+
+  <!-- Solo por Point/Size/Color (System.Drawing.Primitives en .NET moderno,
+       multiplataforma). Sin WinForms ni Accord: los controles UI se movieron
+       al proyecto GPS (traspaso portabilidad 2026-07-16). -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Drawing.Primitives" Version="4.3.0" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es" class="widget-mode">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guías · PilotX</title>
+  <style>
+    /* Widget "Elegir guía" — Material Design compacto. Vive SOLO con lote
+       abierto (JobNew/JobClose). Colapsado: un chip/FAB extendido. Expandido:
+       card con los 3 modos de creación (A · A/B · A/B curvo), nada más.
+       El host redimensiona la ventanita vía postMessage('resize:WxH'). */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --md-primary: #4ABA3E;
+      --md-on-primary: #ffffff;
+      --md-surface: #ffffff;
+      --md-on-surface: #1c1b1f;
+      --md-outline: #d7dbd6;
+      --md-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12);
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+      background: transparent;
+      padding: 4px;
+      overflow: hidden;
+    }
+    .wrap { display: flex; flex-direction: column; gap: 6px; height: 100%; }
+
+    /* FAB extendido (colapsado) */
+    .fab {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 56px; width: 100%;
+      border: 0; border-radius: 16px;
+      background: var(--md-primary); color: var(--md-on-primary);
+      font: 600 14px "Segoe UI", Roboto, sans-serif;
+      box-shadow: var(--md-shadow);
+      cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+      touch-action: manipulation;
+    }
+    .fab .ico { font-size: 20px; line-height: 1; }
+    .fab:active { filter: brightness(0.92); }
+    .fab.on { background: #3a9a30; }
+
+    /* card expandida con los 3 modos */
+    .sheet {
+      flex: 1 1 auto; min-height: 0;
+      background: var(--md-surface);
+      border: 1px solid var(--md-outline);
+      border-radius: 16px;
+      box-shadow: var(--md-shadow);
+      padding: 8px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+    .sheet[hidden] { display: none; }
+    .mbtn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; min-height: 72px;
+      border: 1px solid var(--md-outline); border-radius: 12px;
+      background: #f3f7f2; color: var(--md-on-surface);
+      font: 600 12px "Segoe UI", Roboto, sans-serif;
+      cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+      touch-action: manipulation;
+    }
+    .mbtn .ico { font-size: 18px; font-weight: 800; letter-spacing: 1px; color: var(--md-primary); }
+    .mbtn:active { background: #e3ede1; }
+    .mbtn.flash { border-color: var(--md-primary); box-shadow: 0 0 0 2px rgba(74,186,62,0.35); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <button type="button" class="fab" id="gTrack">
+      <span class="ico">☰</span><span>Elegir guía</span>
+    </button>
+
+    <div class="sheet" id="trackPanel" hidden>
+      <button type="button" class="mbtn" data-cmd="track_new_a">
+        <span class="ico">A</span><span>Tirar A</span>
+      </button>
+      <button type="button" class="mbtn" data-cmd="track_new_ab">
+        <span class="ico">A·B</span><span>A / B</span>
+      </button>
+      <button type="button" class="mbtn" data-cmd="track_new_curve">
+        <span class="ico">A〰B</span><span>A / B curvo</span>
+      </button>
+    </div>
+  </div>
+  <!-- ?v=4: el WebView2 cachea agresivo el JS por URL; sin el version-bump
+       quedaba corriendo una versión vieja y los botones "no hacían nada". -->
+  <script src="../js/guia-rapida.js?v=4"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

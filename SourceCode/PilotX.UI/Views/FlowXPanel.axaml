@@ -1,0 +1,293 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.FlowXPanel">
+    <!--
+        FlowXPanel - reemplazo nativo (live-only) de pages/flowx.html.
+
+        Cabin-critical: caudal real, target, PWM, PID estado, dosis L/ha,
+        secciones activas, ancho, savings por corte automatico. Combina:
+          - HudSnapshot (PilotX): vel/secciones/area
+          - FlowXLive (broker MQTT): caudal real + PWM + PID
+          - FlowXConfig (json): producto activo + ancho_barra + dosis
+
+        El EDITOR DE CONFIG (reguladoras / cortes / PID / firmware) tambien
+        es nativo: el boton "Configurar" abre FlowXEditorPanel. FlowX ya no
+        instancia el WebView; pages/flowx.html sigue viva para la PWA.
+    -->
+    <!--
+        Card clara flotante con el mapa VIVO detras (misma receta que
+        ConfigPanel / Hub): antes este panel se pintaba a pantalla completa
+        con la paleta oscura y el mapa apagado — "una ventana negra gigante"
+        (reporte 2026-08-16). El mapa nunca se apaga ni se tapa del todo.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <Border Background="{StaticResource PilotXPanelCard}"
+                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                BorderThickness="1"
+                CornerRadius="14"
+                ClipToBounds="True"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="940" MaxHeight="660"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,8">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="24,20,24,24" Spacing="14">
+
+                    <!-- ============ Header ============ -->
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock Text="FlowX"
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontSize="22" FontWeight="SemiBold"/>
+                            <TextBlock Text="Control de corte y dosis para pulverizadoras"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                        </StackPanel>
+
+                        <Border Grid.Column="1"
+                                Background="{StaticResource PilotXPanelSurface2}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="999"
+                                Padding="14,6,14,6"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Ellipse Name="EstadoDot"
+                                         Width="10" Height="10"
+                                         Fill="{StaticResource PilotXPanelTextDim}"
+                                         VerticalAlignment="Center"/>
+                                <TextBlock Name="EstadoText"
+                                           Text="--"
+                                           Foreground="{StaticResource PilotXPanelTextMid}"
+                                           FontSize="13"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!--
+                            Atajo al editor NATIVO (FlowXEditorPanel): reguladoras,
+                            PID, cortes, electrovalvulas, firmware y nodos en red.
+                        -->
+                        <Button Grid.Column="2"
+                                Name="BtnConfigurar"
+                                Content="Configurar"
+                                Click="OnConfigurarClick"
+                                Background="{StaticResource PilotXPanelSurface2}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="14,6,14,6"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="Abre el editor: reguladoras, PID, cortes, electrovalvulas y firmware"/>
+                    </Grid>
+
+                    <!-- ============ KPIs principales ============ -->
+                    <UniformGrid Columns="2" Rows="2">
+                        <Border Background="{StaticResource PilotXPanelSurface}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="16,14,16,14"
+                                Margin="0,0,8,8">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Caudal real"
+                                           Foreground="{StaticResource PilotXPanelTextDim}"
+                                           FontSize="12" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                                    <TextBlock Name="KpiFlow" Text="--"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="36" FontWeight="Bold"/>
+                                    <TextBlock Text="L/min"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="14" Margin="0,0,0,8"/>
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Objetivo"
+                                               Foreground="{StaticResource PilotXPanelTextDim}" FontSize="11"/>
+                                    <TextBlock Grid.Column="1" Name="KpiTarget" Text="-- L/min"
+                                               Foreground="{StaticResource PilotXPanelText}" FontSize="12"
+                                               FontWeight="SemiBold"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource PilotXPanelSurface}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="16,14,16,14"
+                                Margin="8,0,0,8">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Dosis"
+                                           Foreground="{StaticResource PilotXPanelTextDim}"
+                                           FontSize="12" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                                    <TextBlock Name="KpiDose" Text="--"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="36" FontWeight="Bold"/>
+                                    <TextBlock Text="L/ha"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="14" Margin="0,0,0,8"/>
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Velocidad"
+                                               Foreground="{StaticResource PilotXPanelTextDim}" FontSize="11"/>
+                                    <TextBlock Grid.Column="1" Name="KpiSpeed" Text="-- km/h"
+                                               Foreground="{StaticResource PilotXPanelText}" FontSize="12"
+                                               FontWeight="SemiBold"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource PilotXPanelSurface}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="16,14,16,14"
+                                Margin="0,8,8,0">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="PWM bomba"
+                                           Foreground="{StaticResource PilotXPanelTextDim}"
+                                           FontSize="12" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                                    <TextBlock Name="KpiPwm" Text="--"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="36" FontWeight="Bold"/>
+                                    <TextBlock Text="%"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="14" Margin="0,0,0,8"/>
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Estado PID"
+                                               Foreground="{StaticResource PilotXPanelTextDim}" FontSize="11"/>
+                                    <TextBlock Grid.Column="1" Name="KpiPid" Text="--"
+                                               Foreground="{StaticResource PilotXPanelText}" FontSize="12"
+                                               FontWeight="SemiBold"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource PilotXPanelSurface}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="16,14,16,14"
+                                Margin="8,8,0,0">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Secciones activas"
+                                           Foreground="{StaticResource PilotXPanelTextDim}"
+                                           FontSize="12" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                                    <TextBlock Name="KpiSec" Text="0"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="36" FontWeight="Bold"/>
+                                    <TextBlock Name="KpiSecTotal" Text="de 0"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="14" Margin="0,0,0,8"/>
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Ancho barra"
+                                               Foreground="{StaticResource PilotXPanelTextDim}" FontSize="11"/>
+                                    <TextBlock Grid.Column="1" Name="KpiAncho" Text="-- m"
+                                               Foreground="{StaticResource PilotXPanelText}" FontSize="12"
+                                               FontWeight="SemiBold"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- ============ Insumo ahorrado ============ -->
+                    <TextBlock Text="Insumo ahorrado por corte automatico"
+                               Foreground="{StaticResource PilotXPanelText}"
+                               FontSize="16" FontWeight="SemiBold"
+                               Margin="0,4,0,0"/>
+                    <Border Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="18,14,18,16">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Calculado como (area repintada) × dosis. El area repintada es la diferencia entre area total trabajada y area neta cubierta — el corte de FlowX evita pulverizar esa zona dos veces."
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"/>
+                            <UniformGrid Columns="4" Rows="1">
+                                <StackPanel Spacing="2" Margin="0,0,8,0">
+                                    <TextBlock Text="Area neta"
+                                               Foreground="{StaticResource PilotXPanelTextDim}" FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                        <TextBlock Name="KpiAreaNeta" Text="--"
+                                                   Foreground="{StaticResource PilotXPanelText}"
+                                                   FontSize="20" FontWeight="SemiBold"/>
+                                        <TextBlock Text="ha"
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="11" Margin="0,0,0,4"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Spacing="2" Margin="0,0,8,0">
+                                    <TextBlock Text="Repintada"
+                                               Foreground="{StaticResource PilotXPanelTextDim}" FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                        <TextBlock Name="KpiAreaOverlap" Text="--"
+                                                   Foreground="{StaticResource PilotXPanelText}"
+                                                   FontSize="20" FontWeight="SemiBold"/>
+                                        <TextBlock Text="ha"
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="11" Margin="0,0,0,4"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Spacing="2" Margin="0,0,8,0">
+                                    <TextBlock Text="% solapamiento"
+                                               Foreground="{StaticResource PilotXPanelTextDim}" FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                        <TextBlock Name="KpiOverlapPct" Text="--"
+                                                   Foreground="{StaticResource PilotXPanelText}"
+                                                   FontSize="20" FontWeight="SemiBold"/>
+                                        <TextBlock Text="%"
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="11" Margin="0,0,0,4"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Insumo ahorrado"
+                                               Foreground="{StaticResource PilotXPanelTextDim}" FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                        <TextBlock Name="KpiSavedLitros" Text="--"
+                                                   Foreground="{StaticResource PilotXPanelAccentText}"
+                                                   FontSize="20" FontWeight="SemiBold"/>
+                                        <TextBlock Text="L"
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="11" Margin="0,0,0,4"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ============ Nodos FlowX ============ -->
+                    <TextBlock Text="Nodos FlowX"
+                               Foreground="{StaticResource PilotXPanelText}"
+                               FontSize="16" FontWeight="SemiBold"
+                               Margin="0,4,0,0"/>
+                    <Border Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="18,14,18,16">
+                        <StackPanel Name="NodosList" Spacing="8">
+                            <TextBlock Name="NodosEmpty"
+                                       Text="Buscando nodos en LAN... Los controladores FlowX se descubren al publicar agp/flow/announcement en el broker MQTT del PC."
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </ThemeVariantScope>
+</UserControl>

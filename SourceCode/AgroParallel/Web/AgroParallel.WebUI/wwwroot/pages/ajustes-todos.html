@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Todos los ajustes · Agro Parallel</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Volcado diagnóstico: grilla de tarjetas, cada una un grupo de filas
+       etiqueta/valor. Solo lectura, denso pero legible en pantalla táctil. */
+    .dump-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: var(--agp-sp-3);
+    }
+    .kv-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: var(--agp-sp-3);
+      padding: var(--agp-sp-2) 0;
+      border-bottom: 1px solid var(--agp-border);
+      font-size: var(--agp-fs-sm);
+    }
+    .kv-row:last-child { border-bottom: 0; }
+    .kv-row span { color: var(--agp-text-muted); }
+    .kv-row strong {
+      color: var(--agp-text);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .section-title {
+      margin: var(--agp-sp-4) 0 var(--agp-sp-2);
+      font-size: var(--agp-fs-md);
+      color: var(--agp-text);
+    }
+    .note {
+      font-size: var(--agp-fs-sm);
+      color: var(--agp-text-muted);
+      margin-top: var(--agp-sp-3);
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Todos los ajustes</h1>
+        <div class="subtitle">Volcado completo de configuración y telemetría · solo lectura</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="verText">—</span></span>
+    </div>
+
+    <h2 class="section-title">En vivo</h2>
+    <div class="dump-grid" id="liveGrid"></div>
+
+    <h2 class="section-title">Ajustes</h2>
+    <div class="dump-grid" id="settingsGrid"></div>
+
+    <div class="note" id="vehFileNote"></div>
+    <div class="note">
+      Estos valores son de solo lectura. Para modificarlos, entrá a la
+      configuración del piloto (botones <strong>Vehículo</strong> e
+      <strong>Implemento</strong>) en la UI nativa de PilotX.
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/ajustes-todos.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

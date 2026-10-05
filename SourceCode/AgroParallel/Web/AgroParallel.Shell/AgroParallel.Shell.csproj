@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    AgroParallel.Shell — host WebView2 que abraza el WebHost local y el wwwroot.
+    Punto de entrada de la UI HTML; reemplaza a futuro FormAgroParallelHub.
+  -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>AgroParallel.Shell</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- Heredamos TreatWarningsAsErrors de Directory.Build.props -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Management" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3856.49" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\AgroParallel.Models\AgroParallel.Models.csproj" />
+    <ProjectReference Include="..\..\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+    <ProjectReference Include="..\AgroParallel.WebHost\AgroParallel.WebHost.csproj" />
+  </ItemGroup>
+
+</Project>

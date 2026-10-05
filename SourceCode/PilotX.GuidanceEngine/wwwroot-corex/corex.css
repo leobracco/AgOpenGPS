@@ -1,0 +1,299 @@
+/* ============================================================================
+   corex.css — capa visual CoreX, adaptada del diseño entregado en
+   Diseño/CoreX/corex_agroparallel_html_screens (estilo Agro Parallel claro).
+
+   Medidas compactadas para la pantalla táctil de 10" (1080x720): los targets
+   táctiles se mantienen ≥40px pero fuentes/paddings bajan para que las
+   páginas entren sin scroll (o con el mínimo posible).
+
+   Responsive fluido: tipografías y espaciados con clamp() (escalan con el
+   ancho del viewport, útil con escala de Windows 125-150%). El menú lateral
+   NUNCA desaparece: en <760px colapsa a barra vertical de solo íconos.
+
+   Se carga DESPUÉS de theme.css/layout.css (que vienen del Hub en build y
+   traen los tokens --agp-* + estilos del modal). Todas las clases nuevas van
+   prefijadas cx- para no chocar con las del Hub. Se conservan los hooks que
+   el JS ya usa: .dot (.on/.bad), .btn-canal (.cerrar).
+   ============================================================================ */
+
+:root {
+  --cx-green: #4ABA3E;
+  --cx-dark:  #0e5a24;
+  --cx-ink:   #101612;
+  --cx-muted: #66736c;
+  --cx-line:  #dfe8df;
+  --cx-bg:    #edf3ed;
+  --cx-card:  #ffffff;
+  --cx-bad:   #b5352a;
+}
+
+body {
+  margin: 0;
+  /* layout.css (Hub) hace body display:grid con sidebar propia — acá el
+     shell lo arma .cx-shell, así que el body vuelve a ser bloque simple. */
+  display: block;
+  grid-template-columns: none;
+  background:
+    radial-gradient(circle at 90% -10%, rgba(74, 186, 62, .13), transparent 30%),
+    var(--cx-bg);
+  font-family: "Segoe UI", Arial, sans-serif;
+  color: var(--cx-ink);
+}
+
+a { text-decoration: none; color: inherit; }
+
+/* ── Shell: sidebar + contenido ─────────────────────────────────────────── */
+
+.cx-shell {
+  display: grid;
+  grid-template-columns: clamp(150px, 17vw, 190px) 1fr;
+  min-height: 100vh;
+}
+
+.cx-sidebar {
+  background: #f8fbf7;
+  border-right: 1px solid var(--cx-line);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cx-side-logo img { height: 32px; max-width: 160px; object-fit: contain; }
+
+.cx-mini {
+  font-size: 10px; color: var(--cx-muted);
+  text-transform: uppercase; letter-spacing: .1em;
+  font-weight: 800; margin: 2px 0 4px;
+}
+
+.cx-side-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 12px;
+  font-weight: 700; color: #344039; font-size: 14px;
+  min-height: 40px; box-sizing: border-box;
+}
+.cx-side-item.active {
+  background: #e8f6e5; color: var(--cx-dark);
+  box-shadow: inset 3px 0 0 var(--cx-green);
+}
+.cx-ico {
+  width: 30px; height: 30px; border-radius: 10px;
+  background: #fff; border: 1px solid var(--cx-line);
+  display: grid; place-items: center; font-size: 15px;
+  flex-shrink: 0;
+}
+
+.cx-content {
+  padding: clamp(10px, 1.6vw, 16px) clamp(10px, 1.8vw, 18px);
+  background: linear-gradient(180deg, #fbfdfb, #f3f7f2);
+  min-width: 0;
+}
+
+/* ── Cabecera de página ─────────────────────────────────────────────────── */
+
+.cx-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.cx-head h2 { margin: 0; font-size: clamp(17px, 2.2vw, 22px); letter-spacing: -.02em; }
+.cx-head p  { margin: 3px 0 0; color: var(--cx-muted); font-size: clamp(11.5px, 1.3vw, 13px); }
+
+.cx-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.cx-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  border-radius: 999px; padding: 6px 10px;
+  background: #fff; border: 1px solid var(--cx-line);
+  font-weight: 750; font-size: 12.5px;
+}
+
+/* ── Dots de estado (hook del JS: on / bad / neutro) ────────────────────── */
+
+.dot {
+  display: inline-block; width: 10px; height: 10px;
+  border-radius: 50%; background: #c3cdc4; flex-shrink: 0;
+}
+.dot.on  { background: var(--cx-green); box-shadow: 0 0 0 3px rgba(74, 186, 62, .15); }
+.dot.bad { background: var(--cx-bad);   box-shadow: 0 0 0 3px rgba(181, 53, 42, .13); }
+
+/* ── Grillas y paneles ──────────────────────────────────────────────────── */
+
+.cx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: clamp(8px, 1.2vw, 12px);
+}
+
+.cx-panel {
+  background: var(--cx-card);
+  border: 1px solid var(--cx-line);
+  border-radius: 16px;
+  padding: clamp(10px, 1.4vw, 14px);
+  box-shadow: 0 8px 18px rgba(13, 28, 17, .05);
+}
+.cx-panel h3 {
+  margin: 0 0 10px; font-size: clamp(14px, 1.6vw, 16px);
+  display: flex; align-items: center; gap: 9px;
+}
+
+/* Línea clave-valor (dashboard) */
+.kv {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 0; font-size: 14px;
+  border-bottom: 1px solid #eef3ee; gap: 10px;
+}
+.kv:last-of-type { border-bottom: none; }
+.kv .k { color: var(--cx-muted); display: flex; align-items: center; gap: 8px; }
+.kv .v { font-weight: 750; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ── Filas de módulo (serial / módulos) ─────────────────────────────────── */
+
+.cx-mod-list { display: grid; gap: 8px; }
+
+.cx-mod-row {
+  display: grid;
+  grid-template-columns: 40px minmax(110px, 1fr) minmax(120px, 1fr) 100px 100px;
+  gap: 10px; align-items: center;
+  background: #fff; border: 1px solid var(--cx-line);
+  border-radius: 13px; padding: 8px 10px;
+}
+.cx-mod-icon {
+  width: 38px; height: 38px; border-radius: 12px;
+  display: grid; place-items: center;
+  background: #eaf7e8; color: var(--cx-dark); font-size: 18px;
+  position: relative;
+}
+.cx-mod-icon .dot { position: absolute; top: -3px; right: -3px; }
+.cx-mod-name { font-size: 14.5px; font-weight: 800; }
+.cx-mod-sub  { font-size: 11.5px; color: var(--cx-muted); }
+
+.cx-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #edf8ea; color: var(--cx-dark);
+  border: 1px solid #cce7c8; border-radius: 999px;
+  padding: 6px 8px; font-size: 12px; font-weight: 800;
+  white-space: nowrap;
+}
+
+/* ── Formularios ────────────────────────────────────────────────────────── */
+
+.cx-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.cx-form.one { grid-template-columns: 1fr; }
+
+.cx-field label {
+  display: block; font-size: 12px; color: var(--cx-muted);
+  font-weight: 800; margin-bottom: 5px;
+}
+
+.cx-input, .cx-panel select {
+  width: 100%; height: 40px;
+  border: 1px solid #d4ded5; border-radius: 11px;
+  background: #fff; padding: 0 10px;
+  font-size: 15px; font-weight: 600; color: var(--cx-ink);
+  box-sizing: border-box;
+}
+.cx-input:disabled, .cx-panel select:disabled { opacity: .55; }
+.cx-input.big {
+  height: 48px; font-size: 22px; text-align: center; font-weight: 850;
+}
+
+/* Valor de solo lectura (IP actual) */
+.cx-readonly {
+  font-family: Consolas, monospace; font-size: 15px;
+  padding: 9px 10px; background: #f5f8f5;
+  border: 1px solid var(--cx-line); border-radius: 11px;
+  min-height: 20px; word-break: break-all; font-weight: 700;
+}
+
+/* Toggle / radio táctiles */
+.cx-toggle-row {
+  display: flex; align-items: center; gap: 10px; padding: 6px 0;
+}
+.cx-toggle-row label { font-size: 14px; font-weight: 650; cursor: pointer; }
+input[type="checkbox"], input[type="radio"] {
+  width: 22px; height: 22px; cursor: pointer; flex-shrink: 0;
+  accent-color: var(--cx-green);
+}
+input[type="checkbox"]:disabled, input[type="radio"]:disabled {
+  cursor: not-allowed; opacity: .55;
+}
+
+/* Fila de octetos subnet */
+.cx-subnet-row { display: flex; gap: 7px; align-items: center; }
+.cx-subnet-row .cx-input { width: 74px; }
+.cx-subnet-sep { font-size: 20px; font-weight: 900; color: var(--cx-muted); }
+
+/* Hint informativo */
+.cx-hint {
+  font-size: 12.5px; color: var(--cx-muted); line-height: 1.35;
+  padding: 8px 10px; border-radius: 11px;
+  background: #f5f8f5; border: 1px solid var(--cx-line);
+  margin: 10px 0 0;
+}
+
+/* ── Botones de acción ──────────────────────────────────────────────────── */
+
+.cx-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+.cx-btn {
+  border: 1px solid var(--cx-line); border-radius: 12px;
+  padding: 10px 14px; font-size: 14px; font-weight: 800;
+  background: #eef3ee; color: var(--cx-ink); cursor: pointer;
+  min-height: 40px;
+}
+.cx-btn.green {
+  background: linear-gradient(135deg, var(--cx-green), var(--cx-dark));
+  color: #fff; border: 0;
+}
+.cx-btn.wide { width: 100%; justify-content: center; padding: 11px; }
+.cx-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Botón por canal serie — serial.js PISA className con estas clases. */
+.btn-canal {
+  width: 100%; padding: 10px; font-size: 14px; font-weight: 800;
+  border: 0; border-radius: 12px; cursor: pointer; min-height: 40px;
+  background: linear-gradient(135deg, var(--cx-green), var(--cx-dark));
+  color: #fff;
+}
+.btn-canal.cerrar { background: linear-gradient(135deg, #e14b3f, #a02c22); }
+.btn-canal:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Lista de topics MQTT (dashboard) */
+.topics {
+  font-family: Consolas, monospace; font-size: 11.5px;
+  max-height: 110px; overflow-y: auto; white-space: pre;
+  color: var(--cx-muted); margin-top: 8px;
+  background: #f5f8f5; border: 1px solid var(--cx-line);
+  border-radius: 11px; padding: 8px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+/* Angosto: el menú lateral NO se va — colapsa a barra de solo íconos.
+   El texto de .cx-side-item es un nodo suelto tras .cx-ico, así que se
+   oculta con font-size:0 en el <a> y se restaura el tamaño en el ícono. */
+@media (max-width: 760px) {
+  .cx-shell { grid-template-columns: 56px 1fr; }
+  .cx-sidebar { padding: 10px 6px; align-items: center; }
+  .cx-side-logo img { max-width: 40px; height: 26px; }
+  .cx-mini { display: none; }
+  .cx-side-item {
+    font-size: 0; gap: 0; justify-content: center;
+    width: 44px; padding: 6px;
+  }
+  .cx-ico { font-size: 16px; }
+  .cx-footer-note { display: none; }
+  /* Fila de módulo en 3 columnas: lo que baja a la 2da fila arranca en la
+     col 2 (nunca en la de 40px del ícono). */
+  .cx-mod-row { grid-template-columns: 40px minmax(90px, 1fr) minmax(100px, 1fr); }
+  .cx-mod-row > :nth-child(4) { grid-column: 2; }
+  .cx-mod-row > :nth-child(5) { grid-column: 3; }
+}
+
+/* Muy angosto: formularios a una columna y controles de módulo apilados. */
+@media (max-width: 560px) {
+  .cx-form { grid-template-columns: 1fr; }
+  .cx-head { flex-direction: column; }
+  .cx-mod-row { grid-template-columns: 40px 1fr; }
+  .cx-mod-row > :nth-child(n+3) { grid-column: 2; }
+}

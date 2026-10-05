@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PilotX.Cockpit.Bars.ViewModels"
+             xmlns:views="using:PilotX.Cockpit.Bars.Views"
+             x:Class="PilotX.Cockpit.Bars.Views.BarraAbajo"
+             x:DataType="vm:BarraAbajoViewModel">
+  <UserControl.Resources>
+    <views:AssetImageConverter x:Key="Asset"/>
+    <views:SkipsIndexConverter x:Key="SkipsIndex"/>
+  </UserControl.Resources>
+
+
+  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="0,1,0,0" Padding="3">
+   <StackPanel Orientation="Vertical" Spacing="3">
+
+    <!-- Botonera de secciones individuales: una por sección del implemento.
+         Cada toque cicla Off (rojo) → Auto (verde) → On (ámbar), igual que los
+         btnSectionXMan del nativo. Solo con lote abierto: sin lote el control
+         de secciones no aplica. -->
+    <ItemsControl ItemsSource="{Binding Secciones}" IsVisible="{Binding SeccionesVisible}"
+                  HorizontalAlignment="Center">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal" Spacing="3"/>
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:SeccionBotonViewModel">
+          <!-- 44px: target táctil cómodo con guante, sin comerle alto al mapa -->
+          <Button Classes="secbtn" Width="44" Height="40" Padding="0" CornerRadius="4"
+                  Background="{Binding Color}" BorderBrush="#C5CFC5" BorderThickness="1"
+                  Command="{Binding $parent[ItemsControl].((vm:BarraAbajoViewModel)DataContext).SendCommand}"
+                  CommandParameter="{Binding Comando}">
+            <Button.Styles>
+              <!-- El color SIEMPRE es el del estado (rojo/verde/ámbar). Avalonia
+                   por defecto pinta gris al pasar por encima y al presionar, y en
+                   cabina eso confunde: el operario ve gris justo sobre el botón
+                   que va a tocar y pierde de vista en qué estado está. La
+                   respuesta al toque se da con el BORDE, no con el fondo. -->
+              <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{Binding Color}"/>
+                <Setter Property="BorderBrush" Value="#101612"/>
+                <Setter Property="BorderThickness" Value="2"/>
+              </Style>
+              <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{Binding Color}"/>
+                <Setter Property="BorderBrush" Value="#101612"/>
+                <Setter Property="BorderThickness" Value="3"/>
+              </Style>
+              <!-- Sin esto, el :pressed default aplica una escala que hace
+                   "saltar" el botón bajo el dedo. -->
+              <Style Selector="Button:pressed">
+                <Setter Property="RenderTransform" Value="none"/>
+              </Style>
+            </Button.Styles>
+            <TextBlock Text="{Binding Texto}" FontSize="16" FontWeight="SemiBold"
+                       Foreground="#14181B"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Button>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <!-- orden visual izq->der; a la derecha "elegir guía" (como el nativo RTL) -->
+    <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+      <!-- Abajo quedan SOLO las secciones (pedido usuario 2026-08-04).
+           Tram, hidráulico y los tres de corrección lateral se fueron a la
+           barra de la derecha, con título, porque acá aparecían y
+           desaparecían según el estado y nunca se sabía qué eran.
+           El selector de guías a saltear y el botón de guía-de-por-medio
+           salieron de acá (pedido usuario 2026-08-04): el salteo ya vive
+           en el cluster del piloto y el toggle se subió a la barra de
+           arriba. Abajo solo quedan las secciones y lo de la pasada. -->
+    </StackPanel>
+   </StackPanel>
+  </Border>
+</UserControl>

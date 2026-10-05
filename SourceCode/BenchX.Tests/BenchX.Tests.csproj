@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="NUnit" Version="4.3.2" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BenchX\BenchX.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Asistente de calibración de la dirección: la máquina de estados es
+         pura (sin Settings/host), se LINKEA para correrla contra la ECU
+         simulada de BenchX sin arrastrar AgOpenGPS.Core entero. -->
+    <Compile Include="..\AgOpenGPS.Core\SteerCal\SteerCalModelos.cs" Link="SteerCal\SteerCalModelos.cs" />
+    <Compile Include="..\AgOpenGPS.Core\SteerCal\SteerCalAnalisis.cs" Link="SteerCal\SteerCalAnalisis.cs" />
+    <Compile Include="..\AgOpenGPS.Core\SteerCal\SteerCalWizard.cs" Link="SteerCal\SteerCalWizard.cs" />
+    <!-- Cero automático del WAS: el estimador puro, contra el WAS y la conversión del firmware simulados. -->
+    <Compile Include="..\AgOpenGPS.Core\SteerCal\CeroWasEstadistico.cs" Link="SteerCal\CeroWasEstadistico.cs" />
+    <!-- Dobles/fallas/CV de PilotX (ISO 7256-1): clase pura, se LINKEA para
+         probar de punta a punta el VistaX emulado (firmware 3.1) sin arrastrar
+         AgroParallel.Services entero. -->
+    <Compile Include="..\AgroParallel\Core\AgroParallel.Services\VistaX\VxEspaciamiento.cs" Link="VistaX\VxEspaciamiento.cs" />
+  </ItemGroup>
+</Project>

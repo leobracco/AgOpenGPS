@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M13 8 H28 L35 15 V40 H13 Z" stroke="#535E54"></path>
+  <path d="M28 8 V15 H35" stroke="#535E54"></path>
+  <text x="24" y="33" font-size="10" font-weight="600" fill="#535E54" stroke="none" text-anchor="middle" font-family="Helvetica Neue, Helvetica, sans-serif">ISO</text>
+</svg>

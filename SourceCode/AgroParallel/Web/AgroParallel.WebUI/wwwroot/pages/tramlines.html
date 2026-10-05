@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tramlines</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ============================================================================
+       Widget TRAMLINES — reemplazo de FormTramLine. Canvas interactivo a la
+       izquierda (tap = corte en 3 pasos, drag = pan, rueda/pinch = zoom) y
+       columna de controles a la derecha. Geometría en C#:
+       /api/tramlines/*. Flujo: elegir guía → ajustar passes/start → Agregar
+       → opcional corte 3-tap → Guardar.
+       ============================================================================ */
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: var(--agp-bg); color: var(--agp-text);
+    }
+    body {
+      font-family: var(--agp-font-sans);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .tl-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: clamp(3px, 1vh, 6px) 10px;
+      background: var(--agp-surface);
+      border-bottom: 1px solid var(--agp-border);
+      flex-shrink: 0;
+    }
+    .tl-head .title { font-weight: var(--agp-fw-bold); font-size: 13px; flex: 1; }
+    .tl-head .hint { font-size: 11px; color: var(--agp-text-muted); }
+
+    .tl-body {
+      flex: 1; min-height: 0;
+      display: flex; gap: clamp(4px, 0.8vw, 8px);
+      padding: clamp(4px, 1vh, 8px);
+    }
+
+    .tl-map {
+      flex: 1 1 auto; min-width: 0;
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      position: relative; overflow: hidden;
+    }
+    #cvMap { width: 100%; height: 100%; display: block; touch-action: none; }
+
+    .tl-warn {
+      position: absolute; left: 8px; right: 8px; top: 8px;
+      display: none; background: #5a2c2c; color: #fff;
+      border-radius: var(--agp-radius-sm);
+      padding: 6px 8px; font-size: clamp(10px, 2vh, 12px);
+      pointer-events: none;
+    }
+    .tl-warn.show { display: block; }
+
+    .tl-side {
+      flex: 0 0 clamp(180px, 24vw, 230px);
+      display: flex; flex-direction: column; gap: clamp(3px, 0.8vh, 6px);
+      overflow-y: auto;
+    }
+
+    .btn {
+      min-height: clamp(26px, 6.2vh, 40px);
+      font-family: var(--agp-font-sans); font-size: clamp(11px, 2.2vh, 13px);
+      background: var(--agp-surface); color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      cursor: pointer; padding: 2px 6px;
+    }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .tl-accent { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .tl-danger { background: #5a2c2c; color: #fff; border-color: #5a2c2c; }
+
+    .tl-row { display: flex; gap: clamp(3px, 0.6vw, 6px); }
+    .tl-row .btn { flex: 1 1 0; }
+    .tl-label { font-size: clamp(10px, 2vh, 12px); color: var(--agp-text-muted); }
+
+    .tl-sel {
+      font-family: var(--agp-font-mono); font-size: clamp(10px, 2vh, 12px);
+      color: var(--agp-text-muted); text-align: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .tl-check { display: flex; align-items: center; gap: 6px; font-size: clamp(10px, 2vh, 12px); }
+    .tl-check input { width: 18px; height: 18px; }
+
+    .tl-sep { border-top: 1px solid var(--agp-border); margin: 2px 0; }
+
+    .tl-info {
+      font-family: var(--agp-font-mono); font-size: clamp(9px, 1.8vh, 11px);
+      color: var(--agp-text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="tl-head">
+    <span class="title">Tramlines</span>
+    <span class="hint" id="hintText">Elegí una guía · ajustá pasadas · Agregar</span>
+  </div>
+
+  <div class="tl-body">
+    <div class="tl-map">
+      <canvas id="cvMap"></canvas>
+      <div id="warnBox" class="tl-warn"></div>
+    </div>
+
+    <div class="tl-side">
+      <div class="tl-label">Línea de guiado</div>
+      <div class="tl-sel" id="selTrack">—</div>
+      <div class="tl-row">
+        <button class="btn" id="btnPrev">◀</button>
+        <button class="btn" id="btnNext">▶</button>
+        <button class="btn" id="btnSwap">⇄ Lado</button>
+      </div>
+
+      <div class="tl-sep"></div>
+
+      <div class="tl-row">
+        <div>
+          <div class="tl-label">Pasadas</div>
+          <div class="tl-row">
+            <button class="btn" id="btnPassesDn">−</button>
+            <span class="tl-sel" id="lblPasses">2</span>
+            <button class="btn" id="btnPassesUp">+</button>
+          </div>
+        </div>
+        <div>
+          <div class="tl-label">Inicio</div>
+          <div class="tl-row">
+            <button class="btn" id="btnStartDn">−</button>
+            <span class="tl-sel" id="lblStart">0</span>
+            <button class="btn" id="btnStartUp">+</button>
+          </div>
+        </div>
+      </div>
+
+      <label class="tl-check"><input type="checkbox" id="chkOuter" /> Tram exterior</label>
+
+      <button class="btn tl-accent" id="btnAdd">✔ Agregar líneas</button>
+
+      <div class="tl-sep"></div>
+
+      <div class="tl-label">Cortar: 1· A · 2· B · 3· lado a eliminar</div>
+      <button class="btn" id="btnCancelTouch">Descartar toque</button>
+
+      <div class="tl-sep"></div>
+
+      <div class="tl-row">
+        <button class="btn" id="btnAlphaDn">Opac −</button>
+        <button class="btn" id="btnAlphaUp">Opac +</button>
+      </div>
+      <button class="btn tl-danger" id="btnDeleteAll">Borrar todos</button>
+
+      <div style="margin-top:auto;"></div>
+      <div class="tl-info" id="lblInfo">—</div>
+      <div class="tl-row">
+        <button class="btn tl-danger" id="btnCancel">Cancelar</button>
+        <button class="btn tl-accent" id="btnExit">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/tramlines.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

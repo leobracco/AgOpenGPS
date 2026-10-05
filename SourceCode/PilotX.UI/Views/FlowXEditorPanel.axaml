@@ -1,0 +1,300 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.FlowXEditorPanel">
+    <!--
+        FlowXEditorPanel — EDITOR nativo de FlowX (cierra el hueco WebView).
+
+        Antes: el boton "Configurar" del FlowXPanel hacia
+        NavigateTo("pages/flowx.html") y eso despertaba Chromium entero para
+        tocar la dosis, el PID o los cortes de la barra. Ahora las pantallas de
+        configuracion (Nodo activo, Reguladoras, Cortes, Electrovalvulas,
+        Firmware y Nodos en red) son nativas y el WebView no se instancia por
+        FlowX.
+
+        La pagina pages/flowx.html NO se toca ni se borra: la sigue usando la
+        PWA del celular (regla del repo).
+
+        Card clara flotante sobre el mapa VIVO — el mapa nunca se apaga.
+        Las confirmaciones y el buscador de PWM minimo van en los overlays
+        internos de abajo (Border + IsVisible): sobre el mapa GL los
+        Flyout/MenuFlyout no se dibujan y no logean error.
+    -->
+    <Panel>
+        <!-- Name="Card": ModoEmbebido() (adentro de la Configuración) le
+             suelta el marco/tamaño; la instancia flotante no cambia. -->
+        <Border Name="Card"
+                Background="#FAFBFA"
+                BorderBrush="#C5CFC5"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="14"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="980" MaxHeight="660"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,0">
+            <DockPanel>
+
+                <!-- ============ Header ============ -->
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto,Auto"
+                      Margin="4,0,0,8">
+                    <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Text="FlowX — Configuración"
+                                   Foreground="#101612"
+                                   FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Name="SubtituloText"
+                                   Text="Corte y dosis para pulverizadoras"
+                                   Foreground="#535E54"
+                                   FontSize="11"/>
+                    </StackPanel>
+
+                    <!-- Pill: estado del nodo elegido.
+                         Name="HeaderPill": la instancia embebida la entrega
+                         (PillsDeContexto) a la barra de contexto del shell. -->
+                    <Border Grid.Column="2" Name="HeaderPill"
+                            Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                            CornerRadius="999" Padding="12,5,12,5" Margin="0,0,8,0"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                            <Ellipse Name="EstadoDot" Width="9" Height="9" Fill="#8A958B"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="EstadoPillText" Text="Cargando…"
+                                       Foreground="#535E54" FontSize="12"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Grid.Column="3" Name="BtnMonitor" Content="‹ Monitor"
+                            Click="OnMonitorClick"
+                            Background="#FFFFFF" Foreground="#101612"
+                            BorderBrush="#C5CFC5" BorderThickness="1"
+                            CornerRadius="8" MinHeight="42" Padding="14,8"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"/>
+
+                    <Button Grid.Column="4" Name="BtnCerrar" Content="✕"
+                            Click="OnCerrarClick"
+                            Background="#FFFFFF" Foreground="#101612"
+                            BorderBrush="#C5CFC5" BorderThickness="1"
+                            CornerRadius="8" Width="44" Height="42"
+                            FontSize="15"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ============ Selector de nodo ============ -->
+                <Border DockPanel.Dock="Top"
+                        Background="#F5F7F4" BorderBrush="#E2E7E2" BorderThickness="1"
+                        CornerRadius="8" Padding="10,8" Margin="0,0,0,8">
+                    <WrapPanel Orientation="Horizontal">
+                        <StackPanel Spacing="3" Margin="0,0,10,0">
+                            <TextBlock Text="NODO" Foreground="#7A857B" FontSize="10"
+                                       FontWeight="SemiBold"/>
+                            <ComboBox Name="NodoSelect" MinWidth="230" MinHeight="42"
+                                      FontSize="13" Background="#FFFFFF" Foreground="#101612"
+                                      BorderBrush="#C5CFC5" BorderThickness="1"
+                                      CornerRadius="8" Padding="10,6,8,6"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="3" Margin="0,0,10,0">
+                            <TextBlock Text="DESCUBIERTOS EN LA RED" Foreground="#7A857B"
+                                       FontSize="10" FontWeight="SemiBold"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ComboBox Name="LanSelect" MinWidth="200" MinHeight="42"
+                                          FontSize="13" Background="#FFFFFF" Foreground="#101612"
+                                          BorderBrush="#C5CFC5" BorderThickness="1"
+                                          CornerRadius="8" Padding="10,6,8,6"/>
+                                <Button Name="BtnImportar" Content="+ Agregar"
+                                        Click="OnImportarClick"
+                                        Background="#FFFFFF" Foreground="#101612"
+                                        BorderBrush="#C5CFC5" BorderThickness="1"
+                                        CornerRadius="8" MinHeight="42" Padding="14,8"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <CheckBox Name="ChkEnabled" Content="FlowX habilitado"
+                                  MinHeight="42" FontSize="13" Foreground="#101612"
+                                  VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                    </WrapPanel>
+                </Border>
+
+                <!-- ============ Pie: guardado (queda fijo abajo) ============ -->
+                <Border DockPanel.Dock="Bottom"
+                        Background="#F5F7F4" BorderBrush="#E2E7E2" BorderThickness="1,1,1,1"
+                        CornerRadius="8" Padding="10,8" Margin="0,10,0,0">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Grid.Column="0" Name="EstadoText" Text=""
+                                   Foreground="#535E54" FontSize="12" TextWrapping="Wrap"
+                                   VerticalAlignment="Center" Margin="2,0,10,0"/>
+                        <Button Grid.Column="1" Name="BtnRecargar" Content="Recargar"
+                                Click="OnRecargarClick"
+                                Background="#FFFFFF" Foreground="#101612"
+                                BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="8" MinHeight="42" Padding="16,8"
+                                Margin="0,0,8,0"/>
+                        <Button Grid.Column="2" Name="BtnGuardar" Content="Guardar configuración"
+                                Click="OnGuardarClick"
+                                Background="#4ABA3E" Foreground="White"
+                                BorderBrush="#4ABA3E" BorderThickness="1"
+                                CornerRadius="8" MinHeight="42" Padding="16,8"
+                                FontWeight="SemiBold"/>
+                    </Grid>
+                </Border>
+
+                <!-- ============ Tabs (a mano, no TabControl) ============ -->
+                <ScrollViewer DockPanel.Dock="Top"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              Margin="0,0,0,10">
+                    <StackPanel Name="TabStrip" Orientation="Horizontal" Spacing="4"/>
+                </ScrollViewer>
+
+                <!-- ============ Contenido de la pantalla activa ============ -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Name="TabHost" Spacing="10" Margin="0,0,6,0"/>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ============ Overlay de confirmacion / aviso / pregunta ============
+             Reemplaza a los askConfirm/showAlert/askText del HTML (que existian
+             porque WebView2 rompe confirm/prompt). NUNCA ShowDialog: trababa la
+             cabina. El backdrop absorbe el toque pero no cierra — hay flujos
+             con el motor girando atras. -->
+        <Border Name="DialogoOverlay" IsVisible="False" ZIndex="20"
+                Background="#77101612"
+                PointerPressed="OnBackdropPressed">
+            <Border Background="#FAFBFA" BorderBrush="#C5CFC5" BorderThickness="1"
+                    CornerRadius="12" Padding="18" MinWidth="380" MaxWidth="520"
+                    BoxShadow="0 8 26 0 #55101612"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="12">
+                    <TextBlock Name="DlgTitulo" Text="" Foreground="#101612"
+                               FontSize="15" FontWeight="Bold" TextWrapping="Wrap"/>
+                    <TextBlock Name="DlgMensaje" Text="" Foreground="#535E54"
+                               FontSize="13" TextWrapping="Wrap"/>
+                    <TextBox Name="DlgEntrada" IsVisible="False" Text="" Width="160"
+                             MinHeight="42" FontSize="13"
+                             Background="#FFFFFF" Foreground="#101612"
+                             BorderBrush="#C5CFC5" BorderThickness="1"
+                             CornerRadius="8" Padding="9,6"
+                             HorizontalAlignment="Left"
+                             VerticalContentAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8"
+                                HorizontalAlignment="Right">
+                        <Button Name="DlgCancelar" Content="Cancelar"
+                                Click="OnDlgCancelarClick"
+                                Background="#FFFFFF" Foreground="#101612"
+                                BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="8" MinHeight="42" Padding="16,8"/>
+                        <Button Name="DlgAceptar" Content="Aceptar"
+                                Click="OnDlgAceptarClick"
+                                Background="#4ABA3E" Foreground="White"
+                                BorderBrush="#4ABA3E" BorderThickness="1"
+                                CornerRadius="8" MinHeight="42" Padding="16,8"
+                                FontWeight="SemiBold"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <!-- ============ Overlay: buscar el PWM minimo a mano ============
+             El firmware corta el motor a los 4 s sin comando, asi que mientras
+             haya un PWM aplicado se reenvia cada 1,5 s. TODO camino de salida
+             (Cerrar, backdrop, cerrar el panel) manda parar el motor. -->
+        <Border Name="PwmOverlay" IsVisible="False" ZIndex="30"
+                Background="#77101612"
+                PointerPressed="OnPwmBackdropPressed">
+            <Border Background="#FAFBFA" BorderBrush="#C5CFC5" BorderThickness="1"
+                    CornerRadius="12" Padding="18" MinWidth="440" MaxWidth="560"
+                    BoxShadow="0 8 26 0 #55101612"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="10">
+                    <TextBlock Name="PwmTitulo" Text="PWM mínimo a mano"
+                               Foreground="#101612" FontSize="16" FontWeight="Bold"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="Aplicá un valor, mirá si la reguladora se mueve y da caudal, ajustalo con − / + y guardalo. Tiene que haber al menos una sección abierta."
+                               Foreground="#535E54" FontSize="12" TextWrapping="Wrap"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Name="PwmDirPos" Content="Abrir (+)"
+                                Click="OnPwmDirPosClick"
+                                MinHeight="48" Padding="16,8" CornerRadius="8"
+                                BorderThickness="1"/>
+                        <Button Name="PwmDirNeg" Content="Cerrar (−)"
+                                Click="OnPwmDirNegClick"
+                                MinHeight="48" Padding="16,8" CornerRadius="8"
+                                BorderThickness="1"/>
+                    </StackPanel>
+
+                    <StackPanel Name="PwmStepperHost" Orientation="Horizontal" Spacing="10"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Name="PwmAplicar" Content="Aplicar al nodo"
+                                Click="OnPwmAplicarClick"
+                                Background="#4ABA3E" Foreground="White"
+                                BorderBrush="#4ABA3E" BorderThickness="1"
+                                CornerRadius="8" MinHeight="54" Padding="18,8"
+                                FontWeight="SemiBold"/>
+                        <Button Name="PwmParar" Content="Parar motor"
+                                Click="OnPwmPararClick"
+                                Background="#FFFFFF" Foreground="#D0504A"
+                                BorderBrush="#D0504A" BorderThickness="1"
+                                CornerRadius="8" MinHeight="54" Padding="18,8"/>
+                    </StackPanel>
+
+                    <Border Background="#F5F7F4" BorderBrush="#E2E7E2" BorderThickness="1"
+                            CornerRadius="8" Padding="10">
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="18">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="CAUDAL" Foreground="#7A857B" FontSize="10"
+                                               FontWeight="SemiBold"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Name="PwmFlow" Text="—" Foreground="#101612"
+                                                   FontSize="20" FontWeight="SemiBold"
+                                                   FontFamily="Consolas, Courier New, monospace"/>
+                                        <TextBlock Text="L/min" Foreground="#535E54" FontSize="11"
+                                                   VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="PWM APLICADO" Foreground="#7A857B" FontSize="10"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Name="PwmAplicado" Text="—" Foreground="#101612"
+                                               FontSize="20" FontWeight="SemiBold"
+                                               FontFamily="Consolas, Courier New, monospace"/>
+                                </StackPanel>
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="PULSOS" Foreground="#7A857B" FontSize="10"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Name="PwmPulsos" Text="—" Foreground="#101612"
+                                               FontSize="20" FontWeight="SemiBold"
+                                               FontFamily="Consolas, Courier New, monospace"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <TextBlock Name="PwmHint" Text="Listo. Aplicá un valor para empezar."
+                                       Foreground="#535E54" FontSize="12" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8"
+                                HorizontalAlignment="Right">
+                        <Button Name="PwmCerrar" Content="Cerrar"
+                                Click="OnPwmCerrarClick"
+                                Background="#FFFFFF" Foreground="#101612"
+                                BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="8" MinHeight="48" Padding="16,8"/>
+                        <Button Name="PwmGuardar" Content="Guardar como PWM mínimo"
+                                Click="OnPwmGuardarClick"
+                                Background="#4ABA3E" Foreground="White"
+                                BorderBrush="#4ABA3E" BorderThickness="1"
+                                CornerRadius="8" MinHeight="48" Padding="16,8"
+                                FontWeight="SemiBold"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Panel>
+</UserControl>

@@ -1,4 +1,5 @@
-﻿using OpenTK.Graphics.OpenGL;
+﻿using AgOpenGPS.Core.Models;
+using OpenTK.Graphics.OpenGL;
 
 namespace AgOpenGPS.Core.DrawLib
 {
@@ -16,6 +17,19 @@ namespace AgOpenGPS.Core.DrawLib
         public static void BeginPointsPrimitive()
         {
             GL.Begin(PrimitiveType.Points);
+        }
+
+        // Traspaso portabilidad (bloque 6 matriz Android, 2026-07-19): triángulo
+        // suelto de 3 vértices (flechas del lightbar en OpenGL.Designer.cs).
+        // Un TriangleFan de 3 vértices dibuja el mismo triángulo que
+        // PrimitiveType.Triangles — se reusa DrawTriangleFanPrimitive en vez de
+        // agregar un modo nuevo.
+        public static void DrawArrowTriangle(double cx, double cy, double size, bool isRight)
+        {
+            XyCoord[] vertices = isRight
+                ? new[] { new XyCoord(cx - size, cy - size), new XyCoord(cx - size, cy + size), new XyCoord(cx + size, cy) }
+                : new[] { new XyCoord(cx + size, cy - size), new XyCoord(cx + size, cy + size), new XyCoord(cx - size, cy) };
+            DrawTriangleFanPrimitive(vertices);
         }
 
         public static void BeginTriangleStripPrimitive()

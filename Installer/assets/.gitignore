@@ -1,0 +1,9 @@
+# Binarios bajados por download-ffmpeg.ps1 — NO commitear (~85 MB)
+ffmpeg.exe
+*.zip
+*.tar.gz
+*.7z
+
+# pero SI mantenemos este .gitignore para que la carpeta exista en repo
+!.gitignore
+!README.md

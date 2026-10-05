@@ -1,0 +1,288 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:PilotX.Desktop.Views"
+             x:Class="PilotX.Desktop.Views.GraficoCorreccionPanel">
+    <!--
+        GraficoCorreccionPanel - reemplazo nativo de pages/grafico-correccion.html
+        (ex ventana WinForms FormCorrection). En la UI se llama "Chequeo de roll".
+
+        Mismo contrato REST que la página: GET /api/aog/graph-correction devuelve
+        { correction_distance, easting, uncorrected_easting, roll_degrees,
+        roll_present } en snake_case y esto solo lo grafica. Muestreo a 5 Hz,
+        buffer rodante de 120 muestras, eje simétrico ±escala (las tres series
+        son simétricas).
+
+        Los cinco botones son 100% del lado cliente: escala, Congelar (freeze
+        del avance del buffer) y Poste/Movimiento (replica isPole del
+        FormCorrection: la serie de corrección se grafica como corr o corr+uncorr).
+
+        La página HTML queda intacta para el celular/PWA.
+
+        PALETA: la página era "dark cockpit"; acá va la paleta CLARA de panel
+        (tokens PilotXPanel*). Los COLORES DE SERIE se conservan tal cual.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <Border Name="Card"
+                Background="{StaticResource PilotXPanelCard}"
+                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                BorderThickness="1"
+                CornerRadius="14"
+                ClipToBounds="True"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="940" MaxHeight="600"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,8">
+
+            <Grid Name="ContenidoRaiz" Margin="24,20,24,24"
+                  RowDefinitions="Auto,Auto,*,Auto,Auto">
+
+                <!-- ============ Header (.page-head) ============ -->
+                <Grid Grid.Row="0" Name="DragHandle" Background="Transparent"
+                      ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+                    <StackPanel Grid.Column="0" Name="HeaderTitulo" Spacing="2">
+                        <TextBlock Text="Chequeo de roll"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock Text="Corrección por roll del IMU vs deriva GPS · solo lectura"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"/>
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Name="HeaderPill"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="999"
+                            Padding="14,6,14,6"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Width="8" Height="8"
+                                     Fill="{StaticResource PilotXPanelIdle}"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="StatusText" Text="—"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="13"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Grid.Column="2" Name="BtnCerrar" Content="✕"
+                            Click="OnCerrarClick"
+                            ToolTip.Tip="Cerrar"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8" Width="48" Height="48"
+                            FontSize="15"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ============ Lecturas (.g-readouts) ============ -->
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,Auto,*" Margin="0,0,0,16">
+                    <Border Grid.Column="0"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9,16,9"
+                            MinWidth="150"
+                            Margin="0,0,20,0">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Corrección"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Name="ValCorr" Text="0.00"
+                                           Foreground="{StaticResource PilotXPanelAccentText}"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="26" FontWeight="Bold" LineHeight="30"/>
+                                <TextBlock Text=" m"
+                                           Foreground="{StaticResource PilotXPanelAccentText}"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="26" FontWeight="Bold" LineHeight="30"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9,16,9"
+                            MinWidth="150"
+                            Margin="0,0,20,0">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Este GPS"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                            <StackPanel Orientation="Horizontal">
+                                <!-- #2F6E9E: variante legible sobre blanco del
+                                     azul de serie #3D87C6 (no hay token azul). -->
+                                <TextBlock Name="ValEast" Text="0.00"
+                                           Foreground="#2F6E9E"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="26" FontWeight="Bold" LineHeight="30"/>
+                                <TextBlock Text=" m"
+                                           Foreground="#2F6E9E"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="26" FontWeight="Bold" LineHeight="30"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9,16,9"
+                            MinWidth="150"
+                            Margin="0,0,20,0">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Este sin corregir"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                            <StackPanel Orientation="Horizontal">
+                                <!-- PilotXPanelWarn (#8A6100): variante legible
+                                     sobre blanco del ámbar de serie #B07A10. -->
+                                <TextBlock Name="ValUncorr" Text="0.00"
+                                           Foreground="{StaticResource PilotXPanelWarn}"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="26" FontWeight="Bold" LineHeight="30"/>
+                                <TextBlock Text=" m"
+                                           Foreground="{StaticResource PilotXPanelWarn}"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="26" FontWeight="Bold" LineHeight="30"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="3"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9,16,9"
+                            MinWidth="150">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Roll IMU"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                            <TextBlock Name="ValRoll" Text="—"
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontFamily="Consolas, Courier New, monospace"
+                                       FontSize="26" FontWeight="Bold" LineHeight="30"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ============ Área de dibujo (.g-chart-wrap) ============ -->
+                <Border Grid.Row="2"
+                        Background="{StaticResource PilotXPanelSurface}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12"
+                        MinHeight="190">
+                    <Grid>
+                        <v:GraficoLineal Name="Lienzo"/>
+                        <TextBlock Name="AxisMax" Text="0.1"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   FontSize="11"
+                                   HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Margin="0,0,4,0"/>
+                        <TextBlock Name="AxisMin" Text="-0.1"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   FontSize="11"
+                                   HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                   Margin="0,0,4,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- ============ Leyenda (.g-legend) ============ -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="20" Margin="0,12,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Border Width="14" Height="3" CornerRadius="2"
+                                Background="{StaticResource PilotXPanelAccent}"
+                                VerticalAlignment="Center"/>
+                        <TextBlock Text="Corrección (m)"
+                                   Foreground="{StaticResource PilotXPanelTextMid}"
+                                   FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Border Width="14" Height="3" CornerRadius="2"
+                                Background="#3D87C6"
+                                VerticalAlignment="Center"/>
+                        <TextBlock Text="Este GPS (m)"
+                                   Foreground="{StaticResource PilotXPanelTextMid}"
+                                   FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Border Width="14" Height="3" CornerRadius="2"
+                                Background="#B07A10"
+                                VerticalAlignment="Center"/>
+                        <TextBlock Text="Este sin corregir (m)"
+                                   Foreground="{StaticResource PilotXPanelTextMid}"
+                                   FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ============ Controles (.g-controls) ============ -->
+                <StackPanel Grid.Row="4" Name="FilaControles"
+                            Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
+                    <Button Name="BtnGainDown" Content="− Escala" Click="OnEscalaMenosClick"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="16,0" MinHeight="40" FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Achica el eje: la traza se ve más grande"/>
+                    <Button Name="BtnGainAuto" Content="Auto" Click="OnAutoClick"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="16,0" MinHeight="40" FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Ajusta el eje a los datos"/>
+                    <Button Name="BtnGainUp" Content="+ Escala" Click="OnEscalaMasClick"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="16,0" MinHeight="40" FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Agranda el eje: entra más recorrido"/>
+                    <Button Name="BtnFreeze" Content="Congelar" Click="OnCongelarClick"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="16,0" MinHeight="40" FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Frena el avance del gráfico para mirarlo"/>
+                    <!-- Arranca ENCENDIDO (isPole = true), igual que la página
+                         (el botón nace con class="on"). El estilo del estado
+                         encendido lo pone el code-behind. -->
+                    <Button Name="BtnMode" Content="Poste" Click="OnModoClick"
+                            Background="{StaticResource PilotXPanelAccent}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelAccent}"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="16,0" MinHeight="40" FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Poste: grafica la corrección sola. Movimiento: corrección + sin corregir"/>
+                </StackPanel>
+
+            </Grid>
+        </Border>
+    </ThemeVariantScope>
+</UserControl>

@@ -1,0 +1,127 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.QuantiXEditorPanel">
+    <!--
+        QuantiXEditorPanel — EDITOR nativo de QuantiX (cierra el hueco WebView).
+
+        Antes: el boton "Configurar" del QuantiXPanel hacia
+        NavigateTo("pages/quantix.html") y eso despertaba Chromium entero para
+        configurar la sembradora. Ahora las 6 tabs (Siembra, Motores, Shape,
+        PID, Calibracion, Prueba) son nativas y el WebView no se instancia.
+
+        La pagina pages/quantix.html NO se toca ni se borra: la sigue usando
+        la PWA del celular (regla del repo).
+
+        Card clara flotante sobre el mapa VIVO — el mapa nunca se apaga.
+        Las confirmaciones van en el overlay interno de abajo (Border +
+        IsVisible): sobre el mapa GL los Flyout/MenuFlyout no se dibujan.
+    -->
+    <Panel>
+        <!-- Name="Card": ModoEmbebido() (adentro de la Configuración) le
+             suelta el marco/tamaño; la instancia flotante no cambia. -->
+        <Border Name="Card"
+                Background="#FAFBFA"
+                BorderBrush="#C5CFC5"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="14"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="980" MaxHeight="660"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,0">
+            <DockPanel>
+
+                <!-- ============ Header ============ -->
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto"
+                      Margin="4,0,0,8">
+                    <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Text="QuantiX"
+                                   Foreground="#101612"
+                                   FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Name="SubtituloText"
+                                   Text="Siembra · dosis y corte por surco"
+                                   Foreground="#535E54"
+                                   FontSize="11"/>
+                    </StackPanel>
+
+                    <!-- Pill: nodos QuantiX que estan publicando.
+                         Name="HeaderPill": la instancia embebida la entrega
+                         (PillsDeContexto) a la barra de contexto del shell. -->
+                    <Border Grid.Column="2" Name="HeaderPill"
+                            Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                            CornerRadius="999" Padding="12,5,12,5" Margin="0,0,8,0"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                            <Ellipse Name="EstadoDot" Width="9" Height="9" Fill="#8A958B"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="EstadoText" Text="Cargando…"
+                                       Foreground="#535E54" FontSize="12"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Grid.Column="3" Name="BtnCerrar" Content="✕"
+                            Click="OnCerrarClick"
+                            Background="#FFFFFF" Foreground="#101612"
+                            BorderBrush="#C5CFC5" BorderThickness="1"
+                            CornerRadius="8" Width="44" Height="42"
+                            FontSize="15"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ============ Tabs (a mano, no TabControl) ============ -->
+                <ScrollViewer DockPanel.Dock="Top"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              Margin="0,0,0,10">
+                    <StackPanel Name="TabStrip" Orientation="Horizontal" Spacing="4"/>
+                </ScrollViewer>
+
+                <!-- ============ Contenido de la tab activa ============ -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel Name="TabHost" Spacing="10" Margin="0,0,6,0"/>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ============ Overlay de confirmacion (NUNCA Flyout/ShowDialog) ============ -->
+        <Border Name="ConfirmOverlay" IsVisible="False" ZIndex="20"
+                Background="#77101612">
+            <Border Background="#FAFBFA" BorderBrush="#C5CFC5" BorderThickness="1"
+                    CornerRadius="12" Padding="18" MaxWidth="440"
+                    BoxShadow="0 8 26 0 #55101612"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="12">
+                    <TextBlock Name="ConfirmTitulo" Text="" Foreground="#101612"
+                               FontSize="15" FontWeight="Bold" TextWrapping="Wrap"/>
+                    <TextBlock Name="ConfirmMensaje" Text="" Foreground="#535E54"
+                               FontSize="13" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8"
+                                HorizontalAlignment="Right">
+                        <!-- Por acá pasan ahora las cuatro acciones que ponen
+                             el motor en marcha (Iniciar calibración, Medir
+                             tope, Medir Max Hz, Auto-Tune): tiene que ser
+                             tocable con guante y legible con sol. 42 → 48 px,
+                             y el verde de acento #4ABA3E con letras blancas
+                             daba 2,5:1 — pasa al verde de fondo #2F7A26
+                             (5,3:1), el mismo del botón Guardar. -->
+                        <Button Name="BtnConfirmNo" Content="Cancelar"
+                                Click="OnConfirmNoClick"
+                                Background="#FFFFFF" Foreground="#101612"
+                                BorderBrush="#C5CFC5" BorderThickness="1"
+                                CornerRadius="8" MinHeight="48" Padding="18,8"/>
+                        <Button Name="BtnConfirmSi" Content="Aceptar"
+                                Click="OnConfirmSiClick"
+                                Background="#2F7A26" Foreground="White"
+                                BorderBrush="#2F7A26" BorderThickness="1"
+                                CornerRadius="8" MinHeight="48" Padding="18,8"
+                                FontWeight="SemiBold"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Panel>
+</UserControl>

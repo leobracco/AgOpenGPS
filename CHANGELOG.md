@@ -1,0 +1,1106 @@
+﻿# Changelog — PilotX (AgOpenGPS — Agro Parallel)
+
+Todos los cambios relevantes a la app PC del tractor se anotan acá.
+
+Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
+y versionado [SemVer](https://semver.org/lang/es/) (MAJOR.MINOR.PATCH).
+
+La fuente de verdad de la versión es `Installer/VERSION`. El build
+(`build.ps1` / `build-installer.ps1`) la lee de ahí y la estampa en
+el ensamblado vía `-p:Version=` para que `PilotXSelfUpdate` la pueda
+detectar en runtime y compararla contra el catálogo OTA.
+
+---
+
+## [1.0.90] — 2026-10-03
+
+Lo que decide cómo guía o aplica la máquina sigue APAGADO o en modo solo
+registro de fábrica: con los ajustes por defecto guía igual que la 1.0.89.
+
+### Added
+
+- **Dibujos propios en Configuración › Vehículo.** Tipo, Dimensiones y Antena
+  usan los dibujos de Agro Parallel (antes los de AOG). Cada medida tiene una
+  marca del color de su flecha; la distancia al pivote muestra **+** delante
+  del eje y **−** detrás. El offset de la antena tiene su vista de arriba en
+  su propia carta.
+- **"Dónde va cada pieza"**: guía de instalación con dibujos por máquina
+  (tractor, articulado, cosechadora, pulverizadora, fertilizadora), sin
+  internet. Desde Vehículo › Antena o desde la Ayuda.
+- **SISTEMA › Reportar falla**: en un toque saca la captura, pide describir
+  qué pasó y devuelve un código para dictar por teléfono; el paquete sube
+  solo a OrbitX.
+- **Tarea finalizada sellada** (no se edita después de cerrada) y **LOTE ›
+  Exportar ISO-XML** del lote.
+- **Planimetría en la cabina** (Configuración › GPS / IMU › Planimetría,
+  apagado): mapa de alturas sobre el lote, guía por curva de nivel y
+  ambientes para armar una prescripción.
+- **VistaX: registro por surco del lote**, con informe, mapa SHP y envío a
+  OrbitX.
+- **Autoridad de control**: una sola pantalla acciona la máquina a la vez
+  (celular o cabina). De fábrica solo registra, no bloquea.
+- **Configuración › Otros › Unidades** en la pantalla nativa.
+
+### Fixed
+
+- **SISTEMA › Cerrar PilotX** vuelve a estar en el menú (el manual lo
+  nombraba y no estaba).
+- El área y la distancia vuelven a cero al cerrar y al abrir lote.
+- El manejo libre de la dirección manda 0,5 km/h falsos al módulo, no 8.
+- Al actualizar, PilotX espera el resultado del actualizador antes de
+  cerrarse.
+
+---
+
+## [1.0.89] — 2026-10-03
+
+### Fixed
+
+- **El levante hidráulico ahora se acciona.** Se podía configurar
+  (Configuración › Secciones › Máquina) y el botón Hidráulico lo armaba, pero
+  nunca subía ni bajaba: la placa de máquina recibía siempre "nada". Ahora
+  baja anticipado al salir del giro y sube cuando todo el implemento está en
+  la cabecera. Solo actúa con el levante habilitado, el botón Hidráulico
+  prendido y la cabecera hecha.
+- **SISTEMA › Ayuda abre el manual en la Configuración de siempre**, no en la
+  pantalla web vieja aparte.
+
+---
+
+## [1.0.88] — 2026-10-03
+
+Lo que cambia el guiado sigue APAGADO de fábrica: con los ajustes por defecto
+la máquina guía igual que en la 1.0.87.
+
+### Added
+
+- **Planimetría: registro de alturas del lote** (Configuración › GPS / IMU ›
+  Elevación, apagado). Con RTK fijo graba un punto por metro, con la altura de
+  la antena llevada al suelo, y lo sube a OrbitX, donde el lote muestra la
+  pestaña Altimetría (curvas de nivel, pendientes, bajos). Sin RTK fijo no
+  graba.
+- **Cero automático del WAS** (Dirección › Sensor, apagado): mide el cero del
+  sensor de ángulo andando derecho con el piloto y lo PROPONE; se aplica solo
+  si el operario toca Aplicar, con Deshacer.
+- **Bloqueo de saltos en Corregir posición** (Dirección › Pantalla, apagado):
+  con el piloto enganchado no deja "Poner en cero" ni saltos de más de 50 cm.
+
+### Fixed
+
+- **RTK que se caía al volver internet**: las correcciones hacia la placa
+  salían de golpe y la ahogaban; ahora salen dosificadas.
+
+---
+
+## [1.0.87] — 2026-10-01
+
+Tanda de funciones tomadas de la competencia (Sensor T-Wave, Ag Leader,
+Abelardo Cuffia). **Todo lo que cambia cómo guía o engancha el piloto viene
+APAGADO** y se prende a mano; con los ajustes de fábrica la máquina guía igual
+que en la 1.0.86.
+
+### Added
+
+- **Condiciones para acoplar el piloto** (Dirección › Pantalla › Para acoplar
+  el piloto): distancia y ángulo máximos con la guía. Si no se cumplen, el
+  piloto no engancha y la pantalla dice cuánto falta. En 0 = sin límite.
+- **Corte automático del piloto** (Dirección › Pantalla › Corte automático del
+  piloto): se suelta solo si se corta el GPS más de N segundos —antes, al
+  volver la señal, el piloto volvía a agarrar solo— o si el tractor se aleja de
+  la guía. En 0 = no corta.
+- **El piloto dice por qué se soltó**: GPS, distancia, RTK perdido, velocidad
+  máxima o mínima, fin de la guía. Antes se soltaba en silencio. Las alarmas
+  conocidas traen además una línea **«Qué hacer»**.
+- **Guía por última pasada** (Barra de la pasada › Guías): cada pasada se
+  vuelve la guía de la siguiente, sin tirar A/B.
+- **Punto de referencia contra la deriva** (Herr. › Corregir posición): marcar
+  sobre una bandera física y, al volver, corregir el mapa a esa bandera.
+- **Tareas de trabajo** (LOTE › Tarea): cultivo, tipo de trabajo y notas, con
+  pausa, cierre y exportación a pendrive (SHP de cobertura + informe).
+- **Banderas con tipo**: árbol, molino, laguna, tanque, casa, piedra; cada una
+  con su forma en el mapa.
+- **Guiado del implemento en curvas** (Dirección › Guiado › Implemento,
+  apagado): el tractor se abre para que el implemento pise la línea. Salida de
+  emergencia `--sin-guiado-implemento`.
+- **Asistente de calibración de la dirección** (Dirección › Asistente): paso a
+  paso, con hombre muerto; propone y el operario acepta. Se puede bloquear con
+  `--sin-asistente-direccion`.
+- **VistaX: dobles, fallas y CV por surco** (ISO 7256-1) con nodos v3.1, con
+  alarma amarilla de singulación. Con nodos anteriores no cambia nada.
+
+### Changed
+
+- **Letra más grande en el menú izquierdo y la barra derecha.** En la barra
+  derecha las palabras largas se cortaban a la mitad («Hidrául/ico»); ahora
+  entran enteras.
+
+### Fixed
+
+- **Guía A-B en curva**: una curva recalculada a medias podía quedar como guía
+  activa; el seguidor podía romperse al cambiar de pasada; y al llegar a la
+  punta de la curva el punto objetivo saltaba atrás del tractor.
+- **«Corregir posición» no movía nada**: ahora el corrimiento se aplica de
+  verdad. En 0 todo queda como antes.
+
+---
+
+## [1.0.86] — 2026-09-26
+
+### Changed
+
+- **La barra de arriba, más grande y sin repetir el GPS.** Pedido de cabina
+  (pantalla de Andrés Bracco, 26/9). Tres cosas del mismo lugar:
+
+  El número de cada chip pasa de 15 a 20 px y la etiqueta de 8 a 11. Es lo que
+  el operario mira de reojo con la máquina andando, y a 15 px había que
+  acercarse a la pantalla. Los anchos mínimos acompañan, porque con la fuente
+  nueva el número se cortaba contra el borde. La barra sigue midiendo 52 px:
+  nada de lo que cuelga abajo se movió.
+
+  El GPS estaba **tres veces**: un botón «● GPS», el chip «SEÑAL» y el cartel
+  rojo de «sin señal de GPS». Se fue el botón. Su función no se pierde: abrir
+  los datos del GPS ahora es tocar el propio chip, igual que HA abre los datos
+  del lote, y el punto de color se mudó al lado de «SEÑAL». Se dejó el chip y
+  no el botón porque el chip distingue **RTK FIJO de FLOTANTE**, y en una
+  sembradora esa diferencia son centímetros — un punto verde no la muestra.
+
+- **Se sacó el ✕ de cerrar de la barra.** Estaba pegado al «maximizar», y con
+  guantes, en el tractor moviéndose, errarle cuesta perder el guiado en medio
+  de la pasada. Separarlo 14 px (1.0.7x) no había alcanzado. Para cerrar
+  PilotX quedan **SISTEMA › Cerrar PilotX** y Alt+F4.
+
+### Added
+
+- **Avisos de sistema: decir qué está roto abajo, en vez de quedarse mudo.**
+  El núcleo que decide qué mostrar cuando falla algo de la capa de abajo
+  (GPS, módulos, implemento) llega a la cabina en lugar de morir en un log.
+
+### Fixed
+
+- **El firewall se abre con perfil `Any`, y el flag de actualización vence.**
+  Las reglas creadas sólo para el perfil activo dejaban los módulos sin
+  alcanzar cuando Windows reclasificaba la red. Y el `actualizando.flag` —que
+  el actualizador crea para que el lanzador no relance PilotX en mitad de la
+  extracción— quedaba colgado si la actualización se cortaba: el lanzador salía
+  sin hacer nada y **PilotX no volvía a arrancar nunca**, sin un solo error a la
+  vista. Pasó en la pantalla de Francisco Barbero (25/9). Ahora el flag expira.
+
+## [1.0.85] — 2026-09-25
+
+### Fixed
+
+- **El OTA a un nodo elige la IP de la pantalla por la SUBRED del nodo, no la
+  primera de la lista.** Reporte de campo (Las Gringas, 25/9, costó una mañana):
+  la tablet del tractor tiene dos redes —el hotspot de datos (`10.140.241.x`) y
+  la Ethernet de la sembradora (`192.168.5.10`)— y al armar la URL del firmware
+  se tomaba la **primera** que devolvía el sistema, que resultó ser la del
+  hotspot. El nodo recibía una dirección a la que no llega, la descarga moría
+  con `http_-1`, y ahí empezaba lo peor: cada intento fallido dejaba al nodo en
+  `panic`, tres de esos lo mandaban a `safe_mode`, y desde safe_mode rechazaba
+  la OTA siguiente. Hubo que falsear el `broker_address` de VistaX para
+  desempatar a mano y mandar `clear_safe_mode` a los dos nodos.
+
+  El dato para decidirlo bien siempre estuvo: el nodo publica su propia IP en
+  el announcement. Ahora, de todas las IP de la pantalla se usa la que está en
+  la misma subred que el nodo. Si el nodo está del lado del hotspot, se usa la
+  del hotspot — la regla es la subred, no "la Ethernet siempre". Con dos
+  candidatas gana la subred más específica (una `/24` le gana a una `/16` que
+  la engloba, que es la forma típica en que una VPN tapa la LAN). Si ninguna
+  comparte subred con el nodo, o el nodo todavía no anunció su IP, se cae al
+  método anterior: no se inventa una respuesta.
+
+  El log del OTA ahora dice **por qué** eligió esa IP, no sólo cuál. Eso es
+  exactamente lo que faltó en el campo: se veía la dirección equivocada y no
+  había forma de saber de dónde había salido.
+
+  El panel de firmwares muestra la misma IP que va a viajar en la URL, así lo
+  que se ve y lo que recibe el nodo no pueden discrepar.
+
+## [1.0.84] — 2026-09-25
+
+### Added
+
+- **La siembra queda registrada en OrbitX, no sólo en el lote.** Después del
+  caso Las Gringas (CV malo, "10 m bien / 10 m mal") quedó claro el problema de
+  fondo: se pudo *explicar* el defecto —microcortes de MQTT que dejaban a los
+  motores sin consigna— pero no *demostrarlo*, porque nada lo registraba en
+  ningún lado que no fuera el tractor mismo. Para cuando alguien llega con un
+  pendrive, el log ya rotó. Tres cosas nuevas viajan al cloud:
+
+  - **El registro de PID de QuantiX.** Los CSV a 5 Hz —uno por motor, sin
+    decimar— y el `sesion.json` con las ganancias de esa corrida se suben con
+    subtipo `quantix_pid`. La curva de rpm contra target es lo único que
+    distingue "el PID no sigue" de "el motor no da más" de "se cortó el MQTT":
+    en el lote las tres se ven igual, semilla despareja. Sólo suben las
+    corridas ya cerradas, de a una tanda por tick, así no tapan los lotes del
+    operario en la cola de sync.
+
+  - **Cada motor dentro del punto de tracking** (campo `qx`): pps pedidos y
+    pps reales, el PWM y la carga, si su sección estaba abierta, qué surcos
+    corta, y esos mismos pps traducidos a sem/m o kg/ha con la MISMA cuenta que
+    muestra el widget de cabina. Antes el cloud sabía por dónde anduvo el
+    tractor y nada de lo que iba dosificando cada surco.
+
+  - **El log de eventos de la pantalla** (`POST /api/aog/log`). El offset lo
+    lleva PilotX en su propio disco y sólo lo avanza cuando el server confirma:
+    un POST que falla en el lote —que son la mitad— no puede hacer que esas
+    líneas se pierdan. Y las altas y bajas de clientes del broker MQTT
+    embebido, que hasta ahora morían en el anillo de 200 tópicos del panel,
+    ahora entran a ese log: un nodo que se cae y vuelve queda en la misma línea
+    de tiempo que el hueco de semilla.
+
+  Nada de esto cambia la pantalla: el operario no ve ni un botón nuevo.
+
+### Fixed
+
+- **El widget de QuantiX numera los motores por surco, no por el orden en que
+  se registraron los nodos.** En Las Gringas (dos nodos de 7 motores) el nodo
+  de las secciones 8-14 se registraba antes que el de 1-7, y en el overlay los
+  motores 8-14 aparecían como 1-7 y viceversa. Era solo visual —MAN/AUTO
+  siempre fue por nodo + índice—, pero el operario tocaba "el motor 3" y estaba
+  mirando el 10. Ahora cada motor viaja con las secciones que corta y el widget
+  ordena por la menor: el 1 es el surco 1 sea cual sea el nodo que lo maneje.
+
+## [1.0.83] — 2026-09-22
+
+### Fixed
+
+- **El mapa pinta cuando ABRE la válvula, de fábrica.** Reporte de campo
+  (pulverizadora de 31 m): *"abre las secciones pero no pinta y deja el mapa sin
+  pintar"*. La máquina aplicaba bien; lo que mentía era el mapa.
+
+  El mecanismo para arreglarlo ya existía desde la 1.0.79 —un retardo del mapa
+  separado del look-ahead de la válvula— pero venía **apagado de fábrica**
+  (`-1` = seguir el look-ahead, o sea el comportamiento viejo). Se eligió así
+  para no cambiarle la conducta a nadie al actualizar, y el resultado fue que
+  el arreglo no le sirvió a nadie: dos versiones después, el equipo seguía igual
+  porque nadie sabía que había que ir a prenderlo.
+
+  Por qué el síntoma era **peor cuanto mejor estaba configurada la máquina**: el
+  pedido de sección se levanta anticipado, la válvula abre en el instante, pero
+  el mapa esperaba el look-ahead entero y pintaba recién cuando el implemento
+  llegaba al punto proyectado. Los dos tiempos coinciden solo si el look-ahead
+  es exactamente el retardo físico; como se lo sube de más a propósito para no
+  dejar huecos de aplicación, **subirlo mejoraba la aplicación y empeoraba el
+  mapa**.
+
+  Los equipos que tengan un valor propio guardado lo conservan. `-1` sigue
+  disponible para volver al comportamiento histórico, y un valor `>= 0` para
+  máquinas que de verdad tardan entre que abre la válvula y sale el producto
+  (`Configuración › Vehículo › Tiempos`).
+
+### Notas
+
+- Ayuda de cabina: sección nueva **"Cuándo empieza a pintar"**, con qué mirar si
+  el mapa arranca tarde.
+
+---
+
+## [1.0.82] — 2026-09-19
+
+Tanda pedida desde el tractor, sembrando en LAS GRINGAS. Todo lo de acá tiene
+la misma causa de fondo: **PilotX fallaba en silencio**. Arriba de la máquina,
+"no pasa nada" es el peor mensaje posible, porque no se puede distinguir un
+equipo roto de un requisito que falta.
+
+### Fixed
+
+- **PilotX no se enteraba de que perdía la señal de GPS.** `fixQuality` retenía
+  el último valor recibido para siempre: al cortarse el GPS, el estado seguía
+  diciendo "RTK FIJO" (o "SIMULADOR") indefinidamente. La barra superior mentía
+  y nadie se enteraba de que se había perdido la señal. El Engine ya tenía el
+  watchdog de 3 s —lo usaba para poner la velocidad en cero, "sin GPS no se
+  dosifica"— pero no lo aplicaba a la calidad de fix. Ahora sí. Verificado
+  apagando el simulador con PilotX andando: `8 → 0`.
+
+- **Crear un lote sin GPS lo anclaba al campo anterior.** El origen del plano
+  local salía de la posición actual sin verificar que hubiera señal, así que
+  con el GPS todavía sin enganchar el lote quedaba anclado a la última posición
+  conocida — y al enganchar, el plano estaba corrido kilómetros. Probado en
+  banco: con `fix_quality 0` el lote se creaba igual, con el `StartFix` del
+  simulador de 20 minutos antes. Si nunca hubo fix desde el arranque, el origen
+  quedaba en 0/0 (el golfo de Guinea). Ahora no se crea y se explica por qué.
+
+### Added
+
+- **Cartel con el motivo por el que el mapa no puede mostrar la máquina**
+  (sin GPS / sin conexión / sin lote). Es el estado que más confunde: la
+  pantalla se ve normal, el mapa está, y nada funciona. El cartel cambia solo
+  al siguiente motivo a medida que se resuelven, y desaparece cuando está todo
+  en orden.
+
+- **La guía A/B no arranca sin lote**, y dice que la guía se guarda adentro del
+  lote. Antes el flujo arrancaba igual y se perdía al final.
+
+- **El piloto dice qué falta** (GPS, lote o guía) en vez de no hacer nada.
+  Cuando falta la guía dice qué hacer: "Tirá una A/B o elegí una guardada".
+
+- **Aviso al activar el piloto fuera del lindero**: "no va a pintar ni a sembrar
+  hasta que entres". Avisa pero NO bloquea — se puede estar entrando al lote o
+  haciendo una pasada a propósito.
+
+- **Aviso de lote lejano**: a más de 20 km del lote abierto se avisa una vez,
+  con la distancia. Es el caso de quedarse con el lote de ayer puesto.
+
+### Notas para soporte
+
+- Los motivos de cabina viven en `AvisosCabina`, función pura sobre el estado:
+  el texto que lee el operario está fijado por tests, no se comprueba a mano
+  arriba de una sembradora.
+- Queda pendiente: `open`/`close`/`delete` de lotes siguen devolviendo `ok`
+  pelado sin motivo, y el botón "Continuar" escribe el fallo en una consola que
+  en cabina no se ve.
+
+---
+
+## [1.0.71] — 2026-09-10
+
+### Added
+- **Tilde "La máquina no corta por secciones: pintar todo el ancho"** en
+  Configuración › Secciones › Control de secciones (cabina, celular/Android
+  y ayuda; setting `setTool_isNoSectionCut`, API `no_section_cut`). Para
+  barras o sembradoras sin válvulas ni embragues por sección: con el maestro
+  prendido se pinta todo el ancho y no se corta por solape, lindero ni
+  cabecera. Velocidad mínima, reversa y el botón Off siguen valiendo. Caso
+  de Fran (fumigadora de 31 m): el corte por cabecera apagaba la sección
+  19 m antes (anticipación 3,8 s) y el pintado solo se estiraba 2 s, así
+  que quedaban franjas "sin pintar" en escalera donde la barra tiraba igual.
+
+### Fixed
+- Texto del tilde de curva: decía "misma dosis"; cada motor conserva su
+  dosis, lo que se iguala es la velocidad y el prendido/apagado.
+
+## [1.0.70] — 2026-09-10
+
+### Changed
+- **Tilde "Compensar velocidad por sección en curva" apagado = implemento
+  uniforme.** Además de la misma velocidad, todos los motores QuantiX reciben
+  la misma dosis (el mapa ya se leía en una sola posición) y **prenden y
+  apagan juntos**: basta con que alguna sección esté abierta. Antes, con el
+  rumbo vibrando, cada surco veía otro estado de sección y en las Gringas los
+  surcos 3 a 7 se apagaban solos en la primera pasada.
+- El tilde ahora también está en la página HTML de Rumbo (celular / Android)
+  y la ayuda describe el modo uniforme.
+
+## [1.0.69] — 2026-09-10
+
+### Added
+- **Soporte remoto: acción `corte_config`** (solo lectura). Devuelve la
+  config del vehículo e implemento (rumbo con el tilde de curva,
+  anticipación, secciones, enganche), la config de motores QuantiX y el
+  estado en vivo de los nodos QuantiX. Para diagnosticar desde OrbitX casos
+  como "no van todos los motores a la misma velocidad" sin pedirle capturas
+  al operario.
+
+### Fixed
+- **`nodo_estado` rechazaba los uids con guion** (QX-…, VX-…): la validación
+  solo aceptaba letras y números.
+
+## [1.0.68] — 2026-09-09
+
+Revisión del corte automático por secciones: dos bugs en el motor y la
+configuración reordenada para que se entienda. Aplica a la cabina, al
+celular/Android (misma página HTML) y a la ayuda.
+
+### Fixed
+- **La sección apagada prendía tarde al salir de zona sembrada.** El
+  evaluador de solape preguntaba primero por la distancia de apagado (la
+  corta) sin importar el estado, así que una sección apagada no podía
+  prender hasta que esa línea pisara terreno limpio: arrancaba (encendido −
+  apagado) segundos tarde en cada reentrada, ≈1 m a 8 km/h con los valores
+  por defecto. Ahora cada estado mira solo su distancia, como el original.
+- **"Cobertura mínima" no hacía nada.** Se guardaba pero el corte usaba 90 %
+  fijo. Ahora es el umbral real de apagado (50..95 %, histéresis 20 puntos
+  abajo); 100 (el valor viejo) se lee como 90 para no cambiar el corte de
+  nadie por actualizar.
+- **La anticipación del anti-solape usaba la velocidad del tractor** para
+  todas las secciones. Ahora usa la de cada sección cuando "Compensar
+  velocidad por sección en curva" está prendido, y la del tractor si está
+  apagado.
+- **Guardar trenes, activar otro implemento o aplicar una plantilla ya no
+  pisa** los tiempos de anticipación, el modo zonas, los anchos desiguales ni
+  el corte en lindero (el implemento central bajaba su copia vieja al motor).
+
+### Changed
+- **"Timing" pasa de Implemento a Secciones › "Anticipación"**, con una nota
+  viva que convierte los segundos a metros a 8 km/h y avisa el tope del motor
+  (20 m encendido / 16 m apagado). Máximo de encendido 10 s (era 22).
+- **"Cortar fuera del lote" pasa a ser un selector** "Corte en el lindero:
+  apenas asoma una punta / recién cuando sale entera": el lindero siempre
+  corta, el flag solo elegía la severidad.
+- **"Cobertura mínima" pasa a "Corta al pisar sembrado (% del ancho)"**, con
+  rango 50..95 y nota.
+- Al entrar a Secciones con lote abierto se avisa que las secciones quedan
+  apagadas mientras se edita.
+
+### Added
+- **Modo simple "Sembradora"** arriba de Secciones: surcos, distancia entre
+  surcos y anticipación, botón "Aplicar y guardar" (arma individuales del
+  mismo ancho y apagado = 0,5 × encendido). El resto queda bajo "Avanzado",
+  cerrado por defecto cuando la configuración ya es simple.
+
+## [1.0.67] — 2026-09-09
+
+### Added
+- **Tilde "Compensar velocidad por sección en curva"** en Configuración ›
+  Rumbo (GPS), debajo de "Detección de reversa". Se guarda en el perfil del
+  vehículo (`setTool_isCurveSpeedComp`, default prendido) y viaja por la API
+  de rumbo como `curve_speed_comp`. Apagado, el motor reporta la velocidad
+  del tractor para todas las secciones, así que lo heredan todos los módulos
+  que dosifican por velocidad de sección (QuantiX, SectionX, etc.): la dosis
+  deja de variar entre surcos en las curvas. Pedido de las Gringas (QuantiX +
+  DosiX eléctricos con un receptor Trimble sin compensación de terreno: el
+  rumbo vibra y la dosis de cada surco se movía todo el tiempo).
+- Reemplaza a la 1.0.66 (retirada del catálogo), que tenía el mismo tilde
+  pero solo para QuantiX y dentro del editor de motores.
+
+## [1.0.65] — 2026-09-09
+
+### Fixed
+- **Los parches nunca se aplicaban en las pantallas con kiosko.** El Updater
+  validaba el parche leyendo la versión del programa a relanzar, que en el
+  kiosko es `Lanzar-PilotX.bat` (sin versión): rechazaba el parche y volvía a
+  la versión anterior. Pasó en la pantalla de Fran (5 intentos). Ahora lee la
+  versión de `Desktop\PilotX.Desktop.exe` / `Engine\PilotX.GuidanceEngine.exe`.
+  Este cambio llega con el paquete COMPLETO (el Updater viejo no acepta el
+  parche); desde esta versión los parches funcionan también en kiosko.
+
+---
+
+## [1.0.64] — 2026-09-09
+
+### Fixed
+- **Reversa en el mapa nativo (el que usa el tractor).** La 1.0.61 había puesto
+  la flecha y el toque solo en el mapa web, que la pantalla no usa: la de Fran
+  quedó clavada en marcha atrás sin forma de salir. Ahora, cuando el motor
+  marca reversa, aparece un **botón rojo grande** arriba del mapa ("REVERSA ·
+  tocá acá para volver a marcha adelante") que manda `reset_direccion`, y el
+  mapa dibuja la flecha roja hacia atrás del tractor. Mientras tanto, apagar
+  y prender "Detección de reversa" en Configuración › Rumbo también lo limpia.
+
+---
+
+## [1.0.63] — 2026-09-09
+
+### Added
+- **Overlay FlowX: cambiar el objetivo l/ha con − / +.** En AUTO aparece la
+  fila "OBJ − 80 l/ha +" (paso `paso_lha`, 5 l/ha por defecto); el cambio va
+  a la config del producto y el bridge lo manda al nodo enseguida. En MAN
+  sigue la fila de caudal fijo l/min de siempre. Antes el objetivo solo se
+  podía cambiar en el editor de FlowX.
+
+---
+
+## [1.0.62] — 2026-09-09
+
+### Changed
+- **Botón grande de sentido del giro en cabecera**, a la derecha del mapa (como
+  la flecha de AgOpenGPS): muestra hacia dónde va a girar el U-turn con la
+  distancia al giro, y tocarlo invierte el lado (girando, lo aborta). Antes ese
+  cambio solo estaba en el texto de 12 px del centro del cluster. Aparece con
+  el giro automático prendido o un giro armado.
+
+---
+
+## [1.0.61] — 2026-09-08
+
+### Fixed
+- **Reversa visible y reseteable, como en AgOpenGPS.** El motor ya detectaba la
+  marcha atrás y cortaba el autosteer, pero la pantalla no mostraba nada ni
+  había forma de resetear. Ahora el estado trae `is_reverse`, el mapa dibuja la
+  flecha roja sobre el tractor con el aviso "REVERSA", y tocar el tractor manda
+  `reset_direccion`. Avanzando se sale sola como siempre.
+
+---
+
+## [1.0.60] — 2026-09-08
+
+### Added
+- **Nodos en el latido a OrbitX.** El heartbeat lleva los nodos que ve el broker
+  (uid, tipo, firmware, online, motores/cables, safe mode). OrbitX los muestra
+  en Dispositivos junto a la versión de PilotX y marca los que tienen una
+  versión más nueva en el catálogo.
+- **BenchX:** nodos QuantiX y VistaX emulados por MQTT y modo demo (`--demo`)
+  que maneja solo (opcional; no viaja en el paquete).
+
+---
+
+## [1.0.59] — 2026-09-06
+
+### Fixed
+- **Hectáreas netas reales.** La Neta (suelo pintado sin repintado) nunca se
+  calculaba en el motor headless (en AgOpenGPS salía de contar píxeles en
+  OpenGL): la pantalla mostraba Neta 0,00, Repintado = Trabajado (100 %) y el
+  "ha" de la barra superior en 0,0. Ahora el motor lleva una grilla de
+  cobertura de 0,5 m; Neta, Repintado y % quedan reales, también al reabrir un
+  lote. El Trabajado no cambia (ya estaba bien).
+- **Parches para un rango de versiones.** Un parche armado desde la base X
+  sirve para cualquier versión instalada entre X y la nueva; antes se exigía la
+  base exacta. Vale para el Updater y para el autoupdate.
+
+---
+
+## [1.0.58] — 2026-09-06
+
+### Added
+- **Backup de la configuración en el cloud.** Al arrancar (y después cada 6 h)
+  el equipo sube a OrbitX su config: vehículo, implemento, secciones y nodos.
+  Se guardan hasta 10 versiones por equipo, sin duplicar si no cambió. Se ve y
+  se descarga desde OrbitX › Dispositivos.
+
+---
+
+## [1.0.57] — 2026-09-06
+
+### Added
+- **El actualizador de PilotX baja el parche solo.** Al descargar una versión
+  nueva, primero busca un `PilotXParche` de esa misma versión; si lo hay, lo
+  baja (~5 MB), verifica SHA y lee su `parche.json`: si sirve para la versión
+  instalada, lo usa; si no, o si algo falla, cae al paquete completo (~190 MB).
+
+---
+
+## [1.0.56] — 2026-09-06
+
+### Added
+- Canal de soporte: acciones de solo lectura `nodos_live`, `nodo_estado` y
+  `ping` (IP privada) para diagnosticar nodos a distancia.
+
+---
+
+## [1.0.55] — 2026-09-06
+
+### Added
+- `flowx_config` acepta `kp`, `ki` y `kd` para calibrar el PID de válvula del
+  nodo FlowX (firmware 1.9.12 o superior) por el canal de soporte.
+
+---
+
+## [1.0.54] — 2026-09-06
+
+### Fixed
+- **El piso de PWM grabado en el nodo duraba 2 segundos.** El puente de FlowX
+  le manda al nodo el `pwm_min` de `flowX.json` en cada target (cada 2 s) y
+  pisaba cualquier valor grabado directo en el nodo. Se descubrio en campo:
+  la reguladora quedaba un 36% corta de dosis porque el piso efectivo volvia
+  a 800 (a ese PWM la valvula casi no se mueve) por mas que se grabara 1000 o
+  1500 en el nodo. PilotX pasa a ser la unica fuente de verdad del piso
+  positivo: `flowx_pisos` ahora tambien lo escribe en la config de PilotX.
+
+### Added
+- **`flowx_config`**: ajustar por el canal de soporte la configuracion de FlowX
+  que vive en PilotX: `pwm_min`, `dosis_lha`, `modo_manual`, `manual_lmin`,
+  `meter_cal`. Solo esos cinco campos, con rangos validados; escribe
+  `flowX.json` y el puente lo aplica solo en el proximo ciclo. Es lo que
+  faltaba para afinar la regulacion a distancia sin pedirle a nadie que toque
+  la pantalla.
+
+---
+
+## [1.0.53] — 2026-09-06
+
+### Added
+- **Soporte remoto de FlowX, acotado.** Cuatro acciones nuevas en el canal de
+  diagnostico, para operar la regulacion desde el panel sin dictarle comandos
+  por telefono a quien este en el tractor. Cada una hace UNA cosa nombrada
+  contra la API local del Engine (loopback); no reciben rutas ni comandos
+  libres, solo parametros validados. Se eligio esto sobre un proxy abierto a
+  proposito: si el token de un equipo se filtra, el dano posible queda
+  enumerado, no es "cualquier cosa".
+  - `flowx_diag` — caudal, PWM, objetivo, config y estado de secciones (lectura).
+  - `flowx_pwm` — mueve la valvula a un PWM (-4095..4095) por 1..30 s, con
+    corte automatico al terminar: nunca queda clavada.
+  - `flowx_pisos` — graba los pwm_min de arranque por sentido (0..4095).
+  - `secciones_manual` — prende/apaga el maestro de secciones en manual.
+  Nacio de la sesion de campo del 2026-09-06 (ver [[flowx-regulacion-campo]]):
+  domar la reguladora Raven llevo horas de comandos a mano por consola porque
+  el canal no podia operar nada, solo leer.
+
+---
+
+## [1.0.52] — 2026-09-06
+
+> **Primera versión que se puede instalar como parche.** Si el equipo tiene la
+> 1.0.51, esto son ~5 MB en vez de 193.
+
+### Added
+- **Canal de diagnóstico remoto.** La pantalla le pregunta a OrbitX cada 20
+  segundos si hay algún diagnóstico pendiente, corre la función y devuelve el
+  texto. Con eso se puede ver qué pasa en una máquina del campo sin dictarle
+  comandos por teléfono a quien esté parado adelante.
+  - **No abre ningún puerto en el tractor.** Todo sale de adentro hacia afuera,
+    sobre la misma autenticación por dispositivo que ya usa el sync. Sin
+    conexión no pasa nada: reintenta espaciando hasta 5 minutos.
+  - **Sólo se pueden pedir las ocho funciones de sólo lectura** que ya estaban
+    escritas: estado, sistema, red, puertos, procesos, firewall, logs y nodos.
+    Lo que llega del cloud es una clave de diccionario, no un comando: si no
+    está en el catálogo se rechaza. No hay ninguna ruta por la que un texto
+    arbitrario llegue a ejecutarse.
+  - La salida se sanitiza (tokens y contraseñas) y se corta en 256 KB. Timeout
+    por función, tope 300 segundos, y de a una por vez.
+  - En una pantalla sin vincular el servicio duerme: sin identidad no consulta.
+
+### Lado servidor (ya desplegado, no requiere esta versión)
+- `routes/soporte.js` en OrbitX, con `GET /api/soporte/pendientes` y
+  `POST /api/soporte/resultado` para el equipo, y `POST /api/soporte/comando`,
+  `GET /api/soporte/comandos` y `GET /api/soporte/catalogo` para el panel.
+- **Agujero encontrado al probar y cerrado**: `auth.required` también autentica
+  equipos, así que un token de dispositivo podía encolar diagnósticos sobre
+  **cualquier** máquina de la flota y leer la salida. Los tres endpoints de
+  panel ahora rechazan tokens de dispositivo, igual que hace `routes/devices.js`.
+  Verificado: 403 al encolar sobre sí mismo, 403 sobre otro equipo, 403 al leer
+  el historial, y 200 al pedir los pendientes propios.
+
+---
+
+## [1.0.51] — 2026-09-05
+
+> **Esta es la versión que habilita las actualizaciones chicas.** A partir de
+> acá, una corrección se manda como un parche de ~5 MB en vez de un paquete de
+> 193 MB. Para llegar hasta acá sí hace falta el paquete completo, una última
+> vez.
+
+### Added
+- **El actualizador entiende parches y los valida.** Un parche trae sólo lo que
+  cambió (unos 5 MB contra 193) y se aplica encima sin borrar nada. Antes de
+  tocar el disco comprueba que la instalación sea exactamente la versión base
+  para la que se armó, comparando contra la versión real del ejecutable
+  instalado. Si no coincide, **aborta sin tocar nada**: no cierra procesos, no
+  respalda, no extrae, y explica que hace falta el paquete completo.
+  - Esa comprobación es la que faltaba cuando se mandaron DLL sueltas mal
+    versionadas y una pantalla dejó de arrancar. Los ensamblados se referencian
+    por versión exacta: mezclar versiones no da un error entendible, da una app
+    que no abre.
+- **`instalar-pilotx.ps1` acepta las dos cosas y distingue sola cuál es.**
+  - Paquete completo: reemplaza `Desktop`, `Engine` y `BarsHost` enteras,
+    respaldando con un rename instantáneo.
+  - Parche: aplica encima y respalda **sólo los archivos que va a pisar**, para
+    poder deshacer con precisión. Si el parche no corresponde a la versión
+    instalada, lo rechaza antes de empezar.
+  - En los dos casos el último paso es abrir la pantalla; si no abre, deshace.
+
+### Cómo se saca un parche
+```
+.uild.ps1                      compila y verifica la versión nueva
+.uild-parche.ps1 -Base 1.0.51  arma el parche contra esa base
+```
+Se publica en OrbitX como cualquier versión. El equipo lo descarga igual que
+siempre; la diferencia es que baja 5 MB en vez de 193.
+
+---
+
+## [1.0.50] — 2026-09-05
+
+> Reemplaza a la 1.0.49, que salió **sin RustDesk**. Si ya instalaste la 1.0.49
+> y la pantalla anda, no es urgente; sí conviene antes de entregar un equipo
+> nuevo.
+
+### Fixed
+- **RustDesk volvió al paquete.** La 1.0.49 salió sin él y con eso se perdía el
+  soporte remoto sin instalación. La carpeta `Desktop\RustDesk\` nunca fue
+  parte del build: sobrevivía en `Build\` de casualidad porque nada la
+  borraba, y al empezar a limpiar antes de publicar (1.0.49) desapareció sin
+  que ninguna prueba lo notara.
+  - Ahora vive en `Tools\RustDesk\` y `build.ps1` la copia, avisando en rojo
+    si falta. **No se versiona en git**: el nombre del ejecutable lleva el
+    servidor y la clave del relay propio, y este repositorio es público.
+  - En una pantalla que ya tiene RustDesk instalado no cambiaba nada; el
+    código sale sin hacer nada si la carpeta no está. El problema era para
+    equipos nuevos.
+
+### Added
+- **El build ahora también prueba el Engine.** Lo levanta con `--webhost
+  --corex` y verifica que responda la API en `127.0.0.1:5180`. El Engine se
+  publica con ReadyToRun sin composite, que es exactamente la combinación que
+  dejó sin arrancar a `PilotX.Desktop`; una pantalla que abre sin Engine no
+  sirve para trabajar.
+
+### Verificado en esta revisión
+- El paquete **no** lleva credenciales, tokens ni configuración de la máquina
+  de desarrollo. Dejó de viajar `Engine/GuidanceEngineData/ultimo_lote.txt`,
+  que era estado local metiéndose en la instalación del cliente.
+- `System.IO.Ports.dll` y `System.Management.dll` están donde corresponde. Las
+  copias que desaparecieron bajo `Engine/runtimes/` eran restos de builds
+  viejos para Android, Linux y macOS que no se usaban.
+
+---
+
+## [1.0.49] — 2026-09-05
+
+> **La 1.0.48 NO ARRANCA. No instalarla.** Se retiró del catálogo de OrbitX.
+> Esta versión la reemplaza y corrige lo que la rompió.
+
+### Fixed
+- **La 1.0.48 moría al arrancar** con `FailFast` (0xC0000602) y sin ningún
+  mensaje, en cualquier máquina y aunque la instalación fuera limpia. Se
+  comprobó comparando las dos versiones extraídas en la misma PC: la 1.0.47
+  abre, la 1.0.48 muere. Llegó a instalarse en el equipo de un cliente.
+  - **Causa raíz: `build.ps1` nunca limpiaba las carpetas de publicación.**
+    `dotnet publish -o` no borra lo que había: escribe encima y convive con
+    los archivos del build anterior. `Build\Desktop` llegó a tener 172
+    archivos de un build y 53 de otro al mismo tiempo. La 1.0.48 se publicó
+    con ReadyToRun apagado pero quedaron las DLL **con** ReadyToRun de la
+    1.0.47, y esa mezcla compila y empaqueta sin una sola advertencia.
+  - Ahora `Desktop`, `Engine` y `BarsHost` se borran antes de cada publish.
+    No se toca `AgroParallel\wwwroot` (lo espeja robocopy), ni `Branding`,
+    ni `Fonts`, ni `config-captures`.
+- **`PilotX.Desktop` se publica sin ReadyToRun.** La combinación
+  ReadyToRun activado **sin** composite produce un binario que no arranca.
+  Apagado del todo funciona, y además cada ensamblado queda chico, que era el
+  objetivo de sacar el composite. Costo medido del arranque en frío: 3777 ms
+  contra 3042 ms del composite.
+
+### Added
+- **El build prueba que la aplicación abre antes de empaquetar.** Lanza
+  `PilotX.Desktop.exe` y falla el build si muere en los primeros 25 segundos.
+  Compilar sin errores no probaba nada: la 1.0.48 compiló limpia, se empaquetó,
+  se subió al cloud y se instaló en un tractor sin que nadie la hubiera
+  ejecutado una sola vez. Se saltea con `-SkipSmoke` en máquinas sin sesión
+  gráfica.
+- **`setup_pilotx_lan.bat` ahora viaja en el paquete.** Vivía sólo en el repo,
+  así que la regla de UDP 9999 que necesita el ToolX nunca llegaba a una
+  máquina de cliente. El síntoma era engañoso: el nodo aparecía CONECTADO por
+  MQTT mientras su PGN se descartaba en silencio y la herramienta no pintaba.
+
+### Verificado antes de publicar
+- 1.0.49 limpia: abre, 1566 ms.
+- 1.0.47 con 1.0.49 extraída encima (el camino real de actualización): abre,
+  1483 ms, incluso con el `PilotX.Desktop.r2r.dll` huérfano de 90 MB todavía
+  en la carpeta. Sin ReadyToRun ya nadie lo carga; queda como peso muerto y se
+  puede borrar a mano.
+
+---
+
+## [1.0.48] — 2026-09-05
+
+### Fixed
+- **La configuración de FlowX se borraba sola en el tractor** (caso de campo:
+  `flowX.json` volvía a `{"enabled":true,"nodos":[],"ignorados":[]}` y el
+  cliente perdía los nodos ya configurados). `AtomicJson.Read` podía caer justo
+  en la ventana del fallback de escritura, donde hay un `Delete` seguido de un
+  `Move` y por un instante el archivo NO existe. El `Load()` interpretaba ese
+  null como "no hay config" y escribía los defaults ENCIMA de la buena. Con el
+  puente releyendo cada 2 segundos, la lotería se jugaba todo el tiempo.
+  - `AtomicJson.Read` ahora reintenta (3 × 40 ms) antes de rendirse, y sólo
+    reintenta si hay algo en disco.
+  - Nuevo `AtomicJson.Existe(path)`: mira el archivo y su `.bak`.
+  - Los seis `Load()` (FlowX, OrbitX, QuantiX, SectionX, StormX, VistaX) sólo
+    crean el archivo de defaults cuando de verdad no hay nada en disco. Nunca
+    más se pisa una configuración que existe pero no se pudo leer en ese
+    instante.
+- **El puente de FlowX quedaba mudo para siempre** si el broker MQTT todavía no
+  estaba levantado cuando arrancó. `FlowXBridge.StartAsync()` conectaba una sola
+  vez, y si fallaba lo dejaba anotado en el log y no reintentaba nunca: las
+  secciones no abrían y no había ninguna señal de por qué. Ahora hay un
+  watchdog (primer intento a los 2 s, después cada 15 s) igual al que ya tenían
+  QuantiX y el CutDispatcher.
+
+### Changed
+- **Las actualizaciones pasan a ser livianas y parcheables por archivo.** Se
+  apagó `PublishReadyToRunComposite`. Con composite, todo el código nativo de
+  todos los ensamblados vivía en un único `PilotX.Desktop.r2r.dll` de 94,3 MB:
+  cambiar una línea obligaba a regenerarlo entero, así que el paquete mínimo de
+  un fix era de ~90 MB y era imposible mandar una DLL suelta. Sin composite
+  cada ensamblado lleva su propio código ReadyToRun adentro, el arranque sigue
+  precompilado (no se vuelve a JIT puro) y un fix puntual se manda como esa
+  sola DLL.
+  - Recordatorio operativo que costó caro: una DLL suelta SÓLO sirve si se
+    compiló con el `-p:Version=` exacto de la instalación destino. Los
+    ensamblados se referencian por versión exacta y mezclar versiones impide
+    que la app arranque.
+- `setup_pilotx_lan.bat` ahora abre también **UDP 9999** (además de TCP 5180 y
+  5181). Sin esa regla un nodo ToolX aparecía online por MQTT mientras su PGN
+  se descartaba en silencio y la herramienta no pintaba.
+
+---
+
+## [1.0.47] — 2026-09-05
+
+> Las versiones 1.0.45 y 1.0.46 se publicaron desde otra sesión y no dejaron
+> entrada acá; sus cambios no están documentados en este archivo.
+
+### Added
+- **Asignación manual de cortes en el editor de FlowX** (pestaña "Cortes y
+  secciones"). Además del reparto automático, ahora hay un desplegable por
+  sección para elegir a mano qué corte (la salida S1, S2… del nodo) la abre,
+  o dejarla sin asignar. Varias secciones pueden compartir un corte. El mapa
+  se actualiza en el momento, sin rebuild, para no cerrar el desplegable ni
+  perder el scroll.
+  - La lista de secciones sale de lo que reporta PilotX en vivo, sin ninguna
+    cantidad fija: si el implemento cambia de 7 a 24 secciones aparecen 24
+    filas, la grilla envuelve y el bloque scrollea. El único techo sigue
+    siendo el del protocolo del nodo (16 cortes: el bitmask que viaja al
+    firmware es de 16 bits).
+  - El mapa avisa lo que antes no se veía: secciones sin corte asignado,
+    cortes sin usar, y si el corte elegido como master además tiene secciones.
+
+### Changed
+- **La cantidad de cortes se persiste** (`cortes` en `flowX.json`, campo
+  aditivo). Antes se deducía contando los cables asignados, y con asignación
+  manual eso se rompía: usar S1, S2 y S5 son cinco salidas, no tres, y al
+  reentrar se perdían las de arriba. Como respaldo para configuraciones
+  anteriores y para las que guarda la PWA, ahora se infiere del corte más
+  alto asignado en vez de contar los distintos.
+
+### Fixed
+- **`setup_pilotx_lan.bat` no abría UDP 9999**, el puerto por donde entra el
+  PGN de todos los módulos que hablan por WiFi (GPS/NMEA, AutoSteer,
+  CoreX-ECU y el switch ToolX). Como el broker MQTT (TCP 1883) sí tenía
+  regla, el síntoma era mudo y confuso: el nodo aparecía conectado en el
+  panel y su dato no llegaba nunca al motor. Diagnosticado en campo con
+  ToolX (2026-09-04). Se agregan además TCP 5180 (Hub y API, el 8080 es el
+  panel viejo de AgIO) y TCP 5181 (panel CoreX), y un aviso sobre la red
+  WiFi marcada como pública, que bloquea igual.
+
+---
+
+## [1.0.44] — 2026-09-03
+
+### Added
+- **ToolX: switch de herramienta inalámbrico (ESP32).** El nodo manda el
+  work switch como PGN 253 por UDP :9999 con byte de origen `0x7C`
+  (`CModuleComm.ToolXSource`). `PgnReceiver` reconoce ese origen y toma
+  **solo el bit de trabajo**: ángulo, heading, roll, bit de dirección y PWM
+  de esos frames se ignoran, así conviven con el módulo de dirección real
+  (que sigue mandando el switch de dirección y "secciones al activar el
+  piloto").
+- **Fila "ToolX (switch inalámbrico)" en Secciones › Switches**, hija de
+  "Activar" en la carta de trabajo, en la pantalla nativa (`SwitchesTab`) y
+  en la PWA del celular (`config.html`). Setting `setF_isToolXWorkSwitch`,
+  JSON `work_toolx_enabled`; con la fila apagada el motor descarta los
+  frames de ToolX enteros (un nodo ajeno en la LAN no puede tocar las
+  secciones). El rótulo agrega "· conectado" cuando el motor recibe frames
+  (`work_toolx_alive`, runtime, refrescado cada 3 s en las dos UIs).
+- ToolX en el catálogo del Firmware Manager (`FirmwaresPanel`) para OTA.
+
+### Changed
+- **Dueño del bit de trabajo.** Con ToolX habilitado y vivo (frames hace
+  menos de 5 s, reloj monotónico) el módulo de dirección no pisa
+  `workSwitchHigh`. Si ToolX se pierde, el bit queda en su último valor y el
+  módulo de dirección solo lo escribe cuando **su propio** switch cambia:
+  un microcorte WiFi del nodo ya no corta las secciones en medio de la
+  pasada. La pérdida se loguea una vez en el EventLog.
+- **Primer contacto aplica el nivel.** Al primer frame aceptado de ToolX
+  (arranque con la herramienta ya abajo, o fila recién habilitada) se fuerza
+  el flanco para que `CheckWorkAndSteerSwitch` aplique el estado una vez; ya
+  no hay que subir y bajar la herramienta para que pinte.
+- **Polaridad de ToolX independiente de "Activo con contacto cerrado".** El
+  bit se normaliza en el motor (`abajo ^ isWorkSwitchActiveLow`); ese flag
+  describe al switch cableado y no invierte a ToolX. Cambiarlo en caliente
+  con ToolX vivo invierte bit y "old" juntos (`SetWorkSwitchActiveLow`) para
+  no fabricar un flanco que pise un apagado manual del master.
+- `Settings.Load()` resetea `setF_isToolXWorkSwitch` antes de leer el XML:
+  un perfil guardado por un build anterior (sin el tag) no hereda el valor
+  del perfil que estaba activo.
+
+### Tests
+- `AgOpenGPS.Core.Tests/ToolXWorkSwitchTests.cs` (15 tests): frame ToolX
+  solo toca el bit, polaridad, descarte con fila apagada, dueño del bit con
+  el AIO vivo/perdido/flanco propio, primer contacto, reset de la fila,
+  cambio de polaridad en caliente.
+
+### Android (PilotX.Android) — paridad con Windows salvo hardware
+- **Build reproducible**: `build-android.ps1` (gemelo de `build.ps1`) lee
+  `Installer/VERSION`, estampa `versionName`/`versionCode` y deja
+  `PilotX_android_v<version>.apk` + `.sha256` en la raíz. El proyecto no
+  se compilaba desde julio y dos interfaces se le habían adelantado
+  (`ICoverageService.GetSnapshot(cursor)`, cast inválido en
+  `AndroidWebViewHost`).
+- **Un solo código con Windows**: los adaptadores `Engine*` de
+  `PilotX.GuidanceEngine/Adapters` se linkean por archivo en el csproj
+  (wildcard, excluidos sólo los de sistema Windows/Linux y el Updater);
+  se borraron las copias Android (`GuidanceEngineServices.cs`,
+  `GuidanceEngineStateServices.cs`, `Fase1Stubs.cs`).
+- **`HubBootstrap` gemelo de `EngineWebHost` + `CoreXEngineHost`**: cablea
+  los 47 servicios del WebHost (perfiles, banderas, contorno, cabecera y
+  líneas, tramlines, AB rápido, nudge, recPath, geometría, paths, tracks,
+  dirección, **config de vehículo** e IMU ya funcionan en la tablet),
+  anti-solape de secciones, alarmas de cabina, FlowX, OrbitXSync con
+  vigilante, QuantiXMotorBridge con vigilante, CutDispatcher + velocidad
+  por sección, **hello PGN 200 a 1 Hz** (los módulos WiFi y ToolX aprenden
+  la IP de la tablet), **NTRIP** (sección `ntrip` de `corex-integrado.json`
+  en el dataDir, RTCM por UDP :2233 a la subred) y comandos de guiado por
+  MQTT (`agp/aog/guidance/command`). Anti-eco de PGN en el bridge LAN.
+- **Plataforma**: `AndroidSistemaService` (brillo de ventana + sistema con
+  WRITE_SETTINGS; reinicio si es device-owner; salir), `AndroidWifiService`
+  (estado, escaneo, conectar/olvidar con la API clásica en API < 29 y
+  sugerencias + panel del sistema en 29+), `AndroidWavPlayer` (alarmas por
+  MediaPlayer), `BootReceiver` (arranque automático) y lock task cuando
+  está permitido (kiosko).
+- OrbitX: producto `PilotXAndroid` en el catálogo de firmwares (self-update
+  del APK).
+- Queda por hardware: GPS/IMU/dirección por USB-OTG (hoy sólo WiFi/UDP) y
+  cámaras RTSP nativas. Sin probar en tablet en esta versión.
+
+---
+
+## [1.0.23] — 2026-06-16
+
+### Added
+- **Ventana flotante de "Datos del lote"**. El ícono de admiración (!) de la
+  pantalla principal ahora abre los datos del lote como una ventana chica
+  independiente (modo widget, 520×620, sin la navegación del Hub) para que el
+  operario siga viendo el mapa por detrás.
+- **Área del lote por lindero**. Se expone `BoundaryAreaM2` en el snapshot de
+  estado (`/api/aog/state`) y se muestra en hectáreas en la tarjeta "Área del
+  lote (lindero)". Mismo cálculo que las áreas GUI nativas de AOG (boundary
+  exterior menos exclusiones internas).
+
+### Fixed
+- **Casing del endpoint `/api/aog/state`**. `datos-lote.js` y `datos-gps.js`
+  normalizan el JSON PascalCase del host; antes leían claves camelCase y
+  mostraban todo en cero.
+
+---
+
+## [1.0.4] — 2026-05-16
+
+### Fixed
+- **`PublishSensorConfig` ahora habla el contrato real del firmware `vistax-node` v2.5.x**.
+  Antes publicaba a `vistax/nodos/{UID}/config` con `{cable, tipo, modo:"digital"|"pulsos"}`,
+  un schema que arrastraba del legacy `vistax-server` Node y que el firmware
+  nunca leyó (suscribe a `vistax/nodos/{UID}/cables/config`). Resultado:
+  cuando el operario asignaba un sensor de tipo `bajada_herramienta` o `tolva`
+  desde el form de mapeo de VistaX, el nodo seguía contando pulsos en ese pin
+  en vez de leer estado digital con debounce.
+  - Topic correcto: `vistax/nodos/{UID}/cables/config`.
+  - Payload correcto: `{"cables":[{"cable":N,"modo":"pulse"|"state","invertido":false}]}`.
+  - Mapeo `tipo → modo` alineado con la semántica del firmware:
+    - `bajada_herramienta`, `tolva` → `state`
+    - `semilla`, `ferti_linea`, `ferti_costado`, `turbina` → `pulse`
+    (la versión anterior mandaba turbina como `digital`, pero el firmware
+    cuenta RPM como pulse → ahora coincide).
+  - `PublishAllSensorConfigs` agrupa por UID y manda **un** payload por nodo
+    con todos sus cables (antes mandaba uno por sensor y solo para tipos
+    "especiales", dejando el resto sin notificar).
+  - Se mantiene retain flag para que el nodo reciba la config al reconectar
+    tras un reboot.
+
+---
+
+## [1.0.3] — 2026-05-16
+
+(Versión transicional — el bump de VERSION quedó pendiente entre commits.)
+
+---
+
+## [1.0.2] — 2026-05-14
+
+VistaX integrado en la pantalla principal y en el HUB piloto, con paleta
+nueva y silenciado por sensor.
+
+### Added
+- **Mute por sensor** (silenciar fallas individuales sin frenar el monitoreo):
+  - DTO `VistaXSensorConfigDto.Muted` + `VistaXSurcoStateDto.Muted`.
+  - Endpoint REST `POST /api/vistax/sensor/mute` (body `{uid, cable, muted}`)
+    persiste el cambio en `implemento.json` (`mapeo_sensores[].muted`).
+  - `SeedMonitor.SetSensorMuted(uid, cable, muted)` — aplica el toggle a
+    todos los surcos cubiertos por el sensor; descarta alertas en surcos
+    silenciados.
+  - `VistaXConfig.SaveImplemento(...)` — antes solo había `Load`.
+  - Doble-click sobre un tubo en `VistaXNativePanel` → toggle de mute con
+    persistencia inmediata vía evento `SensorMuteToggleRequested`.
+  - HUB (`pages/vistax.html`): menú contextual click derecho con
+    "Silenciar / reactivar sensor".
+  - HUB piloto (`pages/piloto.html` widget de siembra): click sobre la
+    celda toggle mute del sensor que la alimenta.
+- **Paleta VistaX compartida** (`theme.css`): nuevos tokens `--vx-ok`,
+  `--vx-tapado`, `--vx-exceso`, `--vx-no-data`, `--vx-muted` (con sus
+  variantes `-dark` / `-border`). Misma paleta en GDI+ (`VistaXNativePanel`)
+  y en CSS/JS del HUB.
+- **Estado por surco más rico**: `SurcoState` ahora trae `Uid`, `Cable`,
+  `Objetivo` y `Muted` para que la UI muestre real/objetivo y permita
+  el silenciado sin lookups extra.
+
+### Changed
+- **VistaXNativePanel** (panel GDI+ embebido en `FormGPS`):
+  - Paleta migrada de `#00e676 / #ff1744 / #ffea00` (verde fluo / rojo
+    sangre / amarillo) a la paleta dark-cockpit del producto:
+    verde Agro Parallel `#4BA63F`, azul `#3D8BFD` para exceso, gris
+    `#3A3F44` para no-data, `#4A5055` para muted, negro `#050505`
+    para tapado.
+  - Estados de pildora rediseñados: `Ok | Bajo | Tapado | Exceso |
+    NoData | Muted` (antes: `Ok | Desvio | Alerta | Tapado | SinSenal`).
+    "Desvio" se separa en `Bajo` (degradé negro→verde por ratio) y
+    `Exceso` (azul); `Alerta` puro se unifica con `Tapado`.
+  - Muted se dibuja con gris desaturado + línea horizontal central
+    (consistente con el indicador del HUB).
+- **HUB VistaX** (`pages/vistax.html` + `js/vistax.js`):
+  - Renderer del monitor por surco usa `colorForSurco(s)` para producir
+    el mismo color que el panel nativo.
+  - Contadores del header reportan los 6 estados nuevos.
+- **HUB piloto** (`pages/piloto.html` + `js/piloto.js`):
+  - Widget de siembra alineado con la paleta nueva, tooltip muestra
+    `real / obj N`, click sobre la celda silencia el sensor.
+
+### Fixed
+- `SpmPromedio` y `FallasActivas` ya no contabilizan sensores silenciados
+  (en HUB y en panel nativo), evitando alarmas espurias cuando un
+  sensor está deliberadamente apagado.
+
+---
+
+## [1.0.1] — 2026-05-14
+
+Primera versión Agro Parallel-only del shell (legacy AOG quedó atrás
+en 1.2.31, este es el reset de numeración para el producto PilotX).
+
+### Added
+- `CHANGELOG.md` (este archivo) — registro de cambios por versión.
+- Stamping de versión en `AgOpenGPS.exe` durante el build: `build.ps1`
+  ahora acepta `-Version` y lo propaga a `dotnet build -p:Version=`,
+  para que `AssemblyInformationalVersionAttribute` se llene y el
+  auto-update (`PilotXSelfUpdate.DetectCurrentVersion`) compare bien.
+
+### Changed
+- **Pantalla de Términos y Condiciones** (`FormTermsAndConditions`):
+  traducida al español, marca Agro Parallel, deslinde de responsabilidad
+  explícito de Leonardo Bracco + Agro Parallel + distribuidores frente
+  a daños del piloto automático. Texto GPL preservado intacto (requisito
+  legal de la licencia).
+- **Links externos** de la pantalla de bienvenida:
+  - Sitio web → `https://agroparallel.com`
+  - Instagram → `https://www.instagram.com/agro.parallel/`
+  - Botón YouTube oculto.
+- **HUB web (WebView2)**: removidas las menciones operario-visibles a
+  "AOG" / "AgOpenGPS" en textos, tooltips y diálogos. Reemplazadas por
+  "Piloto" / "el piloto". Identificadores internos (DOM IDs, claves JSON
+  como `seccion_aog`, endpoints `/api/aog/*`) se mantienen para no
+  romper compatibilidad con AgIO ni con el cloud OrbitX.
+- **Form de Config OrbitX** (`pages/orbitx.html` + `js/orbitx.js`):
+  - `Server URL` ahora es readonly (URL fija del producto).
+  - `Device ID` readonly (MD5 de la MAC).
+  - `Device Token` readonly (lo persiste el sistema en el primer
+    heartbeat exitoso contra OrbitX).
+  - `Establecimiento slug` readonly (lo trae el heartbeat).
+  - Campo `Master Token` removido de la UI (es un secreto compartido;
+    sigue persistiéndose en el archivo de config, fuera de la vista del
+    operario).
+
+### Fixed
+- **Auto-update fallaba con "OrbitX no está configurado (ServerUrl /
+  DeviceId / DeviceToken)"** en instalaciones nuevas. `PilotXSelfUpdate`
+  exigía un `DeviceToken` poblado, pero éste sólo se popula después del
+  primer heartbeat de `OrbitXSync`. Si el sync estaba apagado o no había
+  corrido todavía, el botón Actualizar siempre tiraba ese error.
+  - `CheckAsync` y `DownloadAsync` ahora validan únicamente
+    `ServerUrl + DeviceId`.
+  - El header `X-Auth-Token` usa `EffectiveToken(cfg)`, que cae al
+    `MasterToken` cuando `DeviceToken` está vacío (mismo patrón que ya
+    usaban `OrbitXSync.TryAutoRegister` y
+    `OrbitXConfigService.TestConnectionAsync`).
+  - El servidor reconoce el MasterToken y auto-registra el device en su
+    primera llamada, así que el flujo completo de check/download de OTA
+    funciona desde el primer click, sin pasos manuales.
+
+### Firmware relacionado
+- QuantiX `2.1.2` — fix de colisión de UIDs entre placas (ver
+  `Productos/AGP-VR/Software/Firmware_Embebido/Quantix2Motors/CHANGELOG.md`).
+
+---
+
+## [1.2.31] — pre-Agro Parallel
+
+Última versión heredada del legacy AgOpenGPS upstream. Se mantiene como
+referencia histórica; el versionado se reinicia en 1.0.0/1.0.1 para
+marcar la línea PilotX.

@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=220, initial-scale=1" />
+  <title>QuantiX · widget</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <style>
+    /* Widget overlay 220x240 sobre el OpenGL de PilotX — sin chrome de página.
+       Ajuste compacto: conserva estructura, IDs y comportamiento esperado del widget.
+       Paleta: mismo lenguaje claro que vistax-live — los nombres locales quedan
+       (mapean 1:1 sobre las reglas) pero los valores salen de los tokens agp. */
+    :root {
+      --bg-panel: var(--agp-surface, #FFFFFF);
+      --bg-card: var(--agp-surface-2, #F5F7F4);
+      --bg-soft: var(--agp-surface-3, #EDF1EC);
+      --border: var(--agp-border, #C5CFC5);
+      --text-main: var(--agp-text, #101612);
+      --text-muted: var(--agp-text-muted, #535E54);
+      --green: var(--agp-state-ok, #2E9E24);
+      --amber: var(--agp-state-warn, #E8A13C);
+      --red: var(--agp-danger, #C92D2D);
+      --idle: var(--agp-text-dim, #8A968B);
+      --brand: var(--agp-accent, #4ABA3E);
+      --brand-2: var(--agp-accent-hover, #3FA636);
+      --on-brand: #FFFFFF; /* texto sobre accent, como .btn.primary del Hub */
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      background: transparent;
+      color: var(--text-main);
+      font-family: var(--agp-font-sans, system-ui, sans-serif);
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .quantix-widget {
+      width: 100%; height: 100%;
+      border-radius: 14px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+
+    /* ---- Top: nodo + dosis principal + control global AUTO/MAN ---- */
+    /* Alto automático: el box .mode (tabs 20px + botones 24px, tocables con
+       guante) define la altura; un height fijo lo clipearía. */
+    .top {
+      flex: none;
+      padding: 6px 7px;
+      display: flex; justify-content: space-between; gap: 6px;
+      border-bottom: 1px solid var(--border);
+      min-width: 0;
+    }
+
+    .top > div:first-child {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .crop {
+      display: flex; align-items: center; gap: 5px;
+      height: 18px; padding: 0 6px; max-width: 106px;
+      border-radius: 999px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      font-size: 9px; font-weight: 900;
+      white-space: nowrap; overflow: hidden;
+    }
+
+    .crop .nm { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%; flex: none;
+      background: var(--idle);
+    }
+
+    .dot.on { background: var(--brand); box-shadow: 0 0 6px rgba(74,186,62,.5); }
+
+    .dose {
+      margin-top: 4px;
+      font-size: 17px; line-height: 1; font-weight: 950;
+      letter-spacing: -.7px;
+      white-space: nowrap;
+      max-width: 116px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .dose small {
+      color: var(--text-muted);
+      font-size: 7px; font-weight: 800; margin-left: 1px;
+    }
+
+    .mode {
+      width: 94px; flex: 0 0 94px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 3px;
+      overflow: hidden;
+    }
+
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+
+    .mode .tabs button {
+      border: 0; height: 20px; border-radius: 7px;
+      background: transparent; color: var(--text-muted);
+      font-size: 8px; font-weight: 900; padding: 0; cursor: pointer;
+      font-family: inherit;
+    }
+
+    .mode .tabs button.active {
+      color: var(--on-brand);
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+    }
+
+    .manual {
+      margin-top: 3px;
+      display: grid; grid-template-columns: 28px 1fr 28px; gap: 3px;
+      opacity: .45;
+    }
+
+    .manual.enabled { opacity: 1; }
+
+    .manual button, .manual div {
+      height: 24px; border-radius: 7px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-main);
+      font-size: 8px; font-weight: 900;
+      display: grid; place-items: center;
+      overflow: hidden; white-space: nowrap;
+      min-width: 0;
+    }
+
+    .manual button {
+      background: var(--bg-soft); border: 1px solid var(--border); cursor: pointer;
+      font-size: 17px; line-height: 1; font-weight: 950;
+      font-family: inherit; padding: 0;
+    }
+
+    .manual div {
+      cursor: pointer;
+      text-overflow: ellipsis;
+      padding: 0 2px;
+    }
+
+    /* ---- Summary: motores / objetivo / real ---- */
+    .summary {
+      height: 34px; flex: none;
+      padding: 5px 7px;
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sum {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 4px;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .sum-label {
+      color: var(--text-muted);
+      font-size: 6.4px; font-weight: 900;
+      text-transform: uppercase; letter-spacing: .2px; line-height: 1;
+    }
+
+    .sum-val {
+      margin-top: 3px;
+      font-size: 10px; font-weight: 950; line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ---- Carrusel de motor con foco: UN motor grande + nav ‹ › + dots ----
+       Escala a N motores: se edita/ve el motor enfocado, la tira de dots
+       muestra el estado de todos, y el foco salta solo al motor en alarma. */
+    .focus-zone {
+      flex: 1; min-height: 0;
+      padding: 4px 5px 2px 5px;
+      display: grid; grid-template-columns: 26px minmax(0, 1fr) 26px;
+      gap: 4px;
+      align-items: stretch;
+    }
+    .nav {
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      color: var(--text-main);
+      border-radius: 9px;
+      font-size: 18px; font-weight: 950;
+      cursor: pointer; padding: 0;
+      font-family: inherit;
+      touch-action: manipulation;
+    }
+    .nav:disabled { opacity: .3; cursor: default; }
+
+    .focus-card {
+      min-width: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 5px 6px;
+      position: relative; overflow: hidden;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .focus-card::before {
+      content: "";
+      position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+      background: var(--status);
+    }
+
+    .f-head {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 4px; min-width: 0;
+      padding-left: 3px;
+    }
+    .f-name {
+      font-size: 9px; font-weight: 900;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .f-man {
+      flex: none;
+      border: 1px solid var(--border);
+      background: var(--bg-soft); color: var(--text-muted);
+      border-radius: 6px;
+      font-size: 8px; font-weight: 950;
+      height: 17px; padding: 0 7px;
+      cursor: pointer; font-family: inherit;
+      touch-action: manipulation;
+    }
+    .f-man.manual {
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      border-color: transparent; color: var(--on-brand);
+    }
+
+    /* Lo que está dosificando AHORA, bien grande. */
+    .f-real {
+      display: flex; align-items: baseline; gap: 3px;
+      padding-left: 3px; min-width: 0;
+    }
+    .f-real b {
+      font-size: 19px; font-weight: 950; line-height: 1;
+      letter-spacing: -.5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .f-real small {
+      color: var(--text-muted);
+      font-size: 6.5px; font-weight: 800; flex: none;
+    }
+    .f-dev {
+      margin-left: auto; flex: none;
+      color: var(--status);
+      font-size: 11px; font-weight: 950;
+    }
+
+    .f-data {
+      padding-left: 3px;
+      display: flex; gap: 6px;
+      color: var(--text-muted);
+      font-size: 6.8px; font-weight: 800; line-height: 1;
+      white-space: nowrap; overflow: hidden;
+    }
+    .f-data b { color: var(--text-main); font-size: 7.4px; }
+    .f-data .st { color: var(--status); text-transform: uppercase; font-weight: 950; }
+
+    /* Stepper del motor enfocado (solo activo en MAN). */
+    .f-step {
+      margin-top: auto;
+      display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px;
+      gap: 3px;
+      opacity: .45;
+    }
+    .f-step.enabled { opacity: 1; }
+    .f-step button {
+      height: 24px; border-radius: 7px;
+      background: var(--bg-soft); border: 1px solid var(--border); cursor: pointer;
+      color: var(--text-main);
+      font-size: 16px; line-height: 1; font-weight: 950;
+      font-family: inherit; padding: 0;
+      touch-action: manipulation;
+    }
+    .f-step .f-dose {
+      height: 24px; border-radius: 7px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-main);
+      font-size: 10px; font-weight: 900;
+      display: grid; place-items: center;
+      cursor: pointer; min-width: 0;
+      overflow: hidden; white-space: nowrap;
+    }
+
+    /* Tira de dots: un punto por motor, coloreado por estado. */
+    .dots {
+      flex: none;
+      height: 14px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 5px;
+      padding: 0 7px;
+      overflow: hidden;
+    }
+    .dots i {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--c, var(--idle));
+      display: block; flex: none;
+      cursor: pointer;
+      transition: transform .15s;
+    }
+    .dots i.cur {
+      transform: scale(1.45);
+      outline: 1px solid var(--text-main);
+      outline-offset: 1px;
+    }
+
+    /* Flash del borde cuando el foco salta solo a un motor en alarma. */
+    @keyframes qxflash {
+      0%, 100% { border-color: var(--border); }
+      50% { border-color: var(--red); box-shadow: 0 0 8px rgba(201,45,45,.45); }
+    }
+    .quantix-widget.flash { animation: qxflash .5s 2; }
+
+    /* ---- Footer: modo + leyenda ---- */
+    .footer {
+      height: 27px; flex: none;
+      padding: 4px 7px;
+      border-top: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--bg-card);
+      gap: 5px;
+    }
+
+    .badge {
+      height: 18px; padding: 0 7px; border-radius: 999px;
+      display: inline-flex; align-items: center;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      color: var(--on-brand);
+      font-size: 8px; font-weight: 950; letter-spacing: .25px;
+      white-space: nowrap;
+      flex: none;
+    }
+
+    .badge.mix { background: var(--amber); }
+    .badge.auto { background: var(--bg-soft); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .legend {
+      display: flex; gap: 5px;
+      color: var(--text-muted); font-size: 6.5px; font-weight: 900;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .legend span { display: flex; align-items: center; gap: 2px; }
+    .legend i {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--c); display: block; flex: none;
+    }
+
+    .empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); font-size: 10px; text-align: center;
+      padding: 10px;
+    }
+
+    /* ---- Modal de confirmación / acciones ---- */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: var(--agp-overlay, rgba(16,22,18,0.45));
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 50;
+    }
+
+    .modal-backdrop.show { display: flex; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      width: 178px;
+      box-shadow: 0 8px 24px rgba(16,22,18,0.18);
+    }
+
+    .modal h2 { font-size: 12px; margin: 0 0 5px 0; font-weight: 900; }
+    .modal p { font-size: 10px; margin: 0 0 9px 0; color: var(--text-muted); }
+
+    .modal .actions { display: flex; flex-direction: column; gap: 5px; }
+
+    .modal .btn {
+      padding: 7px 10px; border-radius: 8px; cursor: pointer;
+      font-size: 11px; font-weight: 900; border: 1px solid var(--border);
+      background: var(--bg-soft); color: var(--text-main);
+      font-family: inherit;
+    }
+
+    .modal .btn.primary {
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      border-color: transparent; color: var(--on-brand);
+    }
+
+    .modal .btn[hidden] { display: none; }
+
+    /* ---- Keypad in-widget (el teclado global taparía los 240px) ---- */
+    .keypad-backdrop {
+      position: fixed; inset: 0;
+      background: var(--bg-panel);
+      display: none; flex-direction: column;
+      z-index: 100;
+      padding: 6px;
+    }
+
+    .keypad-backdrop.show { display: flex; }
+
+    .keypad-title {
+      font-size: 10px; color: var(--text-muted); font-weight: 800;
+      margin-bottom: 4px;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+
+    .keypad-display {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 8px;
+      margin-bottom: 4px;
+      font-size: 21px; font-weight: 950;
+      text-align: right;
+      min-height: 29px; line-height: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .keypad-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: 1fr;
+      gap: 3px;
+      min-height: 0;
+    }
+
+    .keypad-grid .kp, .keypad-actions .kp {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      border-radius: 8px;
+      font-size: 16px; font-weight: 900;
+      cursor: pointer; padding: 0;
+      touch-action: manipulation;
+      font-family: inherit;
+    }
+
+    .keypad-grid .kp:active { background: var(--agp-border-soft, #D8DFD8); }
+    .keypad-grid .kp.del { color: var(--red); }
+
+    .keypad-actions {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 3px;
+    }
+
+    .keypad-actions .kp { font-size: 12px; padding: 7px 0; }
+    .keypad-actions .kp.ok {
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      border-color: transparent; color: var(--on-brand);
+    }
+  </style>
+</head>
+<body>
+  <aside class="quantix-widget">
+    <div class="top">
+      <div>
+        <div class="crop"><span class="dot" id="onlineDot"></span><span class="nm" id="nodoNombre">QuantiX</span></div>
+        <div class="dose"><span id="mainDose">—</span><small id="mainUnit"></small></div>
+      </div>
+      <div class="mode">
+        <div class="tabs">
+          <button id="autoBtn" type="button">AUTO</button>
+          <button id="manualBtn" type="button">MAN</button>
+        </div>
+        <div class="manual" id="manualCtl">
+          <button id="gDn" type="button">−</button>
+          <div id="gDose" role="button" tabindex="0">—</div>
+          <button id="gUp" type="button">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary">
+      <div class="sum">
+        <div class="sum-label">Mot</div>
+        <div class="sum-val" id="motorCount">0</div>
+      </div>
+      <div class="sum">
+        <div class="sum-label">Obj</div>
+        <div class="sum-val" id="targetDose">—</div>
+      </div>
+      <div class="sum">
+        <div class="sum-label">Real</div>
+        <div class="sum-val" id="realAverage">—</div>
+      </div>
+    </div>
+
+    <div class="focus-zone" id="focusZone">
+      <button class="nav" id="navPrev" type="button">‹</button>
+      <div class="focus-card" id="focusCard"></div>
+      <button class="nav" id="navNext" type="button">›</button>
+    </div>
+    <div class="dots" id="dotsBar"></div>
+    <div class="empty" id="emptyMsg" hidden>Sin nodos QuantiX configurados.</div>
+
+    <div class="footer">
+      <span class="badge auto" id="modeText">AUTO</span>
+      <div class="legend">
+        <span><i style="--c:var(--green)"></i>OK</span>
+        <span><i style="--c:var(--amber)"></i>BAJA</span>
+        <span><i style="--c:var(--red)"></i>ALTA</span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <h2 id="modalTitle">Cambiar modo</h2>
+      <p id="modalMsg">¿Pasar a MANUAL?</p>
+      <div class="actions">
+        <button class="btn primary" id="modalOk" type="button">Confirmar</button>
+        <button class="btn" id="modalAlt" type="button" hidden>Editar dosis</button>
+        <button class="btn" id="modalCancel" type="button">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="keypad-backdrop" id="keypadBackdrop">
+    <div class="keypad-title" id="keypadTitle">Dosis</div>
+    <div class="keypad-display" id="keypadDisplay">0</div>
+    <div class="keypad-grid" id="keypadGrid">
+      <button class="kp" type="button" data-k="7">7</button>
+      <button class="kp" type="button" data-k="8">8</button>
+      <button class="kp" type="button" data-k="9">9</button>
+      <button class="kp" type="button" data-k="4">4</button>
+      <button class="kp" type="button" data-k="5">5</button>
+      <button class="kp" type="button" data-k="6">6</button>
+      <button class="kp" type="button" data-k="1">1</button>
+      <button class="kp" type="button" data-k="2">2</button>
+      <button class="kp" type="button" data-k="3">3</button>
+      <button class="kp" type="button" data-k=".">.</button>
+      <button class="kp" type="button" data-k="0">0</button>
+      <button class="kp del" type="button" data-k="back">⌫</button>
+    </div>
+    <div class="keypad-actions">
+      <button class="kp" type="button" data-k="cancel">Cancelar</button>
+      <button class="kp ok" type="button" data-k="ok">OK</button>
+    </div>
+  </div>
+
+  <!-- Sin keyboard.js — el widget tiene su propio keypad para no ser tapado. -->
+  <script src="../js/widget-quantix.js"></script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>

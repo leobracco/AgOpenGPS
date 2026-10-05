@@ -1,0 +1,297 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.PerfilesPanel">
+    <!--
+        PerfilesPanel — reemplazo nativo de pages/perfiles.html (+ js/perfiles.js).
+
+        Un perfil = TODAS las configuraciones del vehículo (el XML entero de
+        Vehicles/). La pantalla es DESTRUCTIVA: crea, carga, copia, protege y
+        borra perfiles. El orden de las operaciones, los guards, los textos y los
+        mensajes de error son los del JS, uno a uno — acá no se "mejora" nada.
+
+        Estructura, igual que la página:
+          · cabecera: título + "Backup ahora" + "Sumar perfil"
+          · lista de perfiles (fila seleccionable, tag protegido, tag EN USO)
+          · grilla de 3 columnas con Cargar / Copiar / Proteger / Desproteger / Borrar
+
+        Los emojis de la página (💾 ➕ ▶ 📋 🔒 🔓 🗑) NO viajan: en Avalonia
+        dependen de la fuente instalada y quedan como tofu. Mismo criterio que
+        BanderasPanel y CabeceraLineasPanel — el texto y la función no cambian.
+          · línea de estado (gris / verde ok / rojo error)
+          · diálogo inline (nombre / desde / clave) — Border + IsVisible, NUNCA
+            Flyout ni ShowDialog: los flyouts no se dibujan sobre el mapa GL.
+
+        Card clara flotante con el mapa VIVO detrás (misma receta que
+        NodosPanel / SistemaPanel). El mapa nunca se apaga ni se tapa del todo.
+
+        pages/perfiles.html queda intacta: la sigue usando el Hub remoto / la PWA
+        del celular.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <Panel>
+
+            <!-- ============================ CARD ============================
+                 Name="Card": ModoEmbebido() (adentro de la Configuración) le
+                 suelta el marco/tamaño; la instancia flotante no cambia. -->
+            <Border Name="Card"
+                    Background="{StaticResource PilotXPanelCard}"
+                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="14"
+                    Padding="14"
+                    BoxShadow="0 8 26 0 #33101612"
+                    MaxWidth="580" MaxHeight="580"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Margin="16,8">
+                <DockPanel>
+
+                    <!-- ========================= Cabecera ========================= -->
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="2,0,0,10">
+                        <StackPanel Name="HeaderTitulo" Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Perfiles del vehículo"
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontSize="17" FontWeight="Bold"/>
+                        </StackPanel>
+
+                        <!-- Name="HeaderAcciones": la instancia embebida las entrega
+                             (PillsDeContexto) a la barra de contexto del shell. -->
+                        <StackPanel Name="HeaderAcciones" Grid.Column="1"
+                                    Orientation="Horizontal" Spacing="10"
+                                    VerticalAlignment="Center">
+                            <Button Name="BtnBackup" Content="Backup ahora"
+                                    Click="OnBackupClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1" CornerRadius="8"
+                                    MinHeight="46" Padding="14,0,14,0"
+                                    FontSize="14" FontWeight="SemiBold"
+                                    VerticalContentAlignment="Center"/>
+                            <Button Name="BtnSumar" Content="Sumar perfil"
+                                    Click="OnSumarClick"
+                                    Background="{StaticResource PilotXPanelAccent}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelAccent}"
+                                    BorderThickness="1" CornerRadius="8"
+                                    MinHeight="46" Padding="14,0,14,0"
+                                    FontSize="14" FontWeight="SemiBold"
+                                    VerticalContentAlignment="Center"/>
+                            <!-- La página vivía en una ventana con barra de título;
+                                 como card flotante necesita su propio cierre, igual
+                                 que el resto de los paneles nativos. -->
+                            <Button Name="BtnCerrar" Content="✕"
+                                    Click="OnCerrarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelTextDim}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1" CornerRadius="8"
+                                    Width="46" Height="46"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    ToolTip.Tip="Cerrar"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ==================== Línea de estado ====================
+                         Va PRIMERA entre las de abajo para quedar al pie, debajo
+                         de la grilla de acciones (el orden del DockPanel manda). -->
+                    <TextBlock Name="Estado" DockPanel.Dock="Bottom"
+                               Text=""
+                               Foreground="{StaticResource PilotXPanelTextDim}"
+                               FontSize="13" MinHeight="20"
+                               TextWrapping="Wrap"
+                               Margin="2,10,2,0"/>
+
+                    <!-- ==================== Acciones (3 columnas) ==================== -->
+                    <Grid Name="Acciones" DockPanel.Dock="Bottom"
+                          ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto"
+                          Margin="0,10,0,0">
+                        <Button Name="BtnCargar" Grid.Row="0" Grid.Column="0"
+                                Content="Cargar" Click="OnCargarClick"
+                                IsEnabled="False" Opacity="0.45"
+                                Background="{StaticResource PilotXPanelAccent}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelAccent}"
+                                BorderThickness="1" CornerRadius="8"
+                                MinHeight="46" Padding="14,0,14,0"
+                                FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Margin="0,0,8,8"/>
+                        <Button Name="BtnCopiar" Grid.Row="0" Grid.Column="1"
+                                Content="Copiar" Click="OnCopiarClick"
+                                IsEnabled="False" Opacity="0.45"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1" CornerRadius="8"
+                                MinHeight="46" Padding="14,0,14,0"
+                                FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Margin="0,0,8,8"/>
+                        <Button Name="BtnProteger" Grid.Row="0" Grid.Column="2"
+                                Content="Proteger" Click="OnProtegerClick"
+                                IsEnabled="False" Opacity="0.45"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1" CornerRadius="8"
+                                MinHeight="46" Padding="14,0,14,0"
+                                FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Margin="0,0,0,8"/>
+                        <Button Name="BtnDesproteger" Grid.Row="1" Grid.Column="0"
+                                Content="Desproteger" Click="OnDesprotegerClick"
+                                IsEnabled="False" Opacity="0.45"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1" CornerRadius="8"
+                                MinHeight="46" Padding="14,0,14,0"
+                                FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Margin="0,0,8,0"/>
+                        <!-- Destructivo: texto rojo y borde rojo suave, ni más ni
+                             menos prominente que en la página. El #E0B4AE es el
+                             borde exacto de .btn.peligro; no hay token equivalente
+                             en PilotXTheme (los rojos del tema son de relleno). -->
+                        <Button Name="BtnBorrar" Grid.Row="1" Grid.Column="1"
+                                Content="Borrar" Click="OnBorrarClick"
+                                IsEnabled="False" Opacity="0.45"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelErr}"
+                                BorderBrush="#E0B4AE"
+                                BorderThickness="1" CornerRadius="8"
+                                MinHeight="46" Padding="14,0,14,0"
+                                FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Margin="0,0,8,0"/>
+                    </Grid>
+
+                    <!-- ========================= Lista ========================= -->
+                    <Border Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1" CornerRadius="10"
+                            ClipToBounds="True">
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <StackPanel Name="ListaHost">
+                                <TextBlock Text="Cargando…"
+                                           Foreground="{StaticResource PilotXPanelTextDim}"
+                                           FontSize="13"
+                                           Padding="18"
+                                           TextAlignment="Center"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </DockPanel>
+            </Border>
+
+            <!-- ======================= DIÁLOGO INLINE =======================
+                 Border + IsVisible + ZIndex, NUNCA Flyout/ShowDialog. El velo NO
+                 cierra al tocarlo: en la página tampoco (solo Cancelar cierra).
+
+                 DlgCard va con MaxWidth y no con Width: el original era
+                 min(440px, 92vw), o sea que en una pantalla de 10" el diálogo se
+                 encoge en vez de quedar recortado. -->
+            <Border Name="Velo" IsVisible="False" ZIndex="60"
+                    Background="#66101612">
+                <Border Name="DlgCard"
+                        Background="{StaticResource PilotXPanelSurface}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="14" Padding="16" MaxWidth="440"
+                        BoxShadow="0 8 26 0 #33101612"
+                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Margin="8,26,8,8">
+                    <StackPanel Spacing="10">
+                        <TextBlock Name="DlgTitulo" Text=""
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="15" FontWeight="Bold"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock Name="DlgNota" Text=""
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12" TextWrapping="Wrap"/>
+
+                        <!-- Nombre -->
+                        <StackPanel Name="CampoNombre" IsVisible="False" Spacing="4">
+                            <TextBlock Text="Nombre"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12" FontWeight="SemiBold"/>
+                            <TextBox Name="InNombre" Text=""
+                                     MinHeight="46" FontSize="15"
+                                     Background="{StaticResource PilotXPanelSurface}"
+                                     Foreground="{StaticResource PilotXPanelText}"
+                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                     BorderThickness="1" CornerRadius="8"
+                                     Padding="10,0,10,0"
+                                     VerticalContentAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Copiar configuración desde -->
+                        <StackPanel Name="CampoDesde" IsVisible="False" Spacing="4">
+                            <TextBlock Text="Copiar configuración desde"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12" FontWeight="SemiBold"/>
+                            <ComboBox Name="InDesde"
+                                      HorizontalAlignment="Stretch"
+                                      MinHeight="46" FontSize="15"
+                                      Background="{StaticResource PilotXPanelSurface}"
+                                      Foreground="{StaticResource PilotXPanelText}"
+                                      BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                      BorderThickness="1" CornerRadius="8"
+                                      Padding="10,0,10,0"
+                                      VerticalContentAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Clave -->
+                        <StackPanel Name="CampoClave" IsVisible="False" Spacing="4">
+                            <TextBlock Text="Clave"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12" FontWeight="SemiBold"/>
+                            <TextBox Name="InClave" Text="" PasswordChar="•"
+                                     MinHeight="46" FontSize="15"
+                                     Background="{StaticResource PilotXPanelSurface}"
+                                     Foreground="{StaticResource PilotXPanelText}"
+                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                     BorderThickness="1" CornerRadius="8"
+                                     Padding="10,0,10,0"
+                                     VerticalContentAlignment="Center"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                    HorizontalAlignment="Right">
+                            <Button Name="DlgCancelar" Content="Cancelar"
+                                    Click="OnDlgCancelarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1" CornerRadius="8"
+                                    MinHeight="46" Padding="18,0,18,0"
+                                    FontSize="14" FontWeight="SemiBold"
+                                    VerticalContentAlignment="Center"/>
+                            <Button Name="DlgOk" Content="Aceptar"
+                                    Click="OnDlgOkClick"
+                                    Background="{StaticResource PilotXPanelAccent}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelAccent}"
+                                    BorderThickness="1" CornerRadius="8"
+                                    MinHeight="46" Padding="18,0,18,0"
+                                    FontSize="14" FontWeight="SemiBold"
+                                    VerticalContentAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Border>
+        </Panel>
+    </ThemeVariantScope>
+</UserControl>

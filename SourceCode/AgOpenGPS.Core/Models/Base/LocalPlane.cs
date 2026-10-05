@@ -26,9 +26,27 @@ namespace AgOpenGPS.Core.Models
             );
         }
 
+        // Posición del GPS en el plano local CON la corrección de deriva
+        // (DriftCompensation, la del panel "Corregir posición" y del punto de
+        // referencia). Es lo que se usa para el FIX — el tractor se corre sobre
+        // la geometría del lote. Geometría (linderos, banderas, KML/ISOXML) va
+        // por ConvertWgs84ToGeoCoord, sin deriva. Convención: mapa = gps + deriva.
+        public GeoCoord ConvertWgs84ToFixGeoCoord(Wgs84 latLon)
+        {
+            return ConvertWgs84ToGeoCoord(latLon) + _sharedFieldProperties.DriftCompensation;
+        }
+
+        // Geometría pura, inversa exacta de ConvertWgs84ToGeoCoord.
+        //
+        // Antes sumaba DriftCompensation acá (herencia de upstream, donde la
+        // deriva SOLO se aplicaba al PGN de posición corregida y el mapa no se
+        // movía). Ahora la deriva entra en el fix (ConvertWgs84ToFixGeoCoord):
+        // sumarla también acá la contaría dos veces en el PGN de posición
+        // corregida y corría las exportaciones. Hasta este cambio ningún
+        // camino de PilotX escribía la deriva (siempre 0), así que quitarla de
+        // acá no cambia nada de lo que ya andaba.
         public Wgs84 ConvertGeoCoordToWgs84(GeoCoord geoCoord)
         {
-            geoCoord += _sharedFieldProperties.DriftCompensation;
             double lat = Origin.Latitude + (geoCoord.Northing / _metersPerDegreeLat);
             double lon = Origin.Longitude + (geoCoord.Easting / MetersPerDegreeLon(lat));
             return new Wgs84(lat, lon);

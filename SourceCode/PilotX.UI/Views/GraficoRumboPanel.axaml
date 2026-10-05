@@ -1,0 +1,210 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:PilotX.Desktop.Views"
+             x:Class="PilotX.Desktop.Views.GraficoRumboPanel">
+    <!--
+        GraficoRumboPanel - reemplazo nativo de pages/grafico-rumbo.html
+        (ex ventana WinForms FormGraphHeading).
+
+        Mismo contrato REST que la página: GET /api/aog/graph-heading devuelve
+        { gps_heading_deg, imu_heading_deg } en snake_case y esto solo lo
+        grafica. Muestreo a 5 Hz, buffer rodante de 120 muestras.
+
+        A diferencia de los otros tres gráficos, los rumbos son ABSOLUTOS
+        (0-360°): el eje se auto-encuadra al min/max de los datos con un 10% de
+        padding, NO se centra en cero. Y no hay botones de escala: el encuadre
+        es siempre automático.
+
+        La página HTML queda intacta para el celular/PWA.
+
+        PALETA: la página era "dark cockpit"; acá va la paleta CLARA de panel
+        (tokens PilotXPanel*). Los COLORES DE SERIE se conservan tal cual.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <Border Name="Card"
+                Background="{StaticResource PilotXPanelCard}"
+                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                BorderThickness="1"
+                CornerRadius="14"
+                ClipToBounds="True"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="780" MaxHeight="540"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,8">
+
+            <Grid Name="ContenidoRaiz" Margin="24,20,24,24"
+                  RowDefinitions="Auto,Auto,*,Auto">
+
+                <!-- ============ Header (.page-head) ============ -->
+                <Grid Grid.Row="0" Name="DragHandle" Background="Transparent"
+                      ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+                    <StackPanel Grid.Column="0" Name="HeaderTitulo" Spacing="2">
+                        <TextBlock Text="Gráfico de rumbo"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock Text="Rumbo GPS vs IMU corregido · solo lectura"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"/>
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Name="HeaderPill"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="999"
+                            Padding="14,6,14,6"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Width="8" Height="8"
+                                     Fill="{StaticResource PilotXPanelIdle}"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="StatusText" Text="—"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="13"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Grid.Column="2" Name="BtnCerrar" Content="✕"
+                            Click="OnCerrarClick"
+                            ToolTip.Tip="Cerrar"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            Foreground="{StaticResource PilotXPanelText}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8" Width="48" Height="48"
+                            FontSize="15"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ============ Lecturas (.g-readouts) ============ -->
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*" Margin="0,0,0,16">
+                    <Border Grid.Column="0"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9,16,9"
+                            MinWidth="150"
+                            Margin="0,0,20,0">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Rumbo GPS"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Name="ValGps" Text="0.0"
+                                           Foreground="{StaticResource PilotXPanelAccentText}"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="34" FontWeight="Bold" LineHeight="38"/>
+                                <TextBlock Text="°"
+                                           Foreground="{StaticResource PilotXPanelAccentText}"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="34" FontWeight="Bold" LineHeight="38"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9,16,9"
+                            MinWidth="150"
+                            Margin="0,0,20,0">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Rumbo IMU corregido"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                            <StackPanel Orientation="Horizontal">
+                                <!-- #2F6E9E: variante legible sobre blanco del
+                                     azul de serie #3D87C6 (no hay token azul). -->
+                                <TextBlock Name="ValImu" Text="0.0"
+                                           Foreground="#2F6E9E"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="34" FontWeight="Bold" LineHeight="38"/>
+                                <TextBlock Text="°"
+                                           Foreground="#2F6E9E"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="34" FontWeight="Bold" LineHeight="38"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9,16,9"
+                            MinWidth="150">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Diferencia"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Name="ValDiff" Text="0.0"
+                                           Foreground="{StaticResource PilotXPanelText}"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="34" FontWeight="Bold" LineHeight="38"/>
+                                <TextBlock Text="°"
+                                           Foreground="{StaticResource PilotXPanelText}"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           FontSize="34" FontWeight="Bold" LineHeight="38"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ============ Área de dibujo (.g-chart-wrap) ============ -->
+                <Border Grid.Row="2"
+                        Background="{StaticResource PilotXPanelSurface}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12"
+                        MinHeight="200">
+                    <Grid>
+                        <v:GraficoLineal Name="Lienzo"/>
+                        <TextBlock Name="AxisMax" Text="—"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   FontSize="11"
+                                   HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Margin="0,0,4,0"/>
+                        <TextBlock Name="AxisMin" Text="—"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   FontSize="11"
+                                   HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                   Margin="0,0,4,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- ============ Leyenda (.g-legend) ============ -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="20" Margin="0,12,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Border Width="14" Height="3" CornerRadius="2"
+                                Background="{StaticResource PilotXPanelAccent}"
+                                VerticalAlignment="Center"/>
+                        <TextBlock Text="Rumbo GPS (°)"
+                                   Foreground="{StaticResource PilotXPanelTextMid}"
+                                   FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Border Width="14" Height="3" CornerRadius="2"
+                                Background="#3D87C6"
+                                VerticalAlignment="Center"/>
+                        <TextBlock Text="Rumbo IMU corregido (°)"
+                                   Foreground="{StaticResource PilotXPanelTextMid}"
+                                   FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+
+            </Grid>
+        </Border>
+    </ThemeVariantScope>
+</UserControl>

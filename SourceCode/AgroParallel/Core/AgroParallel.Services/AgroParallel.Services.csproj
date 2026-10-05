@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    AgroParallel.Services — interfaces + implementaciones de servicios
+    (QuantiX, SectionX, OrbitX, VistaX, MQTT, etc.).
+    No conoce FormGPS: depende de IAogStateProvider/IAogCommandSink.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>AgroParallel.Services</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- No fallar build por reglas de estilo (IDE0055 etc.) heredadas del editorconfig.
+         Los archivos portados de GPS/ usan formato del shell upstream legacy. -->
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
+    <PackageReference Include="NetTopologySuite.IO.Esri.Shapefile" Version="1.2.0" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <!-- System.IO.Ports es Windows-only (USB flash de firmware). PrivateAssets="all"
+         para que NO se arrastre transitivamente a proyectos que referencian este
+         (ej. PilotX.Android, que históricamente no restaura este paquete). -->
+    <PackageReference Include="System.IO.Ports" Version="9.0.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgroParallel.Models\AgroParallel.Models.csproj" />
+
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Permite que el proyecto de tests acceda a los internal (guards OTA, etc.) -->
+    <InternalsVisibleTo Include="AgroParallel.Services.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VistaX · Sensores de Semilla</title>
+<!-- Sin Google Fonts: la PC del tractor no tiene internet. Stacks locales
+     (los mismos de theme.css). Si más adelante se bundlean las .woff2 en /fonts,
+     alcanza con agregarlas a un @font-face y quedan de una. -->
+<style>
+  :root{
+    --bg:#0A0C0F; --panel:#1A1F25; --line:#252b31;
+    --ok:#6DC231; --ok2:#4ABA3E; --lime:#A4BA3E;
+    --warn:#E8B93E; --alarm:#E8443E; --off:#3a4149;
+    --txt:#E6EAEE; --muted:#8A939C;
+    --disp:"Barlow Condensed","Segoe UI","Inter",system-ui,sans-serif;
+    --mono:"JetBrains Mono","Cascadia Mono","Consolas",monospace;
+    --body:"Inter","Segoe UI",system-ui,sans-serif;
+    --fw:980px; --fh:520px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:#05070a; display:grid; place-items:center; padding:1.2%; user-select:none}
+
+  .frame{
+    container-type:size;
+    width:min(100%,var(--fw)); height:min(100%,var(--fh));
+    background:var(--bg); border:1px solid var(--line); border-radius:14px;
+    display:flex; flex-direction:column; overflow:hidden;
+    box-shadow:0 10px 44px rgba(0,0,0,.5); color:var(--txt); font-family:var(--body);
+  }
+
+  header{display:grid; grid-template-columns:repeat(5,1fr); gap:1px; background:var(--line); flex:0 0 auto}
+  .kpi{background:var(--panel); padding:1.2cqmin 2cqmin; display:flex; flex-direction:column; justify-content:center}
+  .kpi .lbl{font-family:var(--disp); font-weight:600; text-transform:uppercase; letter-spacing:.08em;
+    font-size:clamp(7px,1.9cqmin,12px); color:var(--muted); line-height:1}
+  .kpi .val{font-family:var(--mono); font-weight:700; font-size:clamp(13px,3.8cqmin,24px); color:var(--lime); line-height:1.1}
+  .kpi .val small{font-size:.55em; color:var(--muted); font-weight:500}
+  .kpi.alarm-box .val{color:var(--alarm)}
+
+  main{flex:1 1 auto; padding:1.4cqmin 1cqmin .6cqmin; overflow:hidden}
+  #grid{height:100%; display:grid; grid-auto-flow:row; gap:.9cqmin .6cqmin; align-content:stretch}
+  .row{display:grid; gap:.6cqmin; min-height:0}
+
+  .sensor{background:var(--panel); border:1px solid var(--line); border-radius:4px;
+    display:flex; flex-direction:column; align-items:center; padding:.4cqmin .2cqmin; min-width:0; overflow:hidden}
+  .sensor .rate{font-family:var(--mono); font-weight:700; font-size:clamp(7px,1.9cqmin,12px); line-height:1; color:var(--txt); white-space:nowrap}
+  .bar{flex:1 1 auto; width:70%; min-width:6px; margin:.4cqmin 0;
+    background:#0d1013; border:1px solid var(--line); border-radius:2px; position:relative; overflow:hidden}
+  .bar .fill{position:absolute; left:0; right:0; bottom:0; background:var(--ok); will-change:height;
+    transition:height .2s ease, background .2s; box-shadow:0 0 8px rgba(109,194,49,.35) inset}
+  .bar .tgt{position:absolute; left:-1px; right:-1px; height:0; border-top:1px dashed var(--muted); opacity:.6}
+  .sensor .num{font-family:var(--disp); font-weight:700; font-size:clamp(8px,2.1cqmin,14px); line-height:1; color:var(--muted); margin-top:.2cqmin}
+
+  .sensor.ok .fill{background:var(--ok)}
+  .sensor.warn .fill{background:var(--warn); box-shadow:0 0 8px rgba(232,185,62,.35) inset}
+  .sensor.warn .num{color:var(--warn)}
+  .sensor.high .fill{background:var(--lime); box-shadow:0 0 8px rgba(164,186,62,.4) inset}
+  .sensor.high .num{color:var(--lime)}
+  .sensor.alarm{border-color:var(--alarm); animation:blink 1s steps(2) infinite}
+  .sensor.alarm .fill{background:var(--alarm); box-shadow:0 0 10px rgba(232,68,62,.5) inset}
+  .sensor.alarm .num,.sensor.alarm .rate{color:var(--alarm)}
+  .sensor.off{opacity:.4}
+  .sensor.off .fill{background:var(--off); box-shadow:none}
+  .sensor.off .num,.sensor.off .rate{color:var(--off)}
+  @keyframes blink{50%{background:#2a1214}}
+
+  footer{flex:0 0 auto; display:flex; justify-content:space-between; align-items:center;
+    padding:.8cqmin 2cqmin; border-top:1px solid var(--line); background:var(--panel);
+    font-family:var(--disp); text-transform:uppercase; letter-spacing:.06em;
+    font-size:clamp(8px,1.9cqmin,12px); color:var(--muted)}
+  footer b{font-family:var(--mono); color:var(--lime); font-size:clamp(11px,2.6cqmin,16px); letter-spacing:0}
+  .legend{display:flex; gap:1.6cqmin; align-items:center}
+  .legend span{display:flex; gap:.5cqmin; align-items:center}
+  .dot{width:1.7cqmin; height:1.7cqmin; min-width:8px; min-height:8px; border-radius:2px}
+  .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.alarm{background:var(--alarm)}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <div class="kpi"><span class="lbl">Densidad</span><span class="val" id="k-dens">—<small> /Ha</small></span></div>
+    <div class="kpi"><span class="lbl">Semillas</span><span class="val" id="k-sem">—<small> /m</small></span></div>
+    <div class="kpi"><span class="lbl">Distancia</span><span class="val" id="k-dist">—<small> cm</small></span></div>
+    <div class="kpi"><span class="lbl">Velocidad</span><span class="val" id="k-vel">—<small> km/h</small></span></div>
+    <div class="kpi alarm-box"><span class="lbl">Alarmas</span><span class="val" id="k-alarm">0</span></div>
+  </header>
+
+  <main><div id="grid"></div></main>
+
+  <footer>
+    <span>Surcos: <b id="f-count">0</b></span>
+    <div class="legend">
+      <span><i class="dot ok"></i>Ok</span>
+      <span><i class="dot warn"></i>Bajo</span>
+      <span><i class="dot alarm"></i>Falla</span>
+    </div>
+    <span>OK <b id="f-okpct">—</b> · <b id="f-estado">—</b></span>
+  </footer>
+</div>
+
+<script>
+/* ============================================================================
+   VistaX · Sensores de Semilla — versión PilotX.
+   Se alimenta de GET /api/vistax/live (VistaXLiveSnapshotDto) a 2 Hz.
+   Reglas heredadas del backend (no las recalculamos acá):
+     · el color del surco sale de surco.estado (ok/bajo/tapado/exceso/no-data/muted/seccion-off)
+     · si monitoreoActivo=false → todos los surcos en gris (no "ok" antes de sembrar)
+   La "Distancia" es el espacio FIJO entre surcos de la sembradora
+   (distanciaEntreSurcos·100 cm), NO la separación entre semillas.
+   Unidades al operario: sem/m, sem/ha, km/h — nunca pps.
+   ============================================================================ */
+(function(){
+  'use strict';
+  var POLL_MS = 500;
+  var HEADROOM = 1.4;   // tope visual de la barra = objetivo · headroom
+
+  function num(n){ return (n==null||isNaN(n)) ? null : Number(n); }
+
+  var S = [];   // refs cacheadas por surco: {el, rate, fill, num, cls}
+  var state = { paused:false, timer:null, lastN:-1 };
+
+  /* Reparte N sensores en filas equilibradas (idéntico al mockup). */
+  function layout(n){
+    var rows = (n <= 12) ? 1 : 2;
+    var grid = document.getElementById('grid');
+    grid.innerHTML=''; S=[];
+    grid.style.gridTemplateRows = 'repeat('+rows+',1fr)';
+    var per = Math.ceil(n/rows);
+    var idx=0;
+    var tgtBottom = (1/HEADROOM)*100;   // posición de la línea de objetivo (%)
+    for(var r=0;r<rows;r++){
+      var row=document.createElement('div'); row.className='row';
+      var cols = Math.min(per, n-idx);
+      if(cols<=0) continue;
+      row.style.gridTemplateColumns='repeat('+cols+',1fr)';
+      for(var c=0;c<cols;c++){
+        idx++;
+        var s=document.createElement('div');
+        s.className='sensor off';
+        s.innerHTML='<span class="rate">—</span>'+
+          '<div class="bar"><div class="tgt" style="bottom:'+tgtBottom+'%"></div><div class="fill" style="height:0%"></div></div>'+
+          '<span class="num">'+idx+'</span>';
+        row.appendChild(s);
+        S.push({el:s, rate:s.querySelector('.rate'), fill:s.querySelector('.fill'), num:s.querySelector('.num'), cls:'off'});
+      }
+      grid.appendChild(row);
+    }
+    document.getElementById('f-count').textContent=n;
+    state.lastN=n;
+  }
+
+  /* Aplana los surcos de tipo semilla/fertilizante en orden (tren, bajada). */
+  function collectPrimarios(live){
+    var trenes = live.trenes || [];
+    var out=[];
+    trenes.forEach(function(t){
+      var surcos = t.surcos || [];
+      surcos.forEach(function(s){
+        var tipo=(s.tipo||'').toLowerCase();
+        if(tipo==='semilla'||tipo==='fertilizante') out.push(s);
+      });
+    });
+    out.sort(function(a,b){
+      var ta=a.tren||0, tb=b.tren||0;
+      if(ta!==tb) return ta-tb;
+      return (a.bajada||0)-(b.bajada||0);
+    });
+    return out;
+  }
+
+  /* estado backend → clase visual del mockup (ok/warn/high/alarm/off). */
+  function classFromEstado(estado, monActivo){
+    if(!monActivo) return 'off';
+    switch((estado||'no-data').toLowerCase()){
+      case 'ok':        return 'ok';
+      case 'exceso':    return 'high';   // sobre-siembra (lima)
+      case 'bajo':      return 'warn';
+      case 'tapado':    return 'alarm';
+      case 'muted':
+      case 'seccion-off':
+      case 'no-data':
+      default:          return 'off';
+    }
+  }
+
+  function updateSensor(i, s, monActivo){
+    var ref=S[i]; if(!ref) return;
+    var estado=(s.estado||'no-data').toLowerCase();
+    var valor =num(s.valor);           // sem/m crudo (lo que ve el operario)
+    var ratio =num(s.ratio_objetivo);
+
+    var cls=classFromEstado(estado, monActivo);
+    if(cls!==ref.cls){ ref.el.className='sensor '+cls; ref.cls=cls; }
+
+    var apagado = !monActivo || estado==='no-data' || estado==='muted' || estado==='seccion-off';
+    if(apagado || valor==null){
+      ref.rate.textContent='—'; ref.fill.style.height='0%';
+      return;
+    }
+    ref.rate.textContent = valor.toFixed(1);
+    // ratio=1 cae justo sobre la línea de objetivo (1/HEADROOM del alto).
+    var h = ratio!=null ? Math.max(0, Math.min(100, (ratio/HEADROOM)*100)) : 0;
+    ref.fill.style.height = h+'%';
+  }
+
+  function setKpi(id,val,unit){
+    var el=document.getElementById(id);
+    if(val==null){ el.innerHTML='—<small>'+unit+'</small>'; return; }
+    el.innerHTML = Number(val).toFixed(1)+'<small>'+unit+'</small>';
+  }
+
+  function render(live){
+    if(!live) return;
+    var monActivo = !!live.monitoreo_activo;
+    var vel       = num(live.velocidad);
+    var fallas    = live.fallas_activas || 0;
+    var dist      = num(live.distancia_entre_surcos);
+    if(dist==null) dist=0.191;
+
+    var surcos = collectPrimarios(live);
+    if(surcos.length !== state.lastN) layout(surcos.length);
+
+    var sumSemM=0, nSemM=0, ok=0, act=0;
+    surcos.forEach(function(s,i){
+      updateSensor(i, s, monActivo);
+      if(!monActivo) return;
+      var estado=(s.estado||'no-data').toLowerCase();
+      var valor =num(s.valor);
+      if(estado==='no-data'||estado==='muted'||estado==='seccion-off') return;
+      act++;
+      if(estado==='ok'||estado==='exceso') ok++;
+      if(valor!=null && valor>0){ sumSemM+=valor; nSemM++; }
+    });
+
+    // "Distancia" = espacio FIJO entre surcos de la sembradora (cm). Es un
+    // parámetro de máquina, se muestra siempre (aun sin sembrar).
+    setKpi('k-dist', dist*100, ' cm');
+
+    if(monActivo && nSemM>0){
+      var meanSemM = sumSemM/nSemM;
+      setKpi('k-sem', meanSemM, ' /m');
+      // sem/ha = sem/m · 10000 / distancia_entre_surcos(m)
+      setKpi('k-dens', dist>0 ? (meanSemM*10000/dist) : null, ' /Ha');
+    }else{
+      setKpi('k-sem', null, ' /m');
+      setKpi('k-dens', null, ' /Ha');
+    }
+    setKpi('k-vel', vel, ' km/h');
+    document.getElementById('k-alarm').textContent = fallas;
+
+    document.getElementById('f-okpct').textContent = (monActivo && act) ? (Math.round(ok/act*100)+'%') : '—';
+    var motivo = live.motivo_detenido || '';
+    document.getElementById('f-estado').textContent = monActivo ? 'Sembrando' : (motivo || 'Detenido');
+  }
+
+  async function poll(){
+    if(state.paused) return;
+    try{
+      var r = await fetch('/api/vistax/live', { cache:'no-store' });
+      if(r.ok) render(await r.json());
+    }catch(e){ /* silencioso: reintenta al próximo tick */ }
+  }
+
+  function start(){
+    if(state.timer) return;
+    layout(0);
+    poll();
+    state.timer=setInterval(poll, POLL_MS);
+  }
+
+  document.addEventListener('visibilitychange', function(){
+    state.paused=document.hidden;
+    if(!state.paused) poll();
+  });
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>
+  <script src="/js/i18n.js"></script>
+</body>
+</html>
